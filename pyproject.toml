@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "alfadict"
+name = "alfs"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/alfadict"]
+packages = ["src/alfs"]
 
 [dependency-groups]
 dev = [
@@ -42,4 +42,4 @@ ignore = ["SIM108"]  # Allow if-else over ternary for readability
 [tool.ruff.lint.isort]
 force-single-line = false
 force-sort-within-sections = true
-known-first-party = ["alfadict"]
+known-first-party = ["alfs"]

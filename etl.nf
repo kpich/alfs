@@ -22,7 +22,7 @@ process PARSE_DUMP {
     output: path "docs.parquet"
     script:
     """
-    uv run --project ${projectDir} python -m alfadict.etl.parse_dump \
+    uv run --project ${projectDir} python -m alfs.etl.parse_dump \
         --dump     dump.xml.bz2 \
         --num-docs ${params.num_docs} \
         --seed     ${params.seed} \
