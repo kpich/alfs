@@ -1,14 +1,15 @@
 nextflow.enable.dsl = 2
 
-params.num_docs  = 10
-params.seed      = 42
-params.out_date  = new Date().format('yyyy-MM-dd')
-params.out_dir   = "data/${params.out_date}"
-params.cache_dir = "data/cache"
-params.dump_url  = "https://dumps.wikimedia.org/enwikibooks/latest/enwikibooks-latest-pages-articles.xml.bz2"
+params.num_docs      = 10
+params.seed          = 42
+params.out_date      = new Date().format('yyyy-MM-dd')
+params.text_data_dir = "${projectDir}/../text_data"
+params.out_dir       = "${params.text_data_dir}/${params.out_date}"
+params.cache_dir     = "${params.text_data_dir}/cache"
+params.dump_url      = "https://dumps.wikimedia.org/enwikibooks/latest/enwikibooks-latest-pages-articles.xml.bz2"
 
 process DOWNLOAD_DUMP {
-    storeDir "${projectDir}/${params.cache_dir}"
+    storeDir params.cache_dir
     output: path "enwikibooks-latest-pages-articles.xml.bz2"
     script:
     """
