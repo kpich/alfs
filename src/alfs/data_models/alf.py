@@ -1,13 +1,17 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class Sense(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     definition: str
     subsenses: list[str] = []  # up to one level of sub-definitions
 
 
 class Alf(BaseModel):
     """A single dictionary entry: one word form and its senses."""
+
+    model_config = ConfigDict(frozen=True)
 
     form: str
     senses: list[Sense] = []
@@ -23,6 +27,8 @@ class Alf(BaseModel):
 
 class Alfs(BaseModel):
     """The full dictionary: word form → entry."""
+
+    model_config = ConfigDict(frozen=True)
 
     entries: dict[str, Alf] = {}
 

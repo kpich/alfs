@@ -1,9 +1,13 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class Doc(BaseModel):
-    title: str
-    author: str  # first editor's username (from oldest revision)
-    year: int  # year of first revision
+    model_config = ConfigDict(frozen=True)
+
     text: str  # plain text (mwparserfromhell-stripped wikitext)
-    source_url: str  # e.g. "https://en.wikibooks.org/wiki/Python_Programming"
+    title: str | None = None
+    author: str | None = None  # first editor's username (from oldest revision)
+    year: int | None = None  # year of first revision
+    source_url: str | None = (
+        None  # e.g. "https://en.wikibooks.org/wiki/Python_Programming"
+    )
