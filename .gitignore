@@ -1,0 +1,10 @@
+data/
+.nextflow/
+.nextflow.log*
+work/
+.venv/
+__pycache__/
+*.pyc
+dist/
+*.egg-info/
+.DS_Store
