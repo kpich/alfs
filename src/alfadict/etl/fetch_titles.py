@@ -10,6 +10,7 @@ import random
 import requests
 
 API_URL = "https://en.wikibooks.org/w/api.php"
+HEADERS = {"User-Agent": "alfadict/0.1 (https://github.com/alfadict/alfadict; bot)"}
 
 
 def fetch_all_titles() -> list[str]:
@@ -23,7 +24,7 @@ def fetch_all_titles() -> list[str]:
     }
 
     while True:
-        response = requests.get(API_URL, params=params, timeout=30)
+        response = requests.get(API_URL, params=params, headers=HEADERS, timeout=30)
         response.raise_for_status()
         data = response.json()
 

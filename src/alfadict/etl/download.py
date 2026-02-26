@@ -14,6 +14,7 @@ import requests
 from alfadict.data_models.doc import Doc
 
 API_URL = "https://en.wikibooks.org/w/api.php"
+HEADERS = {"User-Agent": "alfadict/0.1 (https://github.com/alfadict/alfadict; bot)"}
 
 
 def fetch_doc(title: str) -> Doc | None:
@@ -27,7 +28,7 @@ def fetch_doc(title: str) -> Doc | None:
         "format": "json",
     }
 
-    response = requests.get(API_URL, params=params, timeout=30)
+    response = requests.get(API_URL, params=params, headers=HEADERS, timeout=30)
     response.raise_for_status()
     data = response.json()
 
