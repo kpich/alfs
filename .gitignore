@@ -1,10 +1,20 @@
+# Data
 data/
+.beads/
+
+# Nextflow
 .nextflow/
 .nextflow.log*
 work/
+
+# Python
 .venv/
 __pycache__/
 *.pyc
-dist/
 *.egg-info/
+dist/
+
+# Editor
 .DS_Store
+*.swp
+*.swo
