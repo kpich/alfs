@@ -1,7 +1,7 @@
 """Parse a Wikibooks XML dump and write sampled docs to Parquet.
 
 Usage:
-    python -m alfadict.etl.parse_dump \
+    python -m alfs.etl.parse_dump \
         --dump dump.xml.bz2 --num-docs 10 --seed 42 --output docs.parquet
 """
 
@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 import mwparserfromhell
 import polars as pl
 
-from alfadict.data_models.doc import Doc
+from alfs.data_models.doc import Doc
 
 NS = "http://www.mediawiki.org/xml/export-0.11/"
 
