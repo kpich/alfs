@@ -7,6 +7,7 @@ Usage:
 
 import argparse
 import bz2
+import hashlib
 import random
 from urllib.parse import quote
 import xml.etree.ElementTree as ET
@@ -90,10 +91,12 @@ def main() -> None:
     docs: list[Doc] = []
     for page in sampled:
         text = mwparserfromhell.parse(page["wikitext"]).strip_code().strip()
+        doc_id = hashlib.sha256(text.encode()).hexdigest()[:8]
         title = page["title"]
         source_url = f"https://en.wikibooks.org/wiki/{quote(title.replace(' ', '_'))}"
         docs.append(
             Doc(
+                doc_id=doc_id,
                 title=title,
                 author=page["author"],
                 year=page["year"],
