@@ -9,7 +9,6 @@ requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2",
     "polars>=1",
-    "requests>=2",
     "mwparserfromhell>=0.6",
 ]
 
