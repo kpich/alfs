@@ -50,7 +50,7 @@ def stream_pages(dump_path: str) -> list[dict]:
 
             timestamp_elem = revision.find(f"{{{NS}}}timestamp")
             timestamp = timestamp_elem.text if timestamp_elem is not None else ""
-            year = int(timestamp[:4]) if timestamp else 0
+            year = int(timestamp[:4]) if timestamp else None
 
             contributor = revision.find(f"{{{NS}}}contributor")
             username_elem = (
@@ -58,7 +58,7 @@ def stream_pages(dump_path: str) -> list[dict]:
                 if contributor is not None
                 else None
             )
-            author = username_elem.text if username_elem is not None else "unknown"
+            author = username_elem.text if username_elem is not None else None
 
             pages.append(
                 {"title": title, "wikitext": wikitext, "year": year, "author": author}
