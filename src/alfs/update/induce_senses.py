@@ -7,7 +7,6 @@ Usage:
 """
 
 import argparse
-import json
 from pathlib import Path
 import random
 
@@ -66,9 +65,7 @@ def main() -> None:
         contexts.append(ctx)
 
     prompt = prompts.induction_prompt(form, contexts)
-    response = llm.chat(args.model, prompt)
-
-    data = json.loads(response)
+    data = llm.chat_json(args.model, prompt)
     senses = [
         Sense(definition=s["definition"], subsenses=s.get("subsenses", []))
         for s in data["senses"]

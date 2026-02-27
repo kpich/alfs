@@ -8,7 +8,6 @@ Usage:
 """
 
 import argparse
-import json
 from pathlib import Path
 
 import polars as pl
@@ -91,9 +90,7 @@ def main() -> None:
 
         context = extract_context(text, byte_offset, form, args.context_chars)
         prompt = prompts.labeling_prompt(form, context, sense_menu)
-        response = llm.chat(args.model, prompt)
-
-        data = json.loads(response)
+        data = llm.chat_json(args.model, prompt)
         ann = AnnotatedOccurrence(
             doc_id=doc_id,
             byte_offset=byte_offset,
