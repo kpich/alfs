@@ -22,7 +22,7 @@ _WORD_RE = re.compile(r"[a-zA-Z]")
 
 def select_top_n(
     occurrences_df: pl.DataFrame,  # columns: form (str)
-    labeled_df: pl.DataFrame,  # columns: form (str), doc_id (str), byte_offset (int)
+    labeled_df: pl.DataFrame,  # columns: form, doc_id, byte_offset, rating
     top_n: int,
 ) -> list[str]:
     """Return up to top_n forms sorted by unlabeled-occurrence count, descending."""
@@ -31,7 +31,8 @@ def select_top_n(
     )
 
     labeled_counts = (
-        labeled_df.select(["form", "doc_id", "byte_offset"])
+        labeled_df.filter(pl.col("rating") != 0)  # rating=0 → treat as unlabeled
+        .select(["form", "doc_id", "byte_offset"])
         .unique()
         .group_by("form")
         .agg(pl.len().alias("labeled"))
@@ -78,8 +79,13 @@ def main() -> None:
         labeled_df = pl.read_parquet(args.labeled)
     else:
         labeled_df = pl.DataFrame(
-            {"form": [], "doc_id": [], "byte_offset": []},
-            schema={"form": pl.String, "doc_id": pl.String, "byte_offset": pl.Int64},
+            {"form": [], "doc_id": [], "byte_offset": [], "rating": []},
+            schema={
+                "form": pl.String,
+                "doc_id": pl.String,
+                "byte_offset": pl.Int64,
+                "rating": pl.Int64,
+            },
         )
 
     forms = select_top_n(occurrences_df, labeled_df, args.top_n)

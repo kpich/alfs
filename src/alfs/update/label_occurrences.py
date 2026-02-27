@@ -71,7 +71,11 @@ def main() -> None:
 
     labeled_pairs: set[tuple[str, int]] = set()
     if args.labeled and Path(args.labeled).exists():
-        ldf = pl.read_parquet(args.labeled).filter(pl.col("form") == form)
+        ldf = (
+            pl.read_parquet(args.labeled)
+            .filter(pl.col("form") == form)
+            .filter(pl.col("rating") != 0)  # rating=0 → re-label
+        )
         for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
             labeled_pairs.add((row[0], row[1]))
 
