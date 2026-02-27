@@ -14,6 +14,6 @@ in dev stay tuned
 | `make dev` | Install dev dependencies (pytest, mypy, etc.) |
 | `make etl` | Download + parse wikibooks dump → `text_data/` |
 | `make seg` | Segment docs into word-form occurrences → `seg_data/` |
-| `make update` | Induce senses + label occurrences → `alfs_data/`, `update_data/` |
+| `make update` | Induce senses + label occurrences → `alfs_data/` (`alfs.json`, `labeled.parquet`), `update_data/` (per-run archive) |
 | `make test` | Run tests |
 | `make mypy` | Type-check |

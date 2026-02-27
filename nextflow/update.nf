@@ -8,18 +8,17 @@ params.max_occurrences = 100  // TODO: artificially low for dev; raise once pipe
 params.seg_data_dir    = "${launchDir}/../seg_data"
 params.text_data_dir   = "${launchDir}/../text_data"
 params.alfs_data_dir   = "${launchDir}/../alfs_data"
-params.update_data_dir = "${launchDir}/../update_data"
 params.out_date        = new Date().format('yyyy-MM-dd')
 params.out_dir         = "${launchDir}/../update_data/${params.out_date}"
 
 process SELECT_TARGETS {
-    input:  tuple path("by_prefix"), path("update_data")
+    input:  tuple path("by_prefix"), path("labeled.parquet")
     output: path "targets/*.json"
     script:
     """
     uv run --project ${launchDir} python -m alfs.update.select_targets \
         --seg-data-dir by_prefix --top-n ${params.top_n} \
-        --labeled-dir update_data --output-dir targets/
+        --labeled labeled.parquet --output-dir targets/
     """
 }
 
@@ -50,7 +49,7 @@ process UPDATE_INVENTORY {
 
 process LABEL_OCCURRENCES {
     publishDir params.out_dir, mode: 'copy'
-    input:  tuple path("target.json"), path("alfs.json"), path("by_prefix"), path("docs.parquet"), path("update_data")
+    input:  tuple path("target.json"), path("alfs.json"), path("by_prefix"), path("docs.parquet"), path("labeled.parquet")
     output: path "*_labeled.parquet"
     script:
     """
@@ -58,19 +57,31 @@ process LABEL_OCCURRENCES {
     uv run --project ${launchDir} python -m alfs.update.label_occurrences \
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --alfs alfs.json --output \${form}_labeled.parquet \
-        --labeled-dir update_data \
+        --labeled labeled.parquet \
         --model ${params.model} --context-chars ${params.context_chars} \
         --max-occurrences ${params.max_occurrences}
     """
 }
 
-workflow {
-    seg_dir     = file("${params.seg_data_dir}/latest/by_prefix")
-    docs        = file("${params.text_data_dir}/latest/docs.parquet")
-    alfs        = file("${params.alfs_data_dir}/alfs.json")
-    update_data = file("${params.update_data_dir}")
+process UPDATE_LABELS {
+    publishDir params.alfs_data_dir, mode: 'copy'
+    input:  tuple path("new_labeled/"), path("labeled.parquet")
+    output: path "labeled.parquet"
+    script:
+    """
+    uv run --project ${launchDir} python -m alfs.update.update_labels \
+        --labeled-data labeled.parquet --new-dir new_labeled/ \
+        --output labeled.parquet
+    """
+}
 
-    SELECT_TARGETS(Channel.value([seg_dir, update_data]))
+workflow {
+    seg_dir = file("${params.seg_data_dir}/latest/by_prefix")
+    docs    = file("${params.text_data_dir}/latest/docs.parquet")
+    alfs    = file("${params.alfs_data_dir}/alfs.json")
+    labeled = file("${params.alfs_data_dir}/labeled.parquet")
+
+    SELECT_TARGETS(Channel.value([seg_dir, labeled]))
     targets_ch = SELECT_TARGETS.out.flatten()
 
     INDUCE_SENSES(
@@ -89,6 +100,10 @@ workflow {
             .combine(UPDATE_INVENTORY.out)
             .combine(Channel.value(seg_dir))
             .combine(Channel.value(docs))
-            .combine(Channel.value(update_data))
+            .combine(Channel.value(labeled))
+    )
+
+    UPDATE_LABELS(
+        LABEL_OCCURRENCES.out.collect().map { files -> [files, labeled] }
     )
 }
