@@ -6,7 +6,7 @@ params.context_chars   = 150
 params.max_samples     = 20
 params.seg_data_dir    = "${launchDir}/../seg_data"
 params.text_data_dir   = "${launchDir}/../text_data"
-params.alfs_data_dir   = "${launchDir}/alfs_data"
+params.alfs_data_dir   = "${launchDir}/../alfs_data"
 params.update_data_dir = "${launchDir}/../update_data"
 params.out_date        = new Date().format('yyyy-MM-dd')
 params.out_dir         = "${launchDir}/../update_data/${params.out_date}"
@@ -51,7 +51,7 @@ process LABEL_OCCURRENCES {
     output: path "*_labeled.parquet"
     script:
     """
-    form=\$(python -c "import json; print(json.load(open('target.json'))['form'])")
+    form=\$(python -c "import json, urllib.parse; print(urllib.parse.quote(json.load(open('target.json'))['form'], safe=''))")
     uv run --project ${launchDir} python -m alfs.update.label_occurrences \
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --alfs alfs.json --output \${form}_labeled.parquet \

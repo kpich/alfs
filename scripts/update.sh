@@ -3,9 +3,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Ensure alfs.json exists
-if [ ! -f alfs_data/alfs.json ]; then
-    mkdir -p alfs_data
-    echo '{"entries": {}}' > alfs_data/alfs.json
+if [ ! -f ../alfs_data/alfs.json ]; then
+    mkdir -p ../alfs_data
+    echo '{"entries": {}}' > ../alfs_data/alfs.json
 fi
 
 # Ensure ollama is running

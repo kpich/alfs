@@ -8,10 +8,16 @@ Usage:
 
 import argparse
 from pathlib import Path
+import re
+from urllib.parse import quote
 
 import polars as pl
 
 from alfs.data_models.update_target import UpdateTarget
+
+# Only consider forms that contain at least one letter (skip punctuation, whitespace,
+# etc.)
+_WORD_RE = re.compile(r"[a-zA-Z]")
 
 
 def main() -> None:
@@ -63,6 +69,11 @@ def main() -> None:
         total_counts.join(labeled_counts, on="form", how="left")
         .with_columns(pl.col("labeled").fill_null(0))
         .with_columns((pl.col("total") - pl.col("labeled")).alias("unlabeled"))
+        .filter(
+            pl.col("form").map_elements(
+                lambda f: bool(_WORD_RE.search(f)), return_dtype=pl.Boolean
+            )
+        )
         .sort("unlabeled", descending=True)
         .head(args.top_n)
     )
@@ -73,7 +84,8 @@ def main() -> None:
     for row in result.iter_rows(named=True):
         form = row["form"]
         target = UpdateTarget(form=form)
-        out_path = out_dir / f"{form}.json"
+        safe = quote(form, safe="")
+        out_path = out_dir / f"{safe}.json"
         out_path.write_text(target.model_dump_json())
         print(f"  {form}: {row['unlabeled']} unlabeled occurrences")
 
