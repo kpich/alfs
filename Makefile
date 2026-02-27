@@ -1,4 +1,4 @@
-.PHONY: etl seg update install_precommit_hooks dev test mypy
+.PHONY: etl seg update relabel install_precommit_hooks dev test mypy
 
 etl:
 	bash scripts/etl.sh
@@ -8,6 +8,9 @@ seg:
 
 update:
 	bash scripts/update.sh
+
+relabel:
+	bash scripts/relabel.sh
 
 install_precommit_hooks:
 	uv sync --group dev
