@@ -32,7 +32,7 @@ process PARSE_WIKIBOOKS_DUMP {
     output: path "wikibooks.parquet"
     script:
     """
-    uv run --project ${launchDir} python -m alfs.etl.parse_dump \
+    uv run --project ${launchDir} --no-sync python -m alfs.etl.parse_dump \
         --dump     dump.xml.bz2 \
         --num-docs ${(params.num_docs / 2).toInteger()} \
         --seed     ${params.seed} \
@@ -46,7 +46,7 @@ process PARSE_WIKISOURCE_DUMP {
     output: path "wikisource.parquet"
     script:
     """
-    uv run --project ${launchDir} python -m alfs.etl.parse_dump \
+    uv run --project ${launchDir} --no-sync python -m alfs.etl.parse_dump \
         --dump     dump.xml.bz2 \
         --num-docs ${(params.num_docs / 2).toInteger()} \
         --seed     ${params.seed} \
