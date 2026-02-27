@@ -47,6 +47,9 @@ def main() -> None:
     parser.add_argument("--output", required=True)
     parser.add_argument("--model", default="llama3.1:8b")
     parser.add_argument("--context-chars", type=int, default=150)
+    parser.add_argument(
+        "--max-occurrences", type=int, default=100
+    )  # TODO: artificially low for dev
     parser.add_argument("--labeled-dir", default=None)
     args = parser.parse_args()
 
@@ -76,8 +79,13 @@ def main() -> None:
 
     sense_menu = build_sense_menu(alfs, form)
 
+    # TODO: batch occurrences into a single prompt instead of one LLM call
+    # per occurrence
     results: list[dict] = []
     for occ in df.to_dicts():
+        if len(results) >= args.max_occurrences:
+            break
+
         doc_id = occ["doc_id"]
         byte_offset = occ["byte_offset"]
 

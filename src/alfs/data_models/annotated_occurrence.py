@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class OccurrenceRating(IntEnum):
+    NONE = 0  # no listed sense applies
     POOR = 1
     REASONABLE = 2
     EXCELLENT = 3

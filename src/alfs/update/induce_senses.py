@@ -3,7 +3,8 @@
 Usage:
     python -m alfs.update.induce_senses \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
-        --output senses.json --model llama3.1:8b --context-chars 150 --max-samples 20
+        --output senses.json --model llama3.1:8b --context-chars 150 --max-samples 20 \\
+        [--alfs alfs.json]
 """
 
 import argparse
@@ -12,7 +13,7 @@ import random
 
 import polars as pl
 
-from alfs.data_models.alf import Alf, Sense
+from alfs.data_models.alf import Alf, Alfs, Sense
 from alfs.data_models.update_target import UpdateTarget
 from alfs.update import llm, prompts
 
@@ -35,10 +36,18 @@ def main() -> None:
     parser.add_argument("--model", default="llama3.1:8b")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-samples", type=int, default=20)
+    parser.add_argument("--alfs", default=None, help="Path to alfs.json (optional)")
     args = parser.parse_args()
 
     target = UpdateTarget.model_validate_json(Path(args.target).read_text())
     form = target.form
+
+    existing_defs: list[str] = []
+    if args.alfs and Path(args.alfs).exists():
+        alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
+        entry = alfs.entries.get(form)
+        if entry:
+            existing_defs = [s.definition for s in entry.senses]
 
     docs_df = pl.read_parquet(args.docs)
     docs = dict(
@@ -67,22 +76,21 @@ def main() -> None:
     if not contexts:
         raise ValueError(f"No contexts found for form '{form}'")
 
-    prompt = prompts.induction_prompt(form, contexts)
+    prompt = prompts.induction_prompt(form, contexts, existing_defs)
     data = llm.chat_json(args.model, prompt)
-    senses = [
-        Sense(
-            definition=s["definition"],
-            subsenses=[
-                sub if isinstance(sub, str) else sub.get("definition", str(sub))
-                for sub in s.get("subsenses", [])
-            ],
-        )
-        for s in data["senses"]
-    ]
-    alf = Alf(form=form, senses=senses)
+    s = data["sense"]
+    sense = Sense(
+        definition=s["definition"],
+        subsenses=[
+            sub if isinstance(sub, str) else sub.get("definition", str(sub))
+            for sub in s.get("subsenses", [])
+        ],
+        # s may also contain "examples": [...] from the induction prompt — ignored here
+    )
+    alf = Alf(form=form, senses=[sense])
 
     Path(args.output).write_text(alf.model_dump_json())
-    print(f"Wrote {len(senses)} senses for '{form}' to {args.output}")
+    print(f"Wrote 1 sense for '{form}' to {args.output}")
 
 
 if __name__ == "__main__":
