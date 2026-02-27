@@ -17,6 +17,16 @@ from alfs.data_models.alf import Alf, Alfs, Sense
 from alfs.data_models.update_target import UpdateTarget
 from alfs.update import llm, prompts
 
+_SENSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "definition": {"type": "string"},
+        "examples": {"type": "array", "items": {"type": "integer"}},
+        "subsenses": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["definition", "examples", "subsenses"],
+}
+
 
 def extract_context(text: str, byte_offset: int, form: str, context_chars: int) -> str:
     char_offset = len(text.encode()[:byte_offset].decode())
@@ -77,43 +87,11 @@ def main() -> None:
         raise ValueError(f"No contexts found for form '{form}'")
 
     prompt = prompts.induction_prompt(form, contexts, existing_defs)
-    data = llm.chat_json(args.model, prompt)
-
-    # Extract the sense object from various response shapes
-    # Unwrap a form-keyed envelope e.g. {"Syllabus": {"sense": {...}}}
-    if "sense" not in data and "senses" not in data and len(data) == 1:
-        inner = next(iter(data.values()))
-        if isinstance(inner, dict):
-            data = inner
-    if "sense" in data:
-        s = data["sense"]
-    elif "senses" in data and data["senses"]:
-        s = data["senses"][0]
-    else:
-        s = data
-
-    # Extract definition — handle string sense or dicts with alternate key names
-    if isinstance(s, str):
-        definition = s
-        subsenses: list = []
-    elif "definition" in s:
-        definition = s["definition"]
-        subsenses = s.get("subsenses", [])
-    else:
-        for key in ("meaning", "description", "def", "gloss"):
-            if key in s:
-                definition = s[key]
-                subsenses = s.get("subsenses", [])
-                break
-        else:
-            raise ValueError(f"Could not find definition in LLM response: {data!r}")
+    data = llm.chat_json(args.model, prompt, format=_SENSE_SCHEMA)
 
     sense = Sense(
-        definition=definition,
-        subsenses=[
-            sub if isinstance(sub, str) else sub.get("definition", str(sub))
-            for sub in subsenses
-        ],
+        definition=data["definition"],
+        subsenses=data.get("subsenses", []),
     )
     alf = Alf(form=form, senses=[sense])
 

@@ -25,7 +25,7 @@ def induction_prompt(
         f"Sentences:\n"
         f"{numbered}\n"
         f"\n"
-        f'{{"sense": {{"definition": "...", "examples": [1, 2], "subsenses": []}}}}'
+        f'{{"definition": "...", "examples": [1, 2], "subsenses": []}}'
     )
 
 
