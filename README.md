@@ -15,5 +15,6 @@ in dev stay tuned
 | `make etl` | Download + parse wikibooks dump → `text_data/` |
 | `make seg` | Segment docs into word-form occurrences → `seg_data/` |
 | `make update` | Induce senses + label occurrences → `alfs_data/` (`alfs.json`, `labeled.parquet`), `update_data/` (per-run archive) |
+| `make relabel` | Re-label all occurrences for every word in `alfs.json` from scratch, replacing `alfs_data/labeled.parquet` |
 | `make test` | Run tests |
 | `make mypy` | Type-check |
