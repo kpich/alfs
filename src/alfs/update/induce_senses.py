@@ -80,6 +80,11 @@ def main() -> None:
     data = llm.chat_json(args.model, prompt)
 
     # Extract the sense object from various response shapes
+    # Unwrap a form-keyed envelope e.g. {"Syllabus": {"sense": {...}}}
+    if "sense" not in data and "senses" not in data and len(data) == 1:
+        inner = next(iter(data.values()))
+        if isinstance(inner, dict):
+            data = inner
     if "sense" in data:
         s = data["sense"]
     elif "senses" in data and data["senses"]:
