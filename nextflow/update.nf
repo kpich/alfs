@@ -4,6 +4,7 @@ params.top_n           = 10
 params.model           = "llama3.1:8b"
 params.context_chars   = 150
 params.max_samples     = 20
+params.max_occurrences = 100  // TODO: artificially low for dev; raise once pipeline is stable
 params.seg_data_dir    = "${launchDir}/../seg_data"
 params.text_data_dir   = "${launchDir}/../text_data"
 params.alfs_data_dir   = "${launchDir}/../alfs_data"
@@ -23,7 +24,7 @@ process SELECT_TARGETS {
 }
 
 process INDUCE_SENSES {
-    input:  tuple path("target.json"), path("by_prefix"), path("docs.parquet")
+    input:  tuple path("target.json"), path("by_prefix"), path("docs.parquet"), path("alfs.json")
     output: path "*_senses.json"
     script:
     """
@@ -31,7 +32,8 @@ process INDUCE_SENSES {
     uv run --project ${launchDir} python -m alfs.update.induce_senses \
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --output \${form}_senses.json --model ${params.model} \
-        --context-chars ${params.context_chars} --max-samples ${params.max_samples}
+        --context-chars ${params.context_chars} --max-samples ${params.max_samples} \
+        --alfs alfs.json
     """
 }
 
@@ -57,7 +59,8 @@ process LABEL_OCCURRENCES {
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --alfs alfs.json --output \${form}_labeled.parquet \
         --labeled-dir update_data \
-        --model ${params.model} --context-chars ${params.context_chars}
+        --model ${params.model} --context-chars ${params.context_chars} \
+        --max-occurrences ${params.max_occurrences}
     """
 }
 
@@ -74,6 +77,7 @@ workflow {
         targets_ch
             .combine(Channel.value(seg_dir))
             .combine(Channel.value(docs))
+            .combine(Channel.value(alfs))
     )
 
     UPDATE_INVENTORY(
