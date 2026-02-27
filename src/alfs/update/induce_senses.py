@@ -4,7 +4,7 @@ Usage:
     python -m alfs.update.induce_senses \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
         --output senses.json --model llama3.1:8b --context-chars 150 --max-samples 20 \\
-        [--alfs alfs.json]
+        [--alfs alfs.json] [--labeled labeled.parquet]
 """
 
 import argparse
@@ -47,6 +47,7 @@ def main() -> None:
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-samples", type=int, default=20)
     parser.add_argument("--alfs", default=None, help="Path to alfs.json (optional)")
+    parser.add_argument("--labeled", default=None, help="Path to labeled.parquet")
     args = parser.parse_args()
 
     target = UpdateTarget.model_validate_json(Path(args.target).read_text())
@@ -69,6 +70,21 @@ def main() -> None:
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
     occurrences = df.select(["doc_id", "byte_offset"]).iter_rows(named=True)
     all_occurrences = list(occurrences)
+
+    well_labeled: set[tuple[str, int]] = set()
+    if args.labeled and Path(args.labeled).exists():
+        ldf = (
+            pl.read_parquet(args.labeled)
+            .filter(pl.col("form") == form)
+            .filter(pl.col("rating").is_in([2, 3]))
+        )
+        for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
+            well_labeled.add((row[0], row[1]))
+    all_occurrences = [
+        o
+        for o in all_occurrences
+        if (o["doc_id"], o["byte_offset"]) not in well_labeled
+    ]
 
     random.seed(42)
     samples = random.sample(

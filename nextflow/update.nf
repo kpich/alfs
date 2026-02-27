@@ -23,7 +23,7 @@ process SELECT_TARGETS {
 }
 
 process INDUCE_SENSES {
-    input:  tuple path("target.json"), path("by_prefix"), path("docs.parquet"), path("alfs.json")
+    input:  tuple path("target.json"), path("by_prefix"), path("docs.parquet"), path("alfs.json"), path("labeled.parquet")
     output: path "*_senses.json"
     script:
     """
@@ -32,7 +32,7 @@ process INDUCE_SENSES {
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --output \${form}_senses.json --model ${params.model} \
         --context-chars ${params.context_chars} --max-samples ${params.max_samples} \
-        --alfs alfs.json
+        --alfs alfs.json --labeled labeled.parquet
     """
 }
 
@@ -89,6 +89,7 @@ workflow {
             .combine(Channel.value(seg_dir))
             .combine(Channel.value(docs))
             .combine(Channel.value(alfs))
+            .combine(Channel.value(labeled))
     )
 
     UPDATE_INVENTORY(
