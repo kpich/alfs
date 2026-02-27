@@ -78,7 +78,7 @@ def main() -> None:
 
     prompt = prompts.induction_prompt(form, contexts, existing_defs)
     data = llm.chat_json(args.model, prompt)
-    s = data["sense"]
+    s = data.get("sense", data)
     sense = Sense(
         definition=s["definition"],
         subsenses=[
