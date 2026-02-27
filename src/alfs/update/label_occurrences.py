@@ -4,7 +4,7 @@ Usage:
     python -m alfs.update.label_occurrences \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
         --alfs alfs.json --output {form}_labeled.parquet \\
-        --model llama3.1:8b --context-chars 150 [--labeled-dir update_data/]
+        --model llama3.1:8b --context-chars 150 [--labeled labeled.parquet]
 """
 
 import argparse
@@ -50,7 +50,7 @@ def main() -> None:
     parser.add_argument(
         "--max-occurrences", type=int, default=100
     )  # TODO: artificially low for dev
-    parser.add_argument("--labeled-dir", default=None)
+    parser.add_argument("--labeled", default=None, help="Path to labeled.parquet")
     args = parser.parse_args()
 
     target = UpdateTarget.model_validate_json(Path(args.target).read_text())
@@ -70,12 +70,10 @@ def main() -> None:
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
 
     labeled_pairs: set[tuple[str, int]] = set()
-    if args.labeled_dir:
-        labeled_files = list(Path(args.labeled_dir).glob("**/*_labeled.parquet"))
-        for f in labeled_files:
-            ldf = pl.read_parquet(str(f)).filter(pl.col("form") == form)
-            for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
-                labeled_pairs.add((row[0], row[1]))
+    if args.labeled and Path(args.labeled).exists():
+        ldf = pl.read_parquet(args.labeled).filter(pl.col("form") == form)
+        for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
+            labeled_pairs.add((row[0], row[1]))
 
     sense_menu = build_sense_menu(alfs, form)
 
