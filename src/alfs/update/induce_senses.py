@@ -64,10 +64,19 @@ def main() -> None:
         ctx = extract_context(text, occ["byte_offset"], form, args.context_chars)
         contexts.append(ctx)
 
+    if not contexts:
+        raise ValueError(f"No contexts found for form '{form}'")
+
     prompt = prompts.induction_prompt(form, contexts)
     data = llm.chat_json(args.model, prompt)
     senses = [
-        Sense(definition=s["definition"], subsenses=s.get("subsenses", []))
+        Sense(
+            definition=s["definition"],
+            subsenses=[
+                sub if isinstance(sub, str) else sub.get("definition", str(sub))
+                for sub in s.get("subsenses", [])
+            ],
+        )
         for s in data["senses"]
     ]
     alf = Alf(form=form, senses=senses)

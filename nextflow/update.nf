@@ -24,12 +24,13 @@ process SELECT_TARGETS {
 
 process INDUCE_SENSES {
     input:  tuple path("target.json"), path("by_prefix"), path("docs.parquet")
-    output: path "senses.json"
+    output: path "*_senses.json"
     script:
     """
+    form=\$(python -c "import json, urllib.parse; print(urllib.parse.quote(json.load(open('target.json'))['form'], safe=''))")
     uv run --project ${launchDir} python -m alfs.update.induce_senses \
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
-        --output senses.json --model ${params.model} \
+        --output \${form}_senses.json --model ${params.model} \
         --context-chars ${params.context_chars} --max-samples ${params.max_samples}
     """
 }

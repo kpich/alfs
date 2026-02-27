@@ -2,16 +2,17 @@ def induction_prompt(form: str, contexts: list[str]) -> str:
     """Return the sense-induction prompt for Ollama."""
     numbered = "\n".join(f"{i + 1}. {ctx}" for i, ctx in enumerate(contexts))
     return (
-        f"You are a lexicographer. Here are example sentences containing the word"
-        f'"{form}".\nIdentify its distinct senses. For each, write a concise '
-        f"one-sentence definition.\n"
+        f'You are a lexicographer. Identify the distinct senses of the word "{form}".\n'
+        f"Use only the evidence in the example sentences below.\n"
+        f"Write a concise one-sentence definition per sense.\n"
         f"Include subsenses only when clearly warranted.\n"
         f"\n"
         f"Examples:\n"
         f"{numbered}\n"
         f"\n"
-        f"Respond with ONLY valid JSON (no markdown):\n"
-        f'{{"senses": [{{"definition": "...", "subsenses": ["..."]}}]}}'
+        f"Output ONLY a JSON object — no prose, no markdown, no explanation.\n"
+        f"Start your response with {{ and end with }}.\n"
+        f'{{"senses": [{{"definition": "...", "subsenses": []}}]}}'
     )
 
 
