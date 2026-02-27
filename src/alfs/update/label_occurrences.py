@@ -17,6 +17,15 @@ from alfs.data_models.annotated_occurrence import AnnotatedOccurrence, Occurrenc
 from alfs.data_models.update_target import UpdateTarget
 from alfs.update import llm, prompts
 
+_LABEL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "sense_key": {"type": "string"},
+        "rating": {"type": "integer"},
+    },
+    "required": ["sense_key", "rating"],
+}
+
 
 def extract_context(text: str, byte_offset: int, form: str, context_chars: int) -> str:
     char_offset = len(text.encode()[:byte_offset].decode())
@@ -100,7 +109,7 @@ def main() -> None:
 
         context = extract_context(text, byte_offset, form, args.context_chars)
         prompt = prompts.labeling_prompt(form, context, sense_menu)
-        data = llm.chat_json(args.model, prompt)
+        data = llm.chat_json(args.model, prompt, format=_LABEL_SCHEMA)
         ann = AnnotatedOccurrence(
             doc_id=doc_id,
             byte_offset=byte_offset,

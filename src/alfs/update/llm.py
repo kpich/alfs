@@ -1,14 +1,17 @@
 import json
 import re
+from typing import Any
 
 import ollama
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
 
 
-def chat(model: str, prompt: str) -> str:
+def chat(model: str, prompt: str, format: dict[str, Any] | None = None) -> str:
     """Send a single-turn chat to the given Ollama model and return the text."""
-    response = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}])
+    response = ollama.chat(
+        model=model, messages=[{"role": "user", "content": prompt}], format=format
+    )
     return response["message"]["content"]
 
 
@@ -28,14 +31,16 @@ def _scan_json_objects(text: str) -> list[dict]:  # type: ignore[type-arg]
     return objects
 
 
-def chat_json(model: str, prompt: str, retries: int = 3) -> dict:  # type: ignore[type-arg]
+def chat_json(
+    model: str, prompt: str, retries: int = 3, format: dict[str, Any] | None = None
+) -> dict:  # type: ignore[type-arg]
     """Send a chat and parse the JSON response, with retries.
 
     Tries in order: code fences → full parse → scan for embedded JSON objects.
     """
     last_err: Exception = RuntimeError("no attempts made")
     for attempt in range(retries):
-        raw = chat(model, prompt).strip()
+        raw = chat(model, prompt, format=format).strip()
 
         # Try code fences
         m = _JSON_FENCE_RE.search(raw)
