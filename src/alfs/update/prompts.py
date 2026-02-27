@@ -1,0 +1,31 @@
+def induction_prompt(form: str, contexts: list[str]) -> str:
+    """Return the sense-induction prompt for Ollama."""
+    numbered = "\n".join(f"{i + 1}. {ctx}" for i, ctx in enumerate(contexts))
+    return (
+        f'You are a lexicographer. Identify the distinct senses of the word "{form}".\n'
+        f"Use only the evidence in the example sentences below.\n"
+        f"Write a concise one-sentence definition per sense.\n"
+        f"Include subsenses only when clearly warranted.\n"
+        f"\n"
+        f"Examples:\n"
+        f"{numbered}\n"
+        f"\n"
+        f"Output ONLY a JSON object — no prose, no markdown, no explanation.\n"
+        f"Start your response with {{ and end with }}.\n"
+        f'{{"senses": [{{"definition": "...", "subsenses": []}}]}}'
+    )
+
+
+def labeling_prompt(form: str, context: str, sense_menu: str) -> str:
+    """Return the occurrence-labeling prompt for Ollama."""
+    return (
+        f'The word "{form}" appears here: "...{context}..."\n'
+        f"\n"
+        f'Senses of "{form}":\n'
+        f"{sense_menu}\n"
+        f"\n"
+        f'Which sense applies? Use "1", "2", "1a", "1b", etc.\n'
+        f"Rate applicability: 3=excellent, 2=reasonable, 1=poor.\n"
+        f"\n"
+        f'Respond with ONLY valid JSON: {{"sense_key": "1", "rating": 3}}'
+    )

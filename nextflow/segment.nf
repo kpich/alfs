@@ -35,3 +35,11 @@ workflow {
     SEGMENT_DOCS(docs_ch)
     AGGREGATE_OCCURRENCES(SEGMENT_DOCS.out)
 }
+
+workflow.onComplete {
+    if (workflow.success) {
+        def latestLink = file("${params.seg_data_dir}/latest")
+        latestLink.delete()
+        file(params.out_dir).mklink(latestLink)
+    }
+}
