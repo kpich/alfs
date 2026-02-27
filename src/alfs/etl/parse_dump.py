@@ -69,15 +69,29 @@ def stream_pages(dump_path: str) -> list[dict]:
     return pages
 
 
+BASE_URLS = {
+    "wikibooks": "https://en.wikibooks.org/wiki/",
+    "wikisource": "https://en.wikisource.org/wiki/",
+}
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Parse Wikibooks XML dump to Parquet")
+    parser = argparse.ArgumentParser(description="Parse MediaWiki XML dump to Parquet")
     parser.add_argument("--dump", required=True, help="Path to .xml.bz2 dump file")
     parser.add_argument(
         "--num-docs", type=int, required=True, help="Number of docs to sample"
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
     parser.add_argument("--output", required=True, help="Output Parquet file path")
+    parser.add_argument(
+        "--source",
+        required=True,
+        choices=list(BASE_URLS),
+        help="Source corpus name",
+    )
     args = parser.parse_args()
+
+    base_url = BASE_URLS[args.source]
 
     print(f"Streaming pages from {args.dump}...")
     all_pages = stream_pages(args.dump)
@@ -93,7 +107,7 @@ def main() -> None:
         text = mwparserfromhell.parse(page["wikitext"]).strip_code().strip()
         doc_id = hashlib.sha256(text.encode()).hexdigest()[:8]
         title = page["title"]
-        source_url = f"https://en.wikibooks.org/wiki/{quote(title.replace(' ', '_'))}"
+        source_url = f"{base_url}{quote(title.replace(' ', '_'))}"
         docs.append(
             Doc(
                 doc_id=doc_id,
@@ -102,6 +116,7 @@ def main() -> None:
                 year=page["year"],
                 text=text,
                 source_url=source_url,
+                source=args.source,
             )
         )
 

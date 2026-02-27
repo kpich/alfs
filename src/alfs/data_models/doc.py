@@ -12,3 +12,4 @@ class Doc(BaseModel):
     source_url: str | None = (
         None  # e.g. "https://en.wikibooks.org/wiki/Python_Programming"
     )
+    source: str | None = None  # "wikibooks" or "wikisource"
