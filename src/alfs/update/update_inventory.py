@@ -11,6 +11,17 @@ from pathlib import Path
 from alfs.data_models.alf import Alf, Alfs
 
 
+def merge_entry(existing: Alf, new: Alf) -> Alf:
+    """Return existing Alf with any genuinely new senses from new appended."""
+    existing_defs = {s.definition.strip().lower() for s in existing.senses}
+    new_senses = [
+        s for s in new.senses if s.definition.strip().lower() not in existing_defs
+    ]
+    if not new_senses:
+        return existing
+    return Alf(form=existing.form, senses=list(existing.senses) + new_senses)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Augment alfs inventory with new senses"
@@ -41,16 +52,11 @@ def main() -> None:
             print(f"  Added new entry for '{form}' ({len(alf.senses)} senses)")
         else:
             existing = entries[form]
-            existing_defs = {s.definition.strip().lower() for s in existing.senses}
-            new_senses = [
-                s
-                for s in alf.senses
-                if s.definition.strip().lower() not in existing_defs
-            ]
-            if new_senses:
-                merged = Alf(form=form, senses=list(existing.senses) + new_senses)
+            merged = merge_entry(existing, alf)
+            new_count = len(merged.senses) - len(existing.senses)
+            if new_count:
                 entries[form] = merged
-                print(f"  Appended {len(new_senses)} new senses for '{form}'")
+                print(f"  Appended {new_count} new senses for '{form}'")
             else:
                 print(f"  No new senses for '{form}' (all duplicates)")
             # TODO: when UpdateTarget.sense is non-None, refine that specific sense

@@ -10,15 +10,25 @@ def _occurrences(form_counts: dict[str, int]) -> pl.DataFrame:
     return pl.DataFrame({"form": forms})
 
 
-def _labeled(rows: list[tuple[str, str, int]]) -> pl.DataFrame:
+def _labeled(rows: list[tuple[str, str, int]], rating: int = 1) -> pl.DataFrame:
     if not rows:
         return pl.DataFrame(
-            {"form": [], "doc_id": [], "byte_offset": []},
-            schema={"form": pl.String, "doc_id": pl.String, "byte_offset": pl.Int64},
+            {"form": [], "doc_id": [], "byte_offset": [], "rating": []},
+            schema={
+                "form": pl.String,
+                "doc_id": pl.String,
+                "byte_offset": pl.Int64,
+                "rating": pl.Int64,
+            },
         )
     forms, doc_ids, offsets = zip(*rows, strict=False)
     return pl.DataFrame(
-        {"form": list(forms), "doc_id": list(doc_ids), "byte_offset": list(offsets)}
+        {
+            "form": list(forms),
+            "doc_id": list(doc_ids),
+            "byte_offset": list(offsets),
+            "rating": [rating] * len(rows),
+        }
     )
 
 
@@ -68,3 +78,10 @@ def test_duplicate_labeled_rows_deduped():
     result = select_top_n(occ, lab, top_n=1)
     # 10 total - 1 unique labeled = 9 unlabeled; form should still be returned
     assert result == ["the"]
+
+
+def test_rating_zero_treated_as_unlabeled():
+    occ = _occurrences({"A": 10})
+    lab = _labeled([("A", "doc1", i) for i in range(10)], rating=0)
+    result = select_top_n(occ, lab, top_n=1)
+    assert result == ["A"]  # all 10 still count as unlabeled
