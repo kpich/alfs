@@ -12,7 +12,7 @@ process SEGMENT_DOCS {
     output: path "raw_occurrences.parquet"
     script:
     """
-    uv run --project ${launchDir} python -m alfs.etl.segment_docs \
+    uv run --project ${launchDir} --no-sync python -m alfs.etl.segment_docs \
         --docs   docs.parquet \
         --output raw_occurrences.parquet
     """
@@ -24,7 +24,7 @@ process AGGREGATE_OCCURRENCES {
     output: path "*"
     script:
     """
-    uv run --project ${launchDir} python -m alfs.etl.aggregate_occurrences \
+    uv run --project ${launchDir} --no-sync python -m alfs.etl.aggregate_occurrences \
         --occurrences raw_occurrences.parquet \
         --output-dir  .
     """
