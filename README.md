@@ -11,7 +11,7 @@ in dev stay tuned
 | Target | What it does |
 |---|---|
 | `make dev` | Install dev dependencies |
-| `make etl` | Download + parse wikibooks dump → `text_data/` |
+| `make etl` | Download + parse text data → `text_data/` |
 | `make seg` | Segment docs → `seg_data/` |
 | `make update` | Induce senses + label occurrences → `alfs_data/` |
 | `make relabel` | Re-label all occurrences from scratch |
