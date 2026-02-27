@@ -69,7 +69,9 @@ def main() -> None:
     seg_dir = Path(args.seg_data_dir)
     parquet_files = list(seg_dir.glob("*/occurrences.parquet"))
     if not parquet_files:
-        raise FileNotFoundError(f"No occurrences.parquet files found in {seg_dir}")
+        raise FileNotFoundError(
+            f"No occurrences.parquet files found in {seg_dir}. " "Run `make seg` first."
+        )
 
     occurrences_df = pl.concat(
         [pl.scan_parquet(str(f)).select("form") for f in parquet_files]
