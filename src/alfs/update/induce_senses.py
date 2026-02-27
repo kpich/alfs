@@ -78,14 +78,37 @@ def main() -> None:
 
     prompt = prompts.induction_prompt(form, contexts, existing_defs)
     data = llm.chat_json(args.model, prompt)
-    s = data.get("sense", data)
+
+    # Extract the sense object from various response shapes
+    if "sense" in data:
+        s = data["sense"]
+    elif "senses" in data and data["senses"]:
+        s = data["senses"][0]
+    else:
+        s = data
+
+    # Extract definition — handle string sense or dicts with alternate key names
+    if isinstance(s, str):
+        definition = s
+        subsenses: list = []
+    elif "definition" in s:
+        definition = s["definition"]
+        subsenses = s.get("subsenses", [])
+    else:
+        for key in ("meaning", "description", "def", "gloss"):
+            if key in s:
+                definition = s[key]
+                subsenses = s.get("subsenses", [])
+                break
+        else:
+            raise ValueError(f"Could not find definition in LLM response: {data!r}")
+
     sense = Sense(
-        definition=s["definition"],
+        definition=definition,
         subsenses=[
             sub if isinstance(sub, str) else sub.get("definition", str(sub))
-            for sub in s.get("subsenses", [])
+            for sub in subsenses
         ],
-        # s may also contain "examples": [...] from the induction prompt — ignored here
     )
     alf = Alf(form=form, senses=[sense])
 
