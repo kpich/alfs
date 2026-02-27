@@ -9,7 +9,7 @@ from pathlib import Path
 
 from flask import Flask, abort, render_template_string
 
-DATA_PATH = Path("viewer_data/data.json")
+DATA_PATH = Path("../viewer_data/data.json")
 
 app = Flask(__name__)
 
@@ -132,7 +132,7 @@ def word(form: str):
 
 
 def main() -> None:
-    app.run(host="localhost", port=5000, debug=False)
+    app.run(host="localhost", port=5001, debug=False)
 
 
 if __name__ == "__main__":
