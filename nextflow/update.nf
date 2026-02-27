@@ -1,7 +1,7 @@
 nextflow.enable.dsl = 2
 
 params.top_n           = 10
-params.model           = "llama3.1:8b"
+params.model           = "gemma2:9b"
 params.context_chars   = 150
 params.max_samples     = 20
 params.max_occurrences = 100  // TODO: artificially low for dev; raise once pipeline is stable
