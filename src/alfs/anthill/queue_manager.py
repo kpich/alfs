@@ -20,6 +20,7 @@ TASK_COMMANDS: dict[str, list[str]] = {
     "update": ["make", "update"],
     "relabel": ["make", "relabel"],
     "dedupe": ["make", "dedupe"],
+    "postag": ["make", "postag"],
 }
 
 MAX_LOG_LINES = 5000
@@ -38,7 +39,10 @@ class Task:
 
 
 class QueueManager:
-    def __init__(self, project_root: Path, max_parallel: int = 4) -> None:
+    def __init__(self, project_root: Path, max_parallel: int = 1) -> None:
+        # TODO: max_parallel > 1 will cause nextflow lock collisions — all pipelines
+        # run from the same launch dir and share .nextflow.lock. Also currently
+        # GPU-bound on MPS so parallelism doesn't help.
         self.project_root = project_root
         self.max_parallel = max_parallel
         self.tasks: list[Task] = []
