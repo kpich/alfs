@@ -118,3 +118,13 @@ def test_all_excellent_ratings_deprioritized():
     # "unknown": 10 unlabeled, bad_rate=0.5, expected score=5
     # "excellent": 20 unlabeled, bad_rate=1/32≈0.03, expected score~0.6
     assert result[0] == "unknown"
+
+
+def test_redirect_forms_excluded():
+    occ = _occurrences({"The": 100, "the": 90})
+    lab = _labeled([])
+    result = select_top_n(
+        occ, lab, top_n=10, rng=np.random.default_rng(0), redirect_forms={"The"}
+    )
+    assert "The" not in result
+    assert "the" in result

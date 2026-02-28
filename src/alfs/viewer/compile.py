@@ -16,31 +16,21 @@ import polars as pl
 from alfs.data_models.alf import Alfs, sense_key
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Compile viewer data")
-    parser.add_argument("--alfs", required=True, help="Path to alfs.json")
-    parser.add_argument("--labeled", required=True, help="Path to labeled.parquet")
-    parser.add_argument("--docs", required=True, help="Path to docs.parquet")
-    parser.add_argument("--output", required=True, help="Path to output data.json")
-    args = parser.parse_args()
-
-    alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
-
-    labeled = pl.read_parquet(args.labeled).filter(pl.col("rating") >= 1)
-
-    docs = (
-        pl.read_parquet(args.docs)
-        .select(["doc_id", "year"])
+def compile_entries(
+    alfs: Alfs,
+    labeled: pl.DataFrame,
+    docs: pl.DataFrame,
+) -> dict:
+    """Build the viewer entries dict, skipping redirect forms."""
+    joined = labeled.filter(pl.col("rating") >= 1).join(
+        docs.select(["doc_id", "year"])
         .drop_nulls("year")
-        .with_columns(pl.col("year").cast(pl.Int32))
+        .with_columns(pl.col("year").cast(pl.Int32)),
+        on="doc_id",
+        how="inner",
     )
-
-    joined = labeled.join(docs, on="doc_id", how="inner")
-
-    # Group by (form, sense_key, year) and count
     counts = joined.group_by(["form", "sense_key", "year"]).agg(pl.len().alias("count"))
 
-    # Build by_year per form: {year_str: {sense_key: count}}
     by_year_per_form: dict[str, dict[str, dict[str, int]]] = defaultdict(
         lambda: defaultdict(dict)
     )
@@ -49,6 +39,8 @@ def main() -> None:
 
     entries: dict[str, dict] = {}
     for form, alf in alfs.entries.items():
+        if alf.redirect is not None:
+            continue
         senses = []
         for top_idx, sense in enumerate(alf.senses):
             sense_entry: dict = {
@@ -66,6 +58,22 @@ def main() -> None:
             "senses": senses,
             "by_year": dict(by_year_per_form.get(form, {})),
         }
+    return entries
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Compile viewer data")
+    parser.add_argument("--alfs", required=True, help="Path to alfs.json")
+    parser.add_argument("--labeled", required=True, help="Path to labeled.parquet")
+    parser.add_argument("--docs", required=True, help="Path to docs.parquet")
+    parser.add_argument("--output", required=True, help="Path to output data.json")
+    args = parser.parse_args()
+
+    alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
+    labeled = pl.read_parquet(args.labeled)
+    docs = pl.read_parquet(args.docs)
+
+    entries = compile_entries(alfs, labeled, docs)
 
     output = {"entries": entries}
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)

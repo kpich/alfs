@@ -1,0 +1,71 @@
+import polars as pl
+
+from alfs.data_models.alf import Alf, Alfs, Sense
+from alfs.viewer.compile import compile_entries
+
+
+def _alfs(*alfs: Alf) -> Alfs:
+    return Alfs(entries={alf.form: alf for alf in alfs})
+
+
+def _labeled(rows: list[tuple]) -> pl.DataFrame:
+    if not rows:
+        return pl.DataFrame(
+            {
+                "form": [],
+                "doc_id": [],
+                "byte_offset": [],
+                "sense_key": [],
+                "rating": [],
+            },
+            schema={
+                "form": pl.String,
+                "doc_id": pl.String,
+                "byte_offset": pl.Int64,
+                "sense_key": pl.String,
+                "rating": pl.Int64,
+            },
+        )
+    forms, doc_ids, offsets, sense_keys, ratings = zip(*rows, strict=False)
+    return pl.DataFrame(
+        {
+            "form": list(forms),
+            "doc_id": list(doc_ids),
+            "byte_offset": list(offsets),
+            "sense_key": list(sense_keys),
+            "rating": list(ratings),
+        }
+    )
+
+
+def _docs(rows: list[tuple]) -> pl.DataFrame:
+    doc_ids, years = zip(*rows, strict=False) if rows else ([], [])
+    return pl.DataFrame({"doc_id": list(doc_ids), "year": list(years)})
+
+
+def test_redirect_forms_excluded():
+    alfs = _alfs(
+        Alf(form="the", senses=[Sense(definition="definite article")]),
+        Alf(form="The", senses=[], redirect="the"),
+    )
+    labeled = _labeled([])
+    docs = _docs([("doc1", 2020)])
+
+    result = compile_entries(alfs, labeled, docs)
+
+    assert "the" in result
+    assert "The" not in result
+
+
+def test_non_redirect_forms_included():
+    alfs = _alfs(
+        Alf(form="run", senses=[Sense(definition="to move quickly")]),
+    )
+    labeled = _labeled([("run", "doc1", 0, "1", 2)])
+    docs = _docs([("doc1", 2020)])
+
+    result = compile_entries(alfs, labeled, docs)
+
+    assert "run" in result
+    assert result["run"]["senses"][0]["definition"] == "to move quickly"
+    assert result["run"]["by_year"]["2020"]["1"] == 1

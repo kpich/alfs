@@ -15,6 +15,7 @@ class Alf(BaseModel):
 
     form: str
     senses: list[Sense] = []
+    redirect: str | None = None  # if set, this form is a case-variant/alias of redirect
 
     def get_sense(self, key: str) -> str:
         """Return the definition for a sense key like '2' or '3b'."""

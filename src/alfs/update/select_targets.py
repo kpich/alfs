@@ -14,6 +14,7 @@ from urllib.parse import quote
 import numpy as np
 import polars as pl
 
+from alfs.data_models.alf import Alfs
 from alfs.data_models.update_target import UpdateTarget
 
 # Only consider forms that contain at least one letter (skip punctuation, whitespace,
@@ -26,6 +27,7 @@ def select_top_n(
     labeled_df: pl.DataFrame,  # columns: form, doc_id, byte_offset, rating
     top_n: int,
     rng: np.random.Generator,
+    redirect_forms: set[str] | frozenset[str] = frozenset(),
 ) -> list[str]:
     """Return up to top_n forms sorted by priority score, descending.
 
@@ -70,6 +72,9 @@ def select_top_n(
         )
     )
 
+    if redirect_forms:
+        candidates = candidates.filter(~pl.col("form").is_in(list(redirect_forms)))
+
     forms = candidates["form"].to_list()
     n_bad_arr = candidates["n_bad"].to_numpy().astype(np.int64)
     n_labeled_arr = candidates["n_labeled"].to_numpy().astype(np.int64)
@@ -92,6 +97,7 @@ def main() -> None:
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--labeled", default=None, help="Path to labeled.parquet")
+    parser.add_argument("--alfs", default=None, help="Path to alfs.json")
     parser.add_argument("--seed", type=int, default=None, help="RNG seed")
     args = parser.parse_args()
 
@@ -119,8 +125,15 @@ def main() -> None:
             },
         )
 
+    redirect_forms: set[str] = set()
+    if args.alfs and Path(args.alfs).exists():
+        alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
+        redirect_forms = {
+            f for f, alf in alfs.entries.items() if alf.redirect is not None
+        }
+
     rng = np.random.default_rng(args.seed)
-    forms = select_top_n(occurrences_df, labeled_df, args.top_n, rng)
+    forms = select_top_n(occurrences_df, labeled_df, args.top_n, rng, redirect_forms)
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
