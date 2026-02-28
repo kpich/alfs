@@ -100,3 +100,17 @@ def test_empty_labeled_returns_empty():
     result = fetch_instances("word", "1", labeled, docs)
 
     assert result == []
+
+
+def test_bold_form_wraps_match_in_strong():
+    text = "The quick brown fox jumps"
+    # byte_offset for "fox" at char position 16
+    byte_offset = len(b"The quick brown ")
+    labeled = _labeled([("fox", "d1", byte_offset, "1", 3)])
+    docs = _docs([("d1", text)])
+
+    result = fetch_instances("fox", "1", labeled, docs, bold_form=True)
+
+    assert len(result) == 1
+    assert "<strong>fox</strong>" in result[0]
+    assert "The quick brown " in result[0]

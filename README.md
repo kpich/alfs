@@ -17,6 +17,7 @@ in dev stay tuned
 | `make relabel` | Re-label all occurrences from scratch |
 | `make dedupe` | LLM-check case-variant entries → set redirects in `alfs.json` |
 | `make postag` | LLM-assign POS tags to all untagged senses in `alfs.json` |
+| `make validate` | Check that all byte_offsets in `labeled.parquet` still resolve to the right token in `docs.parquet`; exits nonzero if any are stale |
 | `make compile` | Compile → `viewer_data/data.json` |
 | `make viewer` | Start viewer at http://localhost:5001 |
 | `make test` | Run tests |

@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel dedupe postag compile viewer install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel dedupe postag validate compile viewer install_precommit_hooks dev test mypy cleandata
 
 etl:
 	bash scripts/etl.sh
@@ -22,6 +22,10 @@ postag:
 		--labeled ../alfs_data/labeled.parquet \
 		--docs ../text_data/latest/docs.parquet \
 		--output ../alfs_data/alfs.json
+
+validate:
+	uv run --no-sync python -m alfs.qc.validate_labels \
+		--labeled $(LABELED) --docs $(DOCS)
 
 compile:
 	bash scripts/compile.sh

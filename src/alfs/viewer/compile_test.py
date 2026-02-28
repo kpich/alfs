@@ -39,8 +39,14 @@ def _labeled(rows: list[tuple]) -> pl.DataFrame:
 
 
 def _docs(rows: list[tuple]) -> pl.DataFrame:
-    doc_ids, years = zip(*rows, strict=False) if rows else ([], [])
-    return pl.DataFrame({"doc_id": list(doc_ids), "year": list(years)})
+    if not rows:
+        return pl.DataFrame(
+            schema={"doc_id": pl.String, "year": pl.Int64, "text": pl.String}
+        )
+    doc_ids, years, texts = zip(*rows, strict=False)
+    return pl.DataFrame(
+        {"doc_id": list(doc_ids), "year": list(years), "text": list(texts)}
+    )
 
 
 def test_redirect_forms_excluded():
@@ -49,7 +55,7 @@ def test_redirect_forms_excluded():
         Alf(form="The", senses=[], redirect="the"),
     )
     labeled = _labeled([])
-    docs = _docs([("doc1", 2020)])
+    docs = _docs([("doc1", 2020, "")])
 
     result = compile_entries(alfs, labeled, docs)
 
@@ -63,7 +69,7 @@ def test_non_redirect_forms_included():
         Alf(form="run", senses=[Sense(definition="to move quickly")]),
     )
     labeled = _labeled([("run", "doc1", 0, "1", 2)])
-    docs = _docs([("doc1", 2020)])
+    docs = _docs([("doc1", 2020, "run fast")])
 
     result = compile_entries(alfs, labeled, docs)
 
@@ -86,8 +92,36 @@ def test_percentile_ordering():
             ("rare", "doc4", 0, "1", 2),
         ]
     )
-    docs = _docs([("doc1", 2020), ("doc2", 2020), ("doc3", 2020), ("doc4", 2020)])
+    docs = _docs(
+        [("doc1", 2020, ""), ("doc2", 2020, ""), ("doc3", 2020, ""), ("doc4", 2020, "")]
+    )
 
     result = compile_entries(alfs, labeled, docs)
 
     assert result["common"]["percentile"] < result["rare"]["percentile"]
+
+
+def test_instances_included_per_sense():
+    alfs = _alfs(
+        Alf(form="run", senses=[Sense(definition="to move quickly")]),
+    )
+    labeled = _labeled([("run", "doc1", 0, "1", 3)])
+    docs = _docs([("doc1", 2020, "run fast through the park")])
+
+    result = compile_entries(alfs, labeled, docs)
+
+    instances = result["run"]["senses"][0]["instances"]
+    assert len(instances) == 1
+    assert "<strong>run</strong>" in instances[0]
+
+
+def test_instances_empty_when_no_rating3():
+    alfs = _alfs(
+        Alf(form="walk", senses=[Sense(definition="to move on foot")]),
+    )
+    labeled = _labeled([("walk", "doc1", 0, "1", 2)])
+    docs = _docs([("doc1", 2020, "walk slowly")])
+
+    result = compile_entries(alfs, labeled, docs)
+
+    assert result["walk"]["senses"][0]["instances"] == []
