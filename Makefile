@@ -4,6 +4,7 @@ SENSES_DB  ?= ../alfs_data/senses.db
 LABELED_DB ?= ../alfs_data/labeled.db
 DOCS       ?= ../text_data/latest/docs.parquet
 SENSES_REPO ?= ../alfs_senses
+NWORDS     ?= 5
 
 etl:
 	bash scripts/etl.sh
@@ -15,7 +16,7 @@ update:
 	bash scripts/update.sh
 
 relabel:
-	bash scripts/relabel.sh
+	bash scripts/relabel.sh --nwords $(NWORDS)
 
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \

@@ -7,13 +7,15 @@ params.seg_data_dir    = "${launchDir}/../seg_data"
 params.text_data_dir   = "${launchDir}/../text_data"
 params.senses_db       = "${launchDir}/../alfs_data/senses.db"
 params.labeled_db      = "${launchDir}/../alfs_data/labeled.db"
+params.nwords          = 5
 
 process GENERATE_TARGETS {
     output: path "targets/*.json"
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.generate_relabel_targets \
-        --senses-db ${params.senses_db} --output-dir targets/ --labeled-db ${params.labeled_db}
+        --senses-db ${params.senses_db} --output-dir targets/ --labeled-db ${params.labeled_db} \
+        ${params.nwords != null ? "--nwords ${params.nwords}" : ""}
     """
 }
 

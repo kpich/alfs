@@ -10,6 +10,7 @@ are emitted (for relabeling runs).
 
 import argparse
 from pathlib import Path
+import random
 from urllib.parse import quote
 
 from alfs.data_models.occurrence_store import OccurrenceStore
@@ -30,6 +31,12 @@ def main() -> None:
         default=None,
         help="If set, only emit targets for forms in labeled.db",
     )
+    parser.add_argument(
+        "--nwords",
+        type=int,
+        default=None,
+        help="If set, randomly sample this many forms instead of using all",
+    )
     args = parser.parse_args()
 
     store = SenseStore(Path(args.senses_db))
@@ -42,6 +49,9 @@ def main() -> None:
         forms = [f for f in all_forms if f in labeled_forms]
     else:
         forms = all_forms
+
+    if args.nwords is not None:
+        forms = random.sample(forms, min(args.nwords, len(forms)))
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

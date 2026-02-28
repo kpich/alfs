@@ -18,6 +18,8 @@ class TaskStatus(str, Enum):
 
 TASK_COMMANDS: dict[str, list[str]] = {
     "update": ["make", "update"],
+    "relabel": ["make", "relabel"],
+    "dedupe": ["make", "dedupe"],
 }
 
 MAX_LOG_LINES = 5000
