@@ -1,10 +1,10 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Sense(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    definition: str
+    definition: str = Field(min_length=1)
     subsenses: list[str] = []  # up to one level of sub-definitions
 
 
