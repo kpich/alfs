@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel dedupe compile viewer install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel dedupe postag compile viewer install_precommit_hooks dev test mypy cleandata
 
 etl:
 	bash scripts/etl.sh
@@ -15,6 +15,13 @@ relabel:
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \
 		--alfs ../alfs_data/alfs.json --output ../alfs_data/alfs.json
+
+postag:
+	uv run --no-sync python -m alfs.update.refinement.postag \
+		--alfs ../alfs_data/alfs.json \
+		--labeled ../alfs_data/labeled.parquet \
+		--docs ../text_data/latest/docs.parquet \
+		--output ../alfs_data/alfs.json
 
 compile:
 	bash scripts/compile.sh

@@ -1,11 +1,14 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from alfs.data_models.pos import PartOfSpeech
+
 
 class Sense(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     definition: str = Field(min_length=1)
     subsenses: list[str] = []  # up to one level of sub-definitions
+    pos: PartOfSpeech | None = None
 
 
 class Alf(BaseModel):

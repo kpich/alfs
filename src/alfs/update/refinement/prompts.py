@@ -1,3 +1,24 @@
+def postag_prompt(form: str, definition: str, instances: list[str]) -> str:
+    instances_section = ""
+    if instances:
+        numbered = "\n".join(
+            f"  {i + 1}. ...{ctx}..." for i, ctx in enumerate(instances)
+        )
+        instances_section = f"\nExample uses in context:\n{numbered}\n"
+
+    return (
+        f"You are a lexicographer assigning a part-of-speech tag to a dictionary sense."
+        f"\n\n"
+        f'Word: "{form}"\n'
+        f"Definition: {definition}\n"
+        f"{instances_section}"
+        f"\nWhat is the primary part of speech for this sense?\n"
+        f"Choose one of: noun, verb, adjective, adverb, preposition, conjunction, "
+        f"pronoun, determiner, interjection, other.\n"
+        f'\nRespond with ONLY valid JSON: {{"pos": "noun"}}'
+    )
+
+
 def dedup_prompt(
     form: str,
     form_defs: list[str],
