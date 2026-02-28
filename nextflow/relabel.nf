@@ -10,12 +10,12 @@ params.out_date        = new Date().format('yyyy-MM-dd')
 params.out_dir         = "${launchDir}/../update_data/${params.out_date}"
 
 process GENERATE_TARGETS {
-    input:  path "alfs.json"
+    input:  tuple path("alfs.json"), path("labeled.parquet")
     output: path "targets/*.json"
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.generate_relabel_targets \
-        --alfs alfs.json --output-dir targets/
+        --alfs alfs.json --output-dir targets/ --labeled labeled.parquet
     """
 }
 
@@ -50,7 +50,9 @@ workflow {
     docs    = file("${params.text_data_dir}/latest/docs.parquet")
     alfs    = file("${params.alfs_data_dir}/alfs.json")
 
-    GENERATE_TARGETS(alfs)
+    labeled = file("${params.alfs_data_dir}/labeled.parquet")
+
+    GENERATE_TARGETS(Channel.value([alfs, labeled]))
     targets_ch = GENERATE_TARGETS.out.flatten()
 
     LABEL_OCCURRENCES(
