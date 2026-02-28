@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Anthill Conductor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #1a1a1a; color: #ddd; padding: 20px; }
+  h1 { font-size: 1.2rem; margin-bottom: 16px; color: #fff; }
+
+  .actions { display: flex; gap: 8px; margin-bottom: 20px; }
+  button {
+    padding: 6px 14px; border: 1px solid #555; border-radius: 3px;
+    background: #2a2a2a; color: #ddd; cursor: pointer; font-family: monospace;
+    font-size: 0.9rem;
+  }
+  button:hover:not(:disabled) { background: #3a3a3a; border-color: #888; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.primary { border-color: #4a9; color: #4a9; }
+  button.primary:hover:not(:disabled) { background: #1a3a30; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th {
+    text-align: left; padding: 6px 10px; border-bottom: 1px solid #333;
+    color: #888; font-weight: normal;
+  }
+  td { padding: 6px 10px; border-bottom: 1px solid #222; vertical-align: top; }
+  tr.task-row { cursor: pointer; }
+  tr.task-row:hover td { background: #222; }
+
+  .status-pending  { color: #888; }
+  .status-running  { color: #fa0; }
+  .status-done     { color: #4a9; }
+  .status-failed   { color: #e44; }
+
+  .log-row td { padding: 0; }
+  .log-box {
+    background: #111; border-top: 1px solid #333;
+    padding: 10px; max-height: 400px; overflow-y: auto;
+  }
+  .log-box pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8rem; line-height: 1.4; }
+  .log-empty { color: #555; font-style: italic; }
+
+  .expand-hint { color: #555; font-size: 0.75rem; margin-left: 4px; }
+</style>
+</head>
+<body>
+<h1>Anthill Conductor</h1>
+
+<div class="actions">
+  <button class="primary" onclick="queueTask('update')">Queue Update</button>
+  <button class="primary" onclick="queueTask('relabel')">Queue Relabel</button>
+  <button class="primary" onclick="queueTask('dedupe')">Queue Dedupe</button>
+  <button disabled title="not yet wired">Queue POS-tag</button>
+</div>
+
+<table id="task-table">
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Status</th>
+      <th>Queued</th>
+      <th>Duration</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="task-body">
+    <tr><td colspan="5" style="color:#555; padding:12px 10px;">No tasks yet.</td></tr>
+  </tbody>
+</table>
+
+<script>
+const expandedIds = new Set();
+const logOffsets = {};
+const logPollers = {};
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleTimeString();
+}
+
+function fmtDuration(task) {
+  const start = task.started_at ? new Date(task.started_at) : null;
+  const end = task.ended_at ? new Date(task.ended_at) : null;
+  if (!start) return '—';
+  const ms = (end || new Date()) - start;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return s + 's';
+  return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+}
+
+function statusClass(s) { return 'status-' + s; }
+
+function renderTasks(tasks) {
+  const tbody = document.getElementById('task-body');
+  if (tasks.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#555; padding:12px 10px;">No tasks yet.</td></tr>';
+    return;
+  }
+
+  // Render newest first
+  const reversed = [...tasks].reverse();
+  let html = '';
+  for (const t of reversed) {
+    const expanded = expandedIds.has(t.id);
+    const hint = expanded ? '▲' : '▼';
+    html += `<tr class="task-row" onclick="toggleExpand('${t.id}')" data-id="${t.id}">
+      <td>${t.type}</td>
+      <td class="${statusClass(t.status)}">${t.status}</td>
+      <td>${fmtTime(t.created_at)}</td>
+      <td>${fmtDuration(t)}</td>
+      <td><span class="expand-hint">${hint}</span></td>
+    </tr>`;
+    if (expanded) {
+      html += `<tr class="log-row" id="log-row-${t.id}">
+        <td colspan="5">
+          <div class="log-box">
+            <pre id="log-pre-${t.id}"><span class="log-empty">Loading…</span></pre>
+          </div>
+        </td>
+      </tr>`;
+    }
+  }
+  tbody.innerHTML = html;
+
+  // Restart log polling for expanded tasks
+  for (const id of expandedIds) {
+    ensureLogPoller(id);
+  }
+}
+
+let lastTasks = [];
+
+async function refreshTasks() {
+  try {
+    const r = await fetch('/api/tasks');
+    const tasks = await r.json();
+    lastTasks = tasks;
+    renderTasks(tasks);
+  } catch (e) {
+    // network hiccup — ignore
+  }
+}
+
+function toggleExpand(id) {
+  if (expandedIds.has(id)) {
+    expandedIds.delete(id);
+    stopLogPoller(id);
+  } else {
+    expandedIds.add(id);
+    if (!logOffsets[id]) logOffsets[id] = 0;
+  }
+  renderTasks(lastTasks);
+}
+
+function ensureLogPoller(id) {
+  if (logPollers[id]) return;
+  fetchLogs(id);
+  logPollers[id] = setInterval(() => fetchLogs(id), 2000);
+}
+
+function stopLogPoller(id) {
+  if (logPollers[id]) {
+    clearInterval(logPollers[id]);
+    delete logPollers[id];
+  }
+}
+
+async function fetchLogs(id) {
+  if (!expandedIds.has(id)) { stopLogPoller(id); return; }
+  const offset = logOffsets[id] || 0;
+  try {
+    const r = await fetch(`/api/tasks/${id}/logs?from=${offset}`);
+    const data = await r.json();
+    const pre = document.getElementById('log-pre-' + id);
+    if (!pre) { stopLogPoller(id); return; }
+    if (data.lines && data.lines.length > 0) {
+      if (offset === 0) pre.textContent = '';
+      pre.textContent += data.lines.join('\n') + '\n';
+      logOffsets[id] = data.total;
+      // auto-scroll
+      const box = pre.closest('.log-box');
+      if (box) box.scrollTop = box.scrollHeight;
+    } else if (offset === 0) {
+      pre.innerHTML = '<span class="log-empty">No output yet.</span>';
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function queueTask(type) {
+  try {
+    await fetch('/api/tasks', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type}),
+    });
+    refreshTasks();
+  } catch (e) {
+    alert('Failed to queue task: ' + e);
+  }
+}
+
+// Initial load + polling
+refreshTasks();
+setInterval(refreshTasks, 2000);
+</script>
+</body>
+</html>
