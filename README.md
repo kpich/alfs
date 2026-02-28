@@ -20,5 +20,6 @@ in dev stay tuned
 | `make validate` | Check that all byte_offsets in `labeled.parquet` still resolve to the right token in `docs.parquet`; exits nonzero if any are stale |
 | `make compile` | Compile → `viewer_data/data.json` |
 | `make viewer` | Start viewer at http://localhost:5001 |
+| `make conductor` | Start work-queue conductor UI at http://localhost:5002 |
 | `make test` | Run tests |
 | `make mypy` | Type-check |

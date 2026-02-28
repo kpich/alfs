@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel dedupe postag validate compile viewer backup install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel dedupe postag validate compile viewer backup conductor install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB  ?= ../alfs_data/senses.db
 LABELED_DB ?= ../alfs_data/labeled.db
@@ -40,6 +40,9 @@ viewer:
 backup:
 	uv run --no-sync python -m alfs.backup \
 		--senses-db $(SENSES_DB) --senses-repo $(SENSES_REPO)
+
+conductor:
+	uv run --no-sync python -m alfs.anthill
 
 install_precommit_hooks:
 	uv sync --group dev
