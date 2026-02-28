@@ -15,6 +15,7 @@ in dev stay tuned
 | `make seg` | Segment docs → `seg_data/` |
 | `make update` | Induce senses + label occurrences → `alfs_data/` |
 | `make relabel` | Re-label all occurrences from scratch |
+| `make dedupe` | LLM-check case-variant entries → set redirects in `alfs.json` |
 | `make compile` | Compile → `viewer_data/data.json` |
 | `make viewer` | Start viewer at http://localhost:5001 |
 | `make test` | Run tests |
