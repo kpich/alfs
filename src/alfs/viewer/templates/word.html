@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ form }}{% endblock %}
+{% block content %}
+<h1>
+  {{ form }}
+  <span class="badge {% if percentile <= 5 %}bg-success{% elif percentile <= 50 %}bg-primary{% else %}bg-secondary{% endif %} fs-6 ms-2">
+    top {{ percentile }}% most frequent
+  </span>
+</h1>
+
+<h2 class="mt-4">Senses</h2>
+<ol>
+{% for sense in senses %}
+  <li>{{ sense.definition }}
+    {% if sense.subsenses %}
+    <ol type="a">
+      {% for sub in sense.subsenses %}<li>{{ sub.definition }}</li>{% endfor %}
+    </ol>
+    {% endif %}
+  </li>
+{% endfor %}
+</ol>
+
+{% if has_chart %}
+<h2 class="mt-4">Usage by Year</h2>
+<div id="chart"></div>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script>
+var d = {{ chart_data | safe }};
+Plotly.newPlot('chart', d.traces, d.layout, {displayModeBar: false, responsive: false});
+</script>
+{% endif %}
+
+<p class="mt-4"><a href="/">← Back to word list</a></p>
+{% endblock %}
