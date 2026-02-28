@@ -1,5 +1,5 @@
 from alfs.data_models.alf import Alf, Sense
-from alfs.update.update_inventory import merge_entry
+from alfs.update.induction.update_inventory import merge_entry
 
 
 def _alf(form: str, *definitions: str) -> Alf:

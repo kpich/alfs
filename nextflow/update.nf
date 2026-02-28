@@ -16,7 +16,7 @@ process SELECT_TARGETS {
     output: path "targets/*.json"
     script:
     """
-    uv run --project ${launchDir} --no-sync python -m alfs.update.select_targets \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.select_targets \
         --seg-data-dir by_prefix --top-n ${params.top_n} \
         --labeled labeled.parquet --alfs alfs.json --output-dir targets/
     """
@@ -28,7 +28,7 @@ process INDUCE_SENSES {
     script:
     """
     form=\$(python -c "import json, urllib.parse; print(urllib.parse.quote(json.load(open('target.json'))['form'], safe=''))")
-    uv run --project ${launchDir} --no-sync python -m alfs.update.induce_senses \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.induction.induce_senses \
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --output \${form}_senses.json --model ${params.model} \
         --context-chars ${params.context_chars} --max-samples ${params.max_samples} \
@@ -42,7 +42,7 @@ process UPDATE_INVENTORY {
     output: path "alfs.json"
     script:
     """
-    uv run --project ${launchDir} --no-sync python -m alfs.update.update_inventory \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.induction.update_inventory \
         --alfs-data alfs.json --senses-dir senses/ --output alfs.json
     """
 }
@@ -54,7 +54,7 @@ process LABEL_OCCURRENCES {
     script:
     """
     form=\$(python -c "import json, urllib.parse; print(urllib.parse.quote(json.load(open('target.json'))['form'], safe=''))")
-    uv run --project ${launchDir} --no-sync python -m alfs.update.label_occurrences \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.label_occurrences \
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --alfs alfs.json --output \${form}_labeled.parquet \
         --labeled labeled.parquet \
@@ -69,7 +69,7 @@ process UPDATE_LABELS {
     output: path "labeled.parquet"
     script:
     """
-    uv run --project ${launchDir} --no-sync python -m alfs.update.update_labels \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.update_labels \
         --labeled-data labeled.parquet --new-dir new_labeled/ \
         --output labeled.parquet
     """

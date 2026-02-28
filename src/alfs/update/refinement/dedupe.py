@@ -10,7 +10,8 @@ import argparse
 from pathlib import Path
 
 from alfs.data_models.alf import Alf, Alfs
-from alfs.update import llm, prompts
+from alfs.update import llm
+from alfs.update.refinement import prompts
 
 _DEDUP_SCHEMA = {
     "type": "object",
