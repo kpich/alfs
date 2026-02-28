@@ -29,6 +29,23 @@ def compile_entries(
         on="doc_id",
         how="inner",
     )
+    redirect_map = {
+        form: alf.redirect
+        for form, alf in alfs.entries.items()
+        if alf.redirect is not None
+    }
+    if redirect_map:
+        rdf = pl.DataFrame(
+            {
+                "form": list(redirect_map.keys()),
+                "canonical": list(redirect_map.values()),
+            }
+        )
+        joined = (
+            joined.join(rdf, on="form", how="left")
+            .with_columns(pl.coalesce(["canonical", "form"]).alias("form"))
+            .drop("canonical")
+        )
     counts = joined.group_by(["form", "sense_key", "year"]).agg(pl.len().alias("count"))
 
     by_year_per_form: dict[str, dict[str, dict[str, int]]] = defaultdict(
