@@ -1,9 +1,9 @@
 """Select top-N word forms by priority score.
 
 Usage:
-    python -m alfs.update.select_targets \\
+    python -m alfs.update.labeling.select_targets \\
         --seg-data-dir by_prefix/ --top-n 10 --output-dir targets/ \\
-        [--labeled labeled.parquet] [--seed 42]
+        [--senses-db senses.db] [--labeled-db labeled.db] [--seed 42]
 """
 
 import argparse
@@ -14,7 +14,8 @@ from urllib.parse import quote
 import numpy as np
 import polars as pl
 
-from alfs.data_models.alf import Alfs
+from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
 
 # Only consider forms that contain at least one letter (skip punctuation, whitespace,
@@ -96,8 +97,8 @@ def main() -> None:
     )
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--labeled", default=None, help="Path to labeled.parquet")
-    parser.add_argument("--alfs", default=None, help="Path to alfs.json")
+    parser.add_argument("--senses-db", default=None, help="Path to senses.db")
+    parser.add_argument("--labeled-db", default=None, help="Path to labeled.db")
     parser.add_argument("--seed", type=int, default=None, help="RNG seed")
     args = parser.parse_args()
 
@@ -112,8 +113,8 @@ def main() -> None:
         [pl.scan_parquet(str(f)).select("form") for f in parquet_files]
     ).collect()
 
-    if args.labeled and Path(args.labeled).exists():
-        labeled_df = pl.read_parquet(args.labeled)
+    if args.labeled_db and Path(args.labeled_db).exists():
+        labeled_df = OccurrenceStore(Path(args.labeled_db)).to_polars()
     else:
         labeled_df = pl.DataFrame(
             {"form": [], "doc_id": [], "byte_offset": [], "rating": []},
@@ -126,11 +127,10 @@ def main() -> None:
         )
 
     redirect_forms: set[str] = set()
-    if args.alfs and Path(args.alfs).exists():
-        alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
-        redirect_forms = {
-            f for f, alf in alfs.entries.items() if alf.redirect is not None
-        }
+    if args.senses_db and Path(args.senses_db).exists():
+        store = SenseStore(Path(args.senses_db))
+        entries = store.all_entries()
+        redirect_forms = {f for f, alf in entries.items() if alf.redirect is not None}
 
     rng = np.random.default_rng(args.seed)
     forms = select_top_n(occurrences_df, labeled_df, args.top_n, rng, redirect_forms)

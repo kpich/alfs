@@ -1,8 +1,8 @@
-"""Compile viewer data from alfs.json + labeled.parquet + docs.parquet.
+"""Compile viewer data from senses.db + labeled.db + docs.parquet.
 
 Usage:
     python -m alfs.viewer.compile \\
-        --alfs alfs.json --labeled labeled.parquet --docs docs.parquet \\
+        --senses-db senses.db --labeled-db labeled.db --docs docs.parquet \\
         --output data.json
 """
 
@@ -16,6 +16,8 @@ import polars as pl
 
 from alfs.corpus import fetch_instances
 from alfs.data_models.alf import Alfs, sense_key
+from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.sense_store import SenseStore
 
 
 def compile_entries(
@@ -105,14 +107,18 @@ def compile_entries(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compile viewer data")
-    parser.add_argument("--alfs", required=True, help="Path to alfs.json")
-    parser.add_argument("--labeled", required=True, help="Path to labeled.parquet")
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
     parser.add_argument("--output", required=True, help="Path to output data.json")
     args = parser.parse_args()
 
-    alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
-    labeled = pl.read_parquet(args.labeled)
+    sense_store = SenseStore(Path(args.senses_db))
+    entries_dict = sense_store.all_entries()
+    alfs = Alfs(entries=entries_dict)
+
+    occ_store = OccurrenceStore(Path(args.labeled_db))
+    labeled = occ_store.to_polars()
     docs = pl.read_parquet(args.docs)
 
     entries = compile_entries(alfs, labeled, docs)

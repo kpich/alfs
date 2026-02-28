@@ -1,10 +1,10 @@
 """Induce senses for a word form using Ollama.
 
 Usage:
-    python -m alfs.update.induce_senses \\
+    python -m alfs.update.induction.induce_senses \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
         --output senses.json --model llama3.1:8b --context-chars 150 --max-samples 20 \\
-        [--alfs alfs.json] [--labeled labeled.parquet]
+        [--senses-db senses.db] [--labeled-db labeled.db]
 """
 
 import argparse
@@ -13,7 +13,9 @@ import random
 
 import polars as pl
 
-from alfs.data_models.alf import Alf, Alfs, Sense
+from alfs.data_models.alf import Alf, Sense
+from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
 from alfs.update import llm
 from alfs.update.induction import prompts
@@ -48,17 +50,21 @@ def main() -> None:
     parser.add_argument("--model", default="llama3.1:8b")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-samples", type=int, default=20)
-    parser.add_argument("--alfs", default=None, help="Path to alfs.json (optional)")
-    parser.add_argument("--labeled", default=None, help="Path to labeled.parquet")
+    parser.add_argument(
+        "--senses-db", default=None, help="Path to senses.db (optional)"
+    )
+    parser.add_argument(
+        "--labeled-db", default=None, help="Path to labeled.db (optional)"
+    )
     args = parser.parse_args()
 
     target = UpdateTarget.model_validate_json(Path(args.target).read_text())
     form = target.form
 
     existing_defs: list[str] = []
-    if args.alfs and Path(args.alfs).exists():
-        alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
-        entry = alfs.entries.get(form)
+    if args.senses_db and Path(args.senses_db).exists():
+        store = SenseStore(Path(args.senses_db))
+        entry = store.read(form)
         if entry:
             existing_defs = [s.definition for s in entry.senses]
 
@@ -74,12 +80,9 @@ def main() -> None:
     all_occurrences = list(occurrences)
 
     well_labeled: set[tuple[str, int]] = set()
-    if args.labeled and Path(args.labeled).exists():
-        ldf = (
-            pl.read_parquet(args.labeled)
-            .filter(pl.col("form") == form)
-            .filter(pl.col("rating").is_in([2, 3]))
-        )
+    if args.labeled_db and Path(args.labeled_db).exists():
+        occ_store = OccurrenceStore(Path(args.labeled_db))
+        ldf = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
         for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
             well_labeled.add((row[0], row[1]))
     all_occurrences = [

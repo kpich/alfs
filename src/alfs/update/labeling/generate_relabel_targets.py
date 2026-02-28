@@ -1,10 +1,10 @@
-"""Generate one UpdateTarget JSON file per entry in alfs.json.
+"""Generate one UpdateTarget JSON file per entry in senses.db.
 
 Usage:
-    python -m alfs.update.generate_relabel_targets \\
-        --alfs alfs.json --output-dir targets/ [--labeled labeled.parquet]
+    python -m alfs.update.labeling.generate_relabel_targets \\
+        --senses-db senses.db --output-dir targets/ [--labeled-db labeled.db]
 
-If --labeled is provided, only forms with existing rows in labeled.parquet
+If --labeled-db is provided, only forms with existing rows in labeled.db
 are emitted (for relabeling runs).
 """
 
@@ -12,34 +12,36 @@ import argparse
 from pathlib import Path
 from urllib.parse import quote
 
-import polars as pl
-
-from alfs.data_models.alf import Alfs
+from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate one target JSON file per form in alfs.json"
+        description="Generate one target JSON file per form in senses.db"
     )
-    parser.add_argument("--alfs", required=True, help="Path to alfs.json")
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument(
         "--output-dir", required=True, help="Directory for target JSON files"
     )
     parser.add_argument(
-        "--labeled",
+        "--labeled-db",
         default=None,
-        help="If set, only emit targets for forms in labeled.parquet",
+        help="If set, only emit targets for forms in labeled.db",
     )
     args = parser.parse_args()
 
-    alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
+    store = SenseStore(Path(args.senses_db))
+    all_forms = store.all_forms()
 
-    if args.labeled:
-        labeled_forms = set(pl.read_parquet(args.labeled)["form"].to_list())
-        forms = [f for f in alfs.entries if f in labeled_forms]
+    if args.labeled_db and Path(args.labeled_db).exists():
+        occ_store = OccurrenceStore(Path(args.labeled_db))
+        labeled_df = occ_store.to_polars()
+        labeled_forms = set(labeled_df["form"].to_list())
+        forms = [f for f in all_forms if f in labeled_forms]
     else:
-        forms = list(alfs.entries)
+        forms = all_forms
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

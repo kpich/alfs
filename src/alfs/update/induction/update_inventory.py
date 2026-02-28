@@ -1,14 +1,15 @@
-"""Augment alfs.json with new senses (never overwrites, only appends).
+"""Augment senses.db with new senses for a single form (never overwrites, only appends).
 
 Usage:
-    python -m alfs.update.update_inventory \\
-        --alfs-data alfs.json --senses-dir senses/ --output alfs.json
+    python -m alfs.update.induction.update_inventory \\
+        --senses-file {form}_senses.json --senses-db senses.db
 """
 
 import argparse
 from pathlib import Path
 
-from alfs.data_models.alf import Alf, Alfs
+from alfs.data_models.alf import Alf
+from alfs.data_models.sense_store import SenseStore
 
 
 def merge_entry(existing: Alf, new: Alf) -> Alf:
@@ -28,49 +29,36 @@ def merge_entry(existing: Alf, new: Alf) -> Alf:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Augment alfs inventory with new senses"
-    )
-    parser.add_argument("--alfs-data", required=True, help="Path to alfs.json")
-    parser.add_argument(
-        "--senses-dir", required=True, help="Directory with *.json sense files"
+        description="Augment senses.db with new senses for a single form"
     )
     parser.add_argument(
-        "--output", required=True, help="Output path for updated alfs.json"
+        "--senses-file",
+        required=True,
+        help="Path to {form}_senses.json from INDUCE_SENSES",
     )
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     args = parser.parse_args()
 
-    alfs_path = Path(args.alfs_data)
-    if alfs_path.exists():
-        alfs = Alfs.model_validate_json(alfs_path.read_text())
-    else:
-        alfs = Alfs()
+    alf = Alf.model_validate_json(Path(args.senses_file).read_text())
+    if not alf.senses:
+        print(f"No new senses for '{alf.form}' (empty senses file)")
+        return
 
-    entries = dict(alfs.entries)
+    store = SenseStore(Path(args.senses_db))
 
-    for sense_file in sorted(Path(args.senses_dir).glob("*.json")):
-        alf = Alf.model_validate_json(sense_file.read_text())
-        if not alf.senses:
-            continue
-        form = alf.form
-
-        if form not in entries:
-            entries[form] = alf
-            print(f"  Added new entry for '{form}' ({len(alf.senses)} senses)")
+    def merge(existing: Alf | None) -> Alf:
+        if existing is None:
+            print(f"  Added new entry for '{alf.form}' ({len(alf.senses)} senses)")
+            return alf
+        merged = merge_entry(existing, alf)
+        new_count = len(merged.senses) - len(existing.senses)
+        if new_count:
+            print(f"  Appended {new_count} new senses for '{alf.form}'")
         else:
-            existing = entries[form]
-            merged = merge_entry(existing, alf)
-            new_count = len(merged.senses) - len(existing.senses)
-            if new_count:
-                entries[form] = merged
-                print(f"  Appended {new_count} new senses for '{form}'")
-            else:
-                print(f"  No new senses for '{form}' (all duplicates)")
-            # TODO: when UpdateTarget.sense is non-None, refine that specific sense
-            # instead
+            print(f"  No new senses for '{alf.form}' (all duplicates)")
+        return merged
 
-    updated = Alfs(entries=entries)
-    Path(args.output).write_text(updated.model_dump_json(indent=2))
-    print(f"Wrote updated inventory to {args.output}")
+    store.update(alf.form, merge)
 
 
 if __name__ == "__main__":

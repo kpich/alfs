@@ -1,10 +1,10 @@
 """Label occurrences with sense keys and ratings using Ollama.
 
 Usage:
-    python -m alfs.update.label_occurrences \\
+    python -m alfs.update.labeling.label_occurrences \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
-        --alfs alfs.json --output {form}_labeled.parquet \\
-        --model llama3.1:8b --context-chars 150 [--labeled labeled.parquet]
+        --senses-db senses.db --labeled-db labeled.db \\
+        --model llama3.1:8b --context-chars 150
 """
 
 import argparse
@@ -12,8 +12,10 @@ from pathlib import Path
 
 import polars as pl
 
-from alfs.data_models.alf import Alfs, sense_key
+from alfs.data_models.alf import Alf, sense_key
 from alfs.data_models.annotated_occurrence import AnnotatedOccurrence, OccurrenceRating
+from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
 from alfs.update import llm
 from alfs.update.labeling import prompts
@@ -35,16 +37,22 @@ def extract_context(text: str, byte_offset: int, form: str, context_chars: int) 
     return text[start:end]
 
 
-def build_sense_menu(alfs: Alfs, form: str) -> str:
-    alf = alfs.entries[form]
+def build_sense_menu(store: SenseStore, form: str) -> str:
+    alf = store.read(form)
+    if alf is None:
+        raise ValueError(f"No entry for '{form}' in senses.db")
     menu_form = alf.redirect if alf.redirect is not None else form
-    if menu_form not in alfs.entries:
+    target_alf: Alf | None
+    if menu_form == form:
+        target_alf = alf
+    else:
+        target_alf = store.read(menu_form)
+    if target_alf is None:
         raise ValueError(
-            f"Redirect target '{menu_form}' for '{form}' not found in alfs"
+            f"Redirect target '{menu_form}' for '{form}' not found in senses.db"
         )
-    alf = alfs.entries[menu_form]
     lines = []
-    for i, sense in enumerate(alf.senses):
+    for i, sense in enumerate(target_alf.senses):
         pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
         lines.append(f"{i + 1}.{pos_tag} {sense.definition}")
         for j, sub in enumerate(sense.subsenses):
@@ -60,22 +68,22 @@ def main() -> None:
     parser.add_argument("--target", required=True)
     parser.add_argument("--seg-data-dir", required=True)
     parser.add_argument("--docs", required=True)
-    parser.add_argument("--alfs", required=True)
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--model", default="llama3.1:8b")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument(
         "--max-occurrences", type=int, default=100
     )  # TODO: artificially low for dev
-    parser.add_argument("--labeled", default=None, help="Path to labeled.parquet")
     args = parser.parse_args()
 
     target = UpdateTarget.model_validate_json(Path(args.target).read_text())
     form = target.form
 
-    alfs = Alfs.model_validate_json(Path(args.alfs).read_text())
-    if form not in alfs.entries:
-        raise ValueError(f"No entry for '{form}' in alfs.json")
+    sense_store = SenseStore(Path(args.senses_db))
+    occ_store = OccurrenceStore(Path(args.labeled_db))
+
+    sense_menu = build_sense_menu(sense_store, form)
 
     docs_df = pl.read_parquet(args.docs)
     docs = dict(
@@ -87,22 +95,15 @@ def main() -> None:
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
 
     labeled_pairs: set[tuple[str, int]] = set()
-    if args.labeled and Path(args.labeled).exists():
-        ldf = (
-            pl.read_parquet(args.labeled)
-            .filter(pl.col("form") == form)
-            .filter(pl.col("rating").is_in([2, 3]))  # only well-labeled (2/3) → skip
-        )
-        for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
-            labeled_pairs.add((row[0], row[1]))
-
-    sense_menu = build_sense_menu(alfs, form)
+    existing = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
+    for row in existing.select(["doc_id", "byte_offset"]).iter_rows():
+        labeled_pairs.add((row[0], row[1]))
 
     # TODO: batch occurrences into a single prompt instead of one LLM call
     # per occurrence
-    results: list[dict] = []
+    upsert_rows: list[tuple[str, str, int, str, int]] = []
     for occ in df.to_dicts():
-        if len(results) >= args.max_occurrences:
+        if len(upsert_rows) >= args.max_occurrences:
             break
 
         doc_id = occ["doc_id"]
@@ -124,13 +125,13 @@ def main() -> None:
             sense_key=data["sense_key"],
             rating=OccurrenceRating(data["rating"]),
         )
-        results.append({"form": form, **ann.model_dump()})
+        upsert_rows.append(
+            (form, ann.doc_id, ann.byte_offset, ann.sense_key, ann.rating.value)
+        )
 
-    if results:
-        out_path = Path(args.output)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        pl.DataFrame(results).write_parquet(str(out_path))
-        print(f"Labeled {len(results)} occurrences for '{form}' → {args.output}")
+    if upsert_rows:
+        occ_store.upsert_many(upsert_rows)
+        print(f"Labeled {len(upsert_rows)} occurrences for '{form}' → labeled.db")
     else:
         print(f"No new occurrences to label for '{form}'")
 
