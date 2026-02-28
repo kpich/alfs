@@ -1,6 +1,7 @@
 import pytest
 
 from alfs.data_models.alf import Alf, Alfs, Sense
+from alfs.data_models.pos import PartOfSpeech
 from alfs.update.labeling.label_occurrences import build_sense_menu
 
 
@@ -25,6 +26,17 @@ def test_build_sense_menu_follows_redirect():
     alfs = _alfs(canonical, alias)
     menu = build_sense_menu(alfs, "Run")
     assert "1. to move quickly" in menu
+
+
+def test_build_sense_menu_includes_pos():
+    alfs = _alfs(
+        Alf(
+            form="run",
+            senses=[Sense(definition="to move quickly", pos=PartOfSpeech.verb)],
+        )
+    )
+    menu = build_sense_menu(alfs, "run")
+    assert "1. [verb] to move quickly" in menu
 
 
 def test_build_sense_menu_broken_redirect_raises():
