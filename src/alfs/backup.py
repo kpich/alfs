@@ -40,12 +40,24 @@ def main() -> None:
         print(f"  Wrote {len(alfs_list)} entries → {out_path}")
 
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
-    subprocess.run(
+    result = subprocess.run(
         ["git", "commit", "-m", "backup senses"],
         cwd=repo,
-        check=True,
+        check=False,
+        capture_output=True,
+        text=True,
     )
-    print(f"Committed to {repo}")
+    if result.returncode == 0:
+        print(f"Committed to {repo}")
+        subprocess.run(["git", "push"], cwd=repo, check=True)
+        print("Pushed.")
+    else:
+        if "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
+            print("Nothing new to commit.")
+        else:
+            raise subprocess.CalledProcessError(
+                result.returncode, result.args, result.stdout, result.stderr
+            )
 
 
 if __name__ == "__main__":
