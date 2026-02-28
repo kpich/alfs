@@ -1,4 +1,9 @@
-.PHONY: etl seg update relabel dedupe postag validate compile viewer install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel dedupe postag validate compile viewer backup install_precommit_hooks dev test mypy cleandata
+
+SENSES_DB  ?= ../alfs_data/senses.db
+LABELED_DB ?= ../alfs_data/labeled.db
+DOCS       ?= ../text_data/latest/docs.parquet
+SENSES_REPO ?= ../alfs_senses
 
 etl:
 	bash scripts/etl.sh
@@ -14,24 +19,27 @@ relabel:
 
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \
-		--alfs ../alfs_data/alfs.json --output ../alfs_data/alfs.json
+		--senses-db $(SENSES_DB)
 
 postag:
 	uv run --no-sync python -m alfs.update.refinement.postag \
-		--alfs ../alfs_data/alfs.json \
-		--labeled ../alfs_data/labeled.parquet \
-		--docs ../text_data/latest/docs.parquet \
-		--output ../alfs_data/alfs.json
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--docs $(DOCS)
 
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
-		--labeled $(LABELED) --docs $(DOCS)
+		--labeled-db $(LABELED_DB) --docs $(DOCS)
 
 compile:
 	bash scripts/compile.sh
 
 viewer:
 	bash scripts/viewer.sh
+
+backup:
+	uv run --no-sync python -m alfs.backup \
+		--senses-db $(SENSES_DB) --senses-repo $(SENSES_REPO)
 
 install_precommit_hooks:
 	uv sync --group dev

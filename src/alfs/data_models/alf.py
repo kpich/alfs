@@ -4,7 +4,7 @@ from alfs.data_models.pos import PartOfSpeech
 
 
 class Sense(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="ignore")
 
     definition: str = Field(min_length=1)
     subsenses: list[str] = []  # up to one level of sub-definitions
@@ -14,7 +14,7 @@ class Sense(BaseModel):
 class Alf(BaseModel):
     """A single dictionary entry: one word form and its senses."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="ignore")
 
     form: str
     senses: list[Sense] = []
@@ -32,7 +32,7 @@ class Alf(BaseModel):
 class Alfs(BaseModel):
     """The full dictionary: word form → entry."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="ignore")
 
     entries: dict[str, Alf] = {}
 

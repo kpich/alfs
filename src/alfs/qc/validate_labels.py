@@ -1,9 +1,12 @@
-"""Validate that labeled.parquet byte_offsets still resolve to the expected form."""
+"""Validate that labeled.db byte_offsets still resolve to the expected form."""
 
 import argparse
+from pathlib import Path
 import sys
 
 import polars as pl
+
+from alfs.data_models.occurrence_store import OccurrenceStore
 
 
 def validate(labeled: pl.DataFrame, docs: pl.DataFrame) -> pl.DataFrame:
@@ -30,13 +33,14 @@ def validate(labeled: pl.DataFrame, docs: pl.DataFrame) -> pl.DataFrame:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Validate labeled.parquet against docs.parquet"
+        description="Validate labeled.db against docs.parquet"
     )
-    parser.add_argument("--labeled", required=True, help="Path to labeled.parquet")
+    parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
     args = parser.parse_args()
 
-    labeled = pl.read_parquet(args.labeled)
+    occ_store = OccurrenceStore(Path(args.labeled_db))
+    labeled = occ_store.to_polars()
     docs = pl.read_parquet(args.docs)
 
     stale = validate(labeled, docs)
