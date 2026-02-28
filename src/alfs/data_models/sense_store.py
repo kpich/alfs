@@ -10,6 +10,7 @@ from alfs.data_models.alf import Alf
 class SenseStore:
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(db_path, timeout=30) as con:
             con.execute(
                 "CREATE TABLE IF NOT EXISTS senses ("
