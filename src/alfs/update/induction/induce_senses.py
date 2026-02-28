@@ -21,6 +21,7 @@ from alfs.update.induction import prompts
 _SENSE_SCHEMA = {
     "type": "object",
     "properties": {
+        "all_covered": {"type": "boolean"},
         "definition": {"type": "string"},
         "examples": {"type": "array", "items": {"type": "integer"}},
         "subsenses": {"type": "array", "items": {"type": "string"}},
@@ -105,6 +106,12 @@ def main() -> None:
 
     prompt = prompts.induction_prompt(form, contexts, existing_defs)
     data = llm.chat_json(args.model, prompt, format=_SENSE_SCHEMA)
+
+    if data.get("all_covered", False):
+        alf = Alf(form=form, senses=[])
+        Path(args.output).write_text(alf.model_dump_json())
+        print(f"Existing senses cover all contexts for '{form}'; no new sense added.")
+        return
 
     sense = Sense(
         definition=data["definition"],
