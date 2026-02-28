@@ -2,12 +2,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Ensure alfs.json exists
-if [ ! -f ../alfs_data/alfs.json ]; then
-    mkdir -p ../alfs_data
-    echo '{"entries": {}}' > ../alfs_data/alfs.json
-fi
-
 # Ensure ollama is running
 if ! curl -sf http://localhost:11434/ > /dev/null 2>&1; then
     echo "Starting ollama..."

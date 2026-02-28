@@ -74,8 +74,8 @@ workflow {
     UPDATE_INVENTORY(INDUCE_SENSES.out)
 
     // Collect all UPDATE_INVENTORY done signals before starting labeling
-    // so senses.db is fully populated
-    all_done = UPDATE_INVENTORY.out.collect()
+    // so senses.db is fully populated; map to a single value for clean combine
+    all_done = UPDATE_INVENTORY.out.collect().map { _ -> "done" }
 
     LABEL_OCCURRENCES(
         targets_ch

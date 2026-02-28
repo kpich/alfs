@@ -25,6 +25,7 @@ _COUNT_SCHEMA = {
 class OccurrenceStore:
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(db_path, timeout=30) as con:
             con.execute("PRAGMA journal_mode=WAL")
             con.execute(
