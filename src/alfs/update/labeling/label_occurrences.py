@@ -38,6 +38,10 @@ def extract_context(text: str, byte_offset: int, form: str, context_chars: int) 
 def build_sense_menu(alfs: Alfs, form: str) -> str:
     alf = alfs.entries[form]
     menu_form = alf.redirect if alf.redirect is not None else form
+    if menu_form not in alfs.entries:
+        raise ValueError(
+            f"Redirect target '{menu_form}' for '{form}' not found in alfs"
+        )
     alf = alfs.entries[menu_form]
     lines = []
     for i, sense in enumerate(alf.senses):
