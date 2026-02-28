@@ -14,6 +14,7 @@ from pathlib import Path
 
 import polars as pl
 
+from alfs.corpus import fetch_instances
 from alfs.data_models.alf import Alfs, sense_key
 
 
@@ -71,6 +72,16 @@ def compile_entries(
                     {"key": sense_key(top_idx, sub_idx), "definition": defn}
                     for sub_idx, defn in enumerate(sense.subsenses)
                 ]
+            sense_entry["instances"] = fetch_instances(
+                form,
+                sense_key(top_idx),
+                labeled,
+                docs,
+                min_rating=3,
+                context_chars=60,
+                max_instances=3,
+                bold_form=True,
+            )
             senses.append(sense_entry)
 
         entries[form] = {

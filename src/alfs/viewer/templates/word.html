@@ -17,6 +17,13 @@
       {% for sub in sense.subsenses %}<li>{{ sub.definition }}</li>{% endfor %}
     </ol>
     {% endif %}
+    {% if sense.instances %}
+    <ul class="list-unstyled mt-1 ms-2">
+      {% for inst in sense.instances %}
+      <li class="text-muted small fst-italic">...{{ inst | safe }}...</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
   </li>
 {% endfor %}
 </ol>
