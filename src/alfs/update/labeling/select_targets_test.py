@@ -1,7 +1,7 @@
 import numpy as np
 import polars as pl
 
-from alfs.update.select_targets import select_top_n
+from alfs.update.labeling.select_targets import select_top_n
 
 
 def _occurrences(form_counts: dict[str, int]) -> pl.DataFrame:

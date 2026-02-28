@@ -15,7 +15,8 @@ import polars as pl
 
 from alfs.data_models.alf import Alf, Alfs, Sense
 from alfs.data_models.update_target import UpdateTarget
-from alfs.update import llm, prompts
+from alfs.update import llm
+from alfs.update.induction import prompts
 
 _SENSE_SCHEMA = {
     "type": "object",

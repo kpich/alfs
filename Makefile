@@ -13,7 +13,7 @@ relabel:
 	bash scripts/relabel.sh
 
 dedupe:
-	uv run --no-sync python -m alfs.update.dedupe \
+	uv run --no-sync python -m alfs.update.refinement.dedupe \
 		--alfs ../alfs_data/alfs.json --output ../alfs_data/alfs.json
 
 compile:

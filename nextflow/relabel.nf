@@ -14,7 +14,7 @@ process GENERATE_TARGETS {
     output: path "targets/*.json"
     script:
     """
-    uv run --project ${launchDir} --no-sync python -m alfs.update.generate_relabel_targets \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.generate_relabel_targets \
         --alfs alfs.json --output-dir targets/
     """
 }
@@ -25,7 +25,7 @@ process LABEL_OCCURRENCES {
     script:
     """
     form=\$(python -c "import json, urllib.parse; print(urllib.parse.quote(json.load(open('target.json'))['form'], safe=''))")
-    uv run --project ${launchDir} --no-sync python -m alfs.update.label_occurrences \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.label_occurrences \
         --target target.json --seg-data-dir by_prefix --docs docs.parquet \
         --alfs alfs.json --output \${form}_labeled.parquet \
         --model ${params.model} --context-chars ${params.context_chars} \
@@ -39,7 +39,7 @@ process UPDATE_LABELS {
     output: path "labeled.parquet"
     script:
     """
-    uv run --project ${launchDir} --no-sync python -m alfs.update.update_labels \
+    uv run --project ${launchDir} --no-sync python -m alfs.update.labeling.update_labels \
         --labeled-data labeled_empty.parquet --new-dir new_labeled/ \
         --output labeled.parquet
     """

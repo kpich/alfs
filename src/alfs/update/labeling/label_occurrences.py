@@ -15,7 +15,8 @@ import polars as pl
 from alfs.data_models.alf import Alfs, sense_key
 from alfs.data_models.annotated_occurrence import AnnotatedOccurrence, OccurrenceRating
 from alfs.data_models.update_target import UpdateTarget
-from alfs.update import llm, prompts
+from alfs.update import llm
+from alfs.update.labeling import prompts
 
 _LABEL_SCHEMA = {
     "type": "object",
