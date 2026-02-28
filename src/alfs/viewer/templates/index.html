@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}ALFS{% endblock %}
+{% block content %}
+<h1 class="mb-4">ALFS Word List</h1>
+<table class="table table-hover">
+  <thead><tr><th>Word</th><th>Frequency</th></tr></thead>
+  <tbody>
+  {% for form, entry in entries %}
+    <tr>
+      <td><a href="/word/{{ form }}">{{ form }}</a></td>
+      <td>
+        <span class="badge {% if entry.percentile <= 5 %}bg-success{% elif entry.percentile <= 50 %}bg-primary{% else %}bg-secondary{% endif %}">
+          {{ entry.percentile }}
+        </span>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

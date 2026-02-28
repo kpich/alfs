@@ -55,6 +55,7 @@ def test_redirect_forms_excluded():
 
     assert "the" in result
     assert "The" not in result
+    assert 1 <= result["the"]["percentile"] <= 100
 
 
 def test_non_redirect_forms_included():
@@ -69,3 +70,24 @@ def test_non_redirect_forms_included():
     assert "run" in result
     assert result["run"]["senses"][0]["definition"] == "to move quickly"
     assert result["run"]["by_year"]["2020"]["1"] == 1
+    assert 1 <= result["run"]["percentile"] <= 100
+
+
+def test_percentile_ordering():
+    alfs = _alfs(
+        Alf(form="common", senses=[Sense(definition="frequently seen")]),
+        Alf(form="rare", senses=[Sense(definition="seldom seen")]),
+    )
+    labeled = _labeled(
+        [
+            ("common", "doc1", 0, "1", 2),
+            ("common", "doc2", 0, "1", 2),
+            ("common", "doc3", 0, "1", 2),
+            ("rare", "doc4", 0, "1", 2),
+        ]
+    )
+    docs = _docs([("doc1", 2020), ("doc2", 2020), ("doc3", 2020), ("doc4", 2020)])
+
+    result = compile_entries(alfs, labeled, docs)
+
+    assert result["common"]["percentile"] < result["rare"]["percentile"]

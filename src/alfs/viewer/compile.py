@@ -9,6 +9,7 @@ Usage:
 import argparse
 from collections import defaultdict
 import json
+import math
 from pathlib import Path
 
 import polars as pl
@@ -75,6 +76,18 @@ def compile_entries(
             "senses": senses,
             "by_year": dict(by_year_per_form.get(form, {})),
         }
+
+    total_counts = {
+        form: sum(
+            count for yr_data in entry["by_year"].values() for count in yr_data.values()
+        )
+        for form, entry in entries.items()
+    }
+    sorted_forms = sorted(entries, key=lambda f: total_counts[f], reverse=True)
+    n = len(sorted_forms)
+    for rank, form in enumerate(sorted_forms, start=1):
+        entries[form]["percentile"] = math.ceil(rank / n * 100) if n else 100
+
     return entries
 
 
