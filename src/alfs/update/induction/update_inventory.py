@@ -49,6 +49,8 @@ def main() -> None:
 
     for sense_file in sorted(Path(args.senses_dir).glob("*.json")):
         alf = Alf.model_validate_json(sense_file.read_text())
+        if not alf.senses:
+            continue
         form = alf.form
 
         if form not in entries:
