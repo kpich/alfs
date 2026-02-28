@@ -19,7 +19,11 @@ def merge_entry(existing: Alf, new: Alf) -> Alf:
     ]
     if not new_senses:
         return existing
-    return Alf(form=existing.form, senses=list(existing.senses) + new_senses)
+    return Alf(
+        form=existing.form,
+        senses=list(existing.senses) + new_senses,
+        redirect=existing.redirect,
+    )
 
 
 def main() -> None:

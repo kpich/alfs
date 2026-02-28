@@ -12,13 +12,13 @@ params.out_date        = new Date().format('yyyy-MM-dd')
 params.out_dir         = "${launchDir}/../update_data/${params.out_date}"
 
 process SELECT_TARGETS {
-    input:  tuple path("by_prefix"), path("labeled.parquet")
+    input:  tuple path("by_prefix"), path("labeled.parquet"), path("alfs.json")
     output: path "targets/*.json"
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.update.select_targets \
         --seg-data-dir by_prefix --top-n ${params.top_n} \
-        --labeled labeled.parquet --output-dir targets/
+        --labeled labeled.parquet --alfs alfs.json --output-dir targets/
     """
 }
 
@@ -81,7 +81,7 @@ workflow {
     alfs    = file("${params.alfs_data_dir}/alfs.json")
     labeled = file("${params.alfs_data_dir}/labeled.parquet")
 
-    SELECT_TARGETS(Channel.value([seg_dir, labeled]))
+    SELECT_TARGETS(Channel.value([seg_dir, labeled, alfs]))
     targets_ch = SELECT_TARGETS.out.flatten()
 
     INDUCE_SENSES(

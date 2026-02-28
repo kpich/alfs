@@ -27,3 +27,10 @@ def test_merge_skips_case_and_whitespace_duplicate():
     new = _alf("run", "  To Move Quickly  ")
     result = merge_entry(existing, new)
     assert len(result.senses) == 1
+
+
+def test_merge_preserves_redirect():
+    existing = Alf(form="The", senses=[], redirect="the")
+    new = _alf("The", "some new sense")
+    result = merge_entry(existing, new)
+    assert result.redirect == "the"
