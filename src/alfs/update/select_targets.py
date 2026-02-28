@@ -27,7 +27,7 @@ def select_top_n(
     labeled_df: pl.DataFrame,  # columns: form, doc_id, byte_offset, rating
     top_n: int,
     rng: np.random.Generator,
-    redirect_forms: set[str] = frozenset(),
+    redirect_forms: set[str] | frozenset[str] = frozenset(),
 ) -> list[str]:
     """Return up to top_n forms sorted by priority score, descending.
 
