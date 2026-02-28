@@ -83,7 +83,7 @@ def main() -> None:
         ldf = (
             pl.read_parquet(args.labeled)
             .filter(pl.col("form") == form)
-            .filter(pl.col("rating") != 0)  # rating=0 → re-label
+            .filter(pl.col("rating").is_in([2, 3]))  # only well-labeled (2/3) → skip
         )
         for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
             labeled_pairs.add((row[0], row[1]))
