@@ -64,6 +64,7 @@ def compile_entries(
             sense_entry: dict = {
                 "key": sense_key(top_idx),
                 "definition": sense.definition,
+                "pos": sense.pos.value if sense.pos else None,
             }
             if sense.subsenses:
                 sense_entry["subsenses"] = [

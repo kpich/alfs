@@ -11,7 +11,7 @@
 <h2 class="mt-4">Senses</h2>
 <ol>
 {% for sense in senses %}
-  <li>{{ sense.definition }}
+  <li>{% if sense.pos %}<em class="text-muted small">{{ sense.pos }}</em> {% endif %}{{ sense.definition }}
     {% if sense.subsenses %}
     <ol type="a">
       {% for sub in sense.subsenses %}<li>{{ sub.definition }}</li>{% endfor %}
