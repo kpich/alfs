@@ -25,8 +25,9 @@ in dev stay tuned
 | `make dedupe` | LLM-check case-variant entries → set redirects in `senses.db` |
 | `make postag` | LLM-assign POS tags to all untagged senses in `senses.db` |
 | `make cleanup` | Clear stale senses from redirect entries in `senses.db` |
-| `make rewrite` | LLM-suggest definition rewrites for 5 random words → `changes.db` |
-| `make queenant` | Start human-approval UI for rewrites at http://localhost:5003 |
+| `make rewrite` | LLM-suggest definition rewrites for 5 random words → `changes.db` `[H]` |
+| `make retag` | LLM-re-evaluate POS tags for 10 random tagged words → `changes.db` `[H]` |
+| `make queenant` | Start human-approval UI for rewrite/retag changes at http://localhost:5003 |
 
 ### Viewer
 

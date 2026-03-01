@@ -57,6 +57,24 @@
   .example strong { color: #bbb; font-weight: normal; text-decoration: underline; }
 
   .empty { color: #555; font-style: italic; padding: 20px; text-align: center; }
+
+  .type-badge {
+    font-size: 0.7rem; color: #888; background: #2a2a2a;
+    border: 1px solid #444; border-radius: 3px;
+    padding: 1px 6px; margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .pos-table { width: 100%; border-collapse: collapse; border-top: 1px solid #333; }
+  .pos-table th {
+    text-align: left; padding: 6px 14px; border-bottom: 1px solid #333;
+    color: #888; font-weight: normal; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .pos-table td { padding: 8px 14px; border-bottom: 1px solid #222; }
+  .pos-table tr.pos-changed td { background: #1a2a1a; }
+  .pos-table tr.pos-unchanged td { color: #555; }
+  .pos-arrow { color: #fa0; margin: 0 4px; }
 </style>
 </head>
 <body>
@@ -104,6 +122,47 @@ function esc(s) {
     .replace(/>/g, '&gt;');
 }
 
+function renderCard(c) {
+  if (c.type === 'pos_tag') return renderPosTagBody(c);
+  return renderRewriteBody(c);
+}
+
+function renderRewriteBody(c) {
+  return `<div class="diff-grid">
+    <div class="diff-col">
+      <div class="diff-label">Before</div>
+      ${renderSenses(c.data.before, c.examples)}
+    </div>
+    <div class="diff-col">
+      <div class="diff-label">After</div>
+      ${renderSenses(c.data.after, c.examples)}
+    </div>
+  </div>`;
+}
+
+function renderPosTagBody(c) {
+  const before = c.data.before || [];
+  const after  = c.data.after  || [];
+  const rows = before.map((s, i) => {
+    const bPos = s.pos || '—';
+    const aPos = after[i] ? (after[i].pos || '—') : '—';
+    const changed = bPos !== aPos;
+    const rowClass = changed ? 'pos-changed' : 'pos-unchanged';
+    const posCell = changed
+      ? `${esc(bPos)}<span class="pos-arrow">→</span>${esc(aPos)}`
+      : esc(bPos);
+    return `<tr class="${rowClass}">
+      <td>${i + 1}.</td>
+      <td>${esc(s.definition)}</td>
+      <td>${posCell}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="pos-table">
+    <thead><tr><th>#</th><th>Definition</th><th>POS</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 function render() {
   const summary = document.getElementById('summary');
   const cards = document.getElementById('cards');
@@ -118,22 +177,13 @@ function render() {
   cards.innerHTML = pendingChanges.map(c => `
     <div class="card" id="card-${c.id}">
       <div class="card-header">
-        <span class="card-form">${esc(c.form)}</span>
+        <span class="card-form">${esc(c.form)}<span class="type-badge">${esc(c.type)}</span></span>
         <div class="card-actions">
           <button class="btn-approve" onclick="act('${c.id}', 'approve')">Approve</button>
           <button class="btn-reject"  onclick="act('${c.id}', 'reject')">Reject</button>
         </div>
       </div>
-      <div class="diff-grid">
-        <div class="diff-col">
-          <div class="diff-label">Before</div>
-          ${renderSenses(c.data.before, c.examples)}
-        </div>
-        <div class="diff-col">
-          <div class="diff-label">After</div>
-          ${renderSenses(c.data.after, c.examples)}
-        </div>
-      </div>
+      ${renderCard(c)}
     </div>
   `).join('');
 }
