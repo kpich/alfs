@@ -101,6 +101,39 @@ def morph_analyze_prompt(
     )
 
 
+def critic_prompt(form: str, before: list[Sense], after: list[Sense]) -> str:
+    lines = [
+        "You are a senior lexicographer reviewing a proposed revision"
+        " to a dictionary entry.",
+        "",
+        f'Word: "{form}"',
+        "",
+        "Original definitions:",
+    ]
+    for i, s in enumerate(before, 1):
+        lines.append(f"  {i}. {s.definition}")
+        for sub in s.subsenses or []:
+            lines.append(f"     \u2022 {sub}")
+    lines += ["", "Proposed definitions:"]
+    for i, s in enumerate(after, 1):
+        lines.append(f"  {i}. {s.definition}")
+        for sub in s.subsenses or []:
+            lines.append(f"     \u2022 {sub}")
+    lines += [
+        "",
+        "Is the proposed version an improvement over the original?",
+        "Reject if any proposed definition:",
+        "  - is self-referential (uses the word or a close derivative of it)",
+        "  - is too terse (no more informative than the original)",
+        "  - is too verbose or padded with unnecessary hedging",
+        "  - changes the level of granularity without good reason",
+        "  - is otherwise worse as a dictionary entry",
+        "",
+        'Respond with ONLY valid JSON: {"is_improvement": true, "reason": "..."}',
+    ]
+    return "\n".join(lines)
+
+
 def dedup_prompt(
     form: str,
     form_defs: list[str],

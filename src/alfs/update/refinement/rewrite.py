@@ -19,6 +19,15 @@ from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
 from alfs.update.refinement import prompts
 
+_CRITIC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "is_improvement": {"type": "boolean"},
+        "reason": {"type": "string"},
+    },
+    "required": ["is_improvement", "reason"],
+}
+
 _REWRITE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -77,6 +86,15 @@ def main() -> None:
             )
             for i, s in enumerate(returned)
         ]
+        verdict = llm.chat_json(
+            args.model,
+            prompts.critic_prompt(form, list(alf.senses), after),
+            format=_CRITIC_SCHEMA,
+        )
+        if not verdict.get("is_improvement", True):
+            print(f"  skipped {form!r} (critic: {verdict.get('reason', '')})")
+            continue
+
         change = Change(
             id=str(uuid.uuid4()),
             type=ChangeType.rewrite,
@@ -91,7 +109,7 @@ def main() -> None:
         change_store.add(change)
         print(f"  queued rewrite for: {form!r}")
 
-    print(f"Queued {len(selected)} rewrites.")
+    print("Done.")
 
 
 if __name__ == "__main__":
