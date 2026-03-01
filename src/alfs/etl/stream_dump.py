@@ -49,7 +49,7 @@ def main() -> None:
 
             title_elem = elem.find(f"{{{NS}}}title")
             title = title_elem.text if title_elem is not None else ""
-            if not title or "/" in title:
+            if not title:
                 elem.clear()
                 continue
 
