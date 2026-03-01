@@ -15,7 +15,8 @@ class SenseStore:
             con.execute(
                 "CREATE TABLE IF NOT EXISTS senses ("
                 "form TEXT PRIMARY KEY, "
-                "data TEXT NOT NULL"
+                "data TEXT NOT NULL, "
+                "updated_at TEXT"
                 ")"
             )
             con.commit()
@@ -35,7 +36,8 @@ class SenseStore:
     def write(self, entry: Alf) -> None:
         with self._connect() as con:
             con.execute(
-                "INSERT OR REPLACE INTO senses (form, data) VALUES (?, ?)",
+                "INSERT OR REPLACE INTO senses (form, data, updated_at) "
+                "VALUES (?, ?, CURRENT_TIMESTAMP)",
                 (entry.form, entry.model_dump_json(exclude_none=True)),
             )
             con.commit()
@@ -50,7 +52,8 @@ class SenseStore:
             existing = Alf.model_validate_json(row[0]) if row is not None else None
             updated = fn(existing)
             con.execute(
-                "INSERT OR REPLACE INTO senses (form, data) VALUES (?, ?)",
+                "INSERT OR REPLACE INTO senses (form, data, updated_at) "
+                "VALUES (?, ?, CURRENT_TIMESTAMP)",
                 (form, updated.model_dump_json(exclude_none=True)),
             )
             con.commit()
@@ -69,3 +72,8 @@ class SenseStore:
         with self._connect() as con:
             rows = con.execute("SELECT form, data FROM senses").fetchall()
         return {form: Alf.model_validate_json(data) for form, data in rows}
+
+    def all_timestamps(self) -> dict[str, str | None]:
+        with self._connect() as con:
+            rows = con.execute("SELECT form, updated_at FROM senses").fetchall()
+        return dict(rows)

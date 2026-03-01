@@ -86,6 +86,15 @@ def test_update_missing_form(store: SenseStore) -> None:
     assert result.senses[0].definition == "a new entry"
 
 
+def test_all_timestamps(store: SenseStore) -> None:
+    store.write(_alf("cat", "a feline"))
+    store.write(_alf("dog", "a canine"))
+    ts = store.all_timestamps()
+    assert set(ts.keys()) == {"cat", "dog"}
+    assert ts["cat"] is not None
+    assert ts["dog"] is not None
+
+
 def test_concurrent_rmw(tmp_path: Path) -> None:
     """Concurrent update() calls must not lose data."""
     db_path = tmp_path / "senses.db"

@@ -42,6 +42,7 @@ def test_query_form_missing_returns_empty(store: OccurrenceStore) -> None:
         "byte_offset": pl.Int64,
         "sense_key": pl.String,
         "rating": pl.Int64,
+        "updated_at": pl.String,
     }
 
 

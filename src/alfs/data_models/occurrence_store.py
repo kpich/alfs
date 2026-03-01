@@ -12,6 +12,7 @@ _SCHEMA = {
     "byte_offset": pl.Int64,
     "sense_key": pl.String,
     "rating": pl.Int64,
+    "updated_at": pl.String,
 }
 
 _COUNT_SCHEMA = {
@@ -35,6 +36,7 @@ class OccurrenceStore:
                 "byte_offset INTEGER NOT NULL, "
                 "sense_key   TEXT    NOT NULL, "
                 "rating      INTEGER NOT NULL CHECK (rating IN (0, 1, 2, 3)), "
+                "updated_at  TEXT, "
                 "PRIMARY KEY (form, doc_id, byte_offset)"
                 ")"
             )
@@ -49,8 +51,8 @@ class OccurrenceStore:
         with self._connect() as con:
             con.executemany(
                 "INSERT OR REPLACE INTO labeled "
-                "(form, doc_id, byte_offset, sense_key, rating) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "(form, doc_id, byte_offset, sense_key, rating, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
                 rows,
             )
             con.commit()
@@ -58,7 +60,7 @@ class OccurrenceStore:
     def query_form(self, form: str) -> pl.DataFrame:
         with self._connect() as con:
             rows = con.execute(
-                "SELECT form, doc_id, byte_offset, sense_key, rating "
+                "SELECT form, doc_id, byte_offset, sense_key, rating, updated_at "
                 "FROM labeled WHERE form = ?",
                 (form,),
             ).fetchall()
@@ -69,7 +71,8 @@ class OccurrenceStore:
     def to_polars(self) -> pl.DataFrame:
         with self._connect() as con:
             rows = con.execute(
-                "SELECT form, doc_id, byte_offset, sense_key, rating FROM labeled"
+                "SELECT form, doc_id, byte_offset, sense_key, rating, updated_at "
+                "FROM labeled"
             ).fetchall()
         if not rows:
             return pl.DataFrame(schema=_SCHEMA)
