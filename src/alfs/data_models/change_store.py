@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 class ChangeType(str, Enum):
     rewrite = "rewrite"
+    pos_tag = "pos_tag"
 
 
 class ChangeStatus(str, Enum):

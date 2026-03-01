@@ -18,6 +18,7 @@
   button:disabled { opacity: 0.4; cursor: default; }
   button.primary { border-color: #4a9; color: #4a9; }
   button.primary:hover:not(:disabled) { background: #1a3a30; }
+  .h-badge { color: #fa0; margin-left: 5px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th {
@@ -53,7 +54,8 @@
   <button class="primary" onclick="queueTask('dedupe')">Queue Dedupe</button>
   <button class="primary" onclick="queueTask('postag')">Queue POS-tag</button>
   <button class="primary" onclick="queueTask('cleanup')">Queue Cleanup</button>
-  <button class="primary" onclick="queueTask('rewrite')">Queue Rewrite</button>
+  <button class="primary" onclick="queueTask('rewrite')">Queue Rewrite<span class="h-badge">[H]</span></button>
+  <button class="primary" onclick="queueTask('retag')">Queue Retag<span class="h-badge">[H]</span></button>
 </div>
 
 <table id="task-table">
@@ -207,7 +209,7 @@ async function queueTask(type) {
 
 // Initial load + polling
 refreshTasks();
-setInterval(refreshTasks, 2000);
+setInterval(refreshTasks, 5000);
 </script>
 </body>
 </html>
