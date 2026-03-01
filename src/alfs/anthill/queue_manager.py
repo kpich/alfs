@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 import subprocess
@@ -42,6 +42,7 @@ class QueueManager:
         self.max_parallel = max_parallel
         self.tasks: list[Task] = []
         self._lock = threading.Lock()
+        self._durations: dict[str, list[float]] = {}
 
         t = threading.Thread(target=self._dispatch_loop, daemon=True)
         t.start()
@@ -53,7 +54,7 @@ class QueueManager:
             id=str(uuid.uuid4()),
             type=task_type,
             status=TaskStatus.pending,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         with self._lock:
             self.tasks.append(task)
@@ -69,6 +70,18 @@ class QueueManager:
     def all_tasks(self) -> list[Task]:
         with self._lock:
             return list(self.tasks)
+
+    def remove_task(self, task_id: str) -> bool:
+        with self._lock:
+            for i, t in enumerate(self.tasks):
+                if t.id == task_id and t.status == TaskStatus.pending:
+                    del self.tasks[i]
+                    return True
+        return False
+
+    def average_duration(self, task_type: str) -> float | None:
+        vals = self._durations.get(task_type)
+        return sum(vals) / len(vals) if vals else None
 
     def _dispatch_loop(self) -> None:
         import time
@@ -87,7 +100,7 @@ class QueueManager:
                 return
             task = pending[0]
             task.status = TaskStatus.running
-            task.started_at = datetime.utcnow()
+            task.started_at = datetime.now(UTC)
 
         thread = threading.Thread(target=self._run_task, args=(task,), daemon=True)
         thread.start()
@@ -114,9 +127,11 @@ class QueueManager:
                 task.status = (
                     TaskStatus.done if proc.returncode == 0 else TaskStatus.failed
                 )
-                task.ended_at = datetime.utcnow()
+                task.ended_at = datetime.now(UTC)
+                elapsed = (task.ended_at - task.started_at).total_seconds()
+                self._durations.setdefault(task.type, []).append(elapsed)
         except Exception as exc:
             with self._lock:
                 task.log_lines.append(f"[conductor error] {exc}")
                 task.status = TaskStatus.failed
-                task.ended_at = datetime.utcnow()
+                task.ended_at = datetime.now(UTC)

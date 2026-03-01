@@ -76,14 +76,26 @@ function fmtTime(iso) {
   return d.toLocaleTimeString();
 }
 
+function fmtSecs(s) {
+  if (s < 60) return s + 's';
+  return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+}
+
 function fmtDuration(task) {
   const start = task.started_at ? new Date(task.started_at) : null;
   const end = task.ended_at ? new Date(task.ended_at) : null;
+  const est = task.est_duration != null ? Math.round(task.est_duration) : null;
+
+  if (task.status === 'pending') {
+    return est != null ? '~' + fmtSecs(est) : '—';
+  }
   if (!start) return '—';
-  const ms = (end || new Date()) - start;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return s + 's';
-  return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+  const elapsed = Math.floor(((end || new Date()) - start) / 1000);
+  const elapsedStr = fmtSecs(elapsed);
+  if (task.status === 'running' && est != null) {
+    return elapsedStr + ' / ~' + fmtSecs(est);
+  }
+  return elapsedStr;
 }
 
 function statusClass(s) { return 'status-' + s; }
@@ -101,14 +113,18 @@ function renderTasks(tasks) {
   for (const t of reversed) {
     const expanded = expandedIds.has(t.id);
     const hint = expanded ? '▲' : '▼';
+    const removeBtn = t.status === 'pending'
+      ? `<button onclick="event.stopPropagation(); removeTask('${t.id}')" style="padding:2px 7px; font-size:0.8rem;" title="Remove from queue">×</button>`
+      : '';
     html += `<tr class="task-row" onclick="toggleExpand('${t.id}')" data-id="${t.id}">
       <td>${t.type}</td>
       <td class="${statusClass(t.status)}">${t.status}</td>
       <td>${fmtTime(t.created_at)}</td>
       <td>${fmtDuration(t)}</td>
-      <td><span class="expand-hint">${hint}</span></td>
+      <td>${removeBtn}<span class="expand-hint">${hint}</span></td>
     </tr>`;
     if (expanded) {
+      logOffsets[t.id] = 0;  // force re-fetch from start after DOM rebuild
       html += `<tr class="log-row" id="log-row-${t.id}">
         <td colspan="5">
           <div class="log-box">
@@ -151,9 +167,10 @@ function toggleExpand(id) {
 }
 
 function ensureLogPoller(id) {
-  if (logPollers[id]) return;
-  fetchLogs(id);
-  logPollers[id] = setInterval(() => fetchLogs(id), 2000);
+  fetchLogs(id);  // always fetch immediately after render
+  if (!logPollers[id]) {
+    logPollers[id] = setInterval(() => fetchLogs(id), 2000);
+  }
 }
 
 function stopLogPoller(id) {
@@ -184,6 +201,11 @@ async function fetchLogs(id) {
   } catch (e) {
     // ignore
   }
+}
+
+async function removeTask(id) {
+  await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+  refreshTasks();
 }
 
 async function queueTask(type) {

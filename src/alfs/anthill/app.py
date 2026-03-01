@@ -12,7 +12,7 @@ app = Flask(__name__)
 _queue: QueueManager | None = None
 
 
-def _task_to_dict(task: Task) -> dict:
+def _task_to_dict(task: Task, est_duration: float | None = None) -> dict:
     return {
         "id": task.id,
         "type": task.type,
@@ -22,6 +22,7 @@ def _task_to_dict(task: Task) -> dict:
         "ended_at": task.ended_at.isoformat() if task.ended_at else None,
         "returncode": task.returncode,
         "log_count": len(task.log_lines),
+        "est_duration": est_duration,
     }
 
 
@@ -43,7 +44,9 @@ def index():
 @app.get("/api/tasks")
 def list_tasks():
     assert _queue is not None
-    return jsonify([_task_to_dict(t) for t in _queue.all_tasks()])
+    return jsonify(
+        [_task_to_dict(t, _queue.average_duration(t.type)) for t in _queue.all_tasks()]
+    )
 
 
 @app.post("/api/tasks")
@@ -55,7 +58,15 @@ def create_task():
         task = _queue.enqueue(task_type)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify(_task_to_dict(task)), 201
+    return jsonify(_task_to_dict(task, _queue.average_duration(task.type))), 201
+
+
+@app.delete("/api/tasks/<task_id>")
+def remove_task(task_id: str):
+    assert _queue is not None
+    if not _queue.remove_task(task_id):
+        return jsonify({"error": "not found or not pending"}), 404
+    return "", 204
 
 
 @app.get("/api/tasks/<task_id>/logs")
