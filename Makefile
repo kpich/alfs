@@ -58,7 +58,9 @@ conductor:
 queenant:
 	uv run --no-sync python -m alfs.queenant \
 		--senses-db $(SENSES_DB) \
-		--changes-db $(CHANGES_DB)
+		--changes-db $(CHANGES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--docs $(DOCS)
 
 install_precommit_hooks:
 	uv sync --group dev

@@ -13,6 +13,8 @@ def main() -> None:
     )
     parser.add_argument("--senses-db", default="../alfs_data/senses.db")
     parser.add_argument("--changes-db", default="../alfs_data/changes.db")
+    parser.add_argument("--labeled-db", default="../alfs_data/labeled.db")
+    parser.add_argument("--docs", default="../text_data/latest/docs.parquet")
     parser.add_argument("--port", type=int, default=5003)
     args = parser.parse_args()
 
@@ -23,7 +25,13 @@ def main() -> None:
         webbrowser.open(f"http://localhost:{port}")
 
     threading.Thread(target=_open, daemon=True).start()
-    app.main(Path(args.senses_db), Path(args.changes_db), port=port)
+    app.main(
+        Path(args.senses_db),
+        Path(args.changes_db),
+        labeled_db=Path(args.labeled_db),
+        docs=Path(args.docs),
+        port=port,
+    )
 
 
 main()

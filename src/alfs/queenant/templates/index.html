@@ -42,11 +42,19 @@
     font-size: 0.75rem; color: #888; text-transform: uppercase;
     letter-spacing: 0.05em; margin-bottom: 8px;
   }
-  .sense-item { margin-bottom: 8px; }
+  .sense-item { margin-bottom: 12px; }
   .sense-num { color: #4a9; margin-right: 4px; }
   .sense-def { color: #ddd; }
   .subsense { color: #aaa; margin-left: 16px; margin-top: 2px; font-size: 0.85rem; }
   .subsense::before { content: '\2022  '; }
+
+  .examples { margin-top: 6px; margin-left: 16px; }
+  .example {
+    color: #777; font-size: 0.8rem; line-height: 1.4;
+    border-left: 2px solid #333; padding-left: 8px;
+    margin-bottom: 4px;
+  }
+  .example strong { color: #bbb; font-weight: normal; text-decoration: underline; }
 
   .empty { color: #555; font-style: italic; padding: 20px; text-align: center; }
 </style>
@@ -69,16 +77,22 @@ async function loadChanges() {
   }
 }
 
-function renderSenses(senses) {
-  if (!senses || senses.length === 0) return '<span class="sense-def" style="color:#555">(none)</span>';
+function renderSenses(senses, examples) {
+  if (!senses || senses.length === 0) {
+    return '<span class="sense-def" style="color:#555">(none)</span>';
+  }
   return senses.map((s, i) => {
     const subs = (s.subsenses || []).map(sub =>
       `<div class="subsense">${esc(sub)}</div>`
     ).join('');
+    const exs = (examples && examples[i] || []).map(ex =>
+      `<div class="example">${ex}</div>`
+    ).join('');
+    const exBlock = exs ? `<div class="examples">${exs}</div>` : '';
     return `<div class="sense-item">
       <span class="sense-num">${i + 1}.</span>
       <span class="sense-def">${esc(s.definition)}</span>
-      ${subs}
+      ${subs}${exBlock}
     </div>`;
   }).join('');
 }
@@ -113,11 +127,11 @@ function render() {
       <div class="diff-grid">
         <div class="diff-col">
           <div class="diff-label">Before</div>
-          ${renderSenses(c.data.before)}
+          ${renderSenses(c.data.before, c.examples)}
         </div>
         <div class="diff-col">
           <div class="diff-label">After</div>
-          ${renderSenses(c.data.after)}
+          ${renderSenses(c.data.after, c.examples)}
         </div>
       </div>
     </div>

@@ -62,13 +62,20 @@ def main() -> None:
             prompts.rewrite_prompt(form, list(alf.senses)),
             format=_REWRITE_SCHEMA,
         )
+        returned = data["senses"]
+        if len(returned) != len(alf.senses):
+            print(
+                f"  skipped {form!r}: LLM returned {len(returned)} senses,"
+                f" expected {len(alf.senses)}"
+            )
+            continue
         after = [
             Sense(
                 definition=s["definition"],
                 subsenses=s.get("subsenses", []),
-                pos=alf.senses[i].pos if i < len(alf.senses) else None,
+                pos=alf.senses[i].pos,
             )
-            for i, s in enumerate(data["senses"])
+            for i, s in enumerate(returned)
         ]
         change = Change(
             id=str(uuid.uuid4()),
