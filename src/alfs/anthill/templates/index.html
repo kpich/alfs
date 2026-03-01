@@ -48,16 +48,7 @@
 <body>
 <h1>Anthill Conductor</h1>
 
-<div class="actions">
-  <button class="primary" onclick="queueTask('update')">Queue Update</button>
-  <button class="primary" onclick="queueTask('relabel')">Queue Relabel</button>
-  <button class="primary" onclick="queueTask('dedupe')">Queue Dedupe</button>
-  <button class="primary" onclick="queueTask('postag')">Queue POS-tag</button>
-  <button class="primary" onclick="queueTask('cleanup')">Queue Cleanup</button>
-  <button class="primary" onclick="queueTask('rewrite')">Queue Rewrite<span class="h-badge">[H]</span></button>
-  <button class="primary" onclick="queueTask('retag')">Queue Retag<span class="h-badge">[H]</span></button>
-  <button class="primary" onclick="queueTask('prune')">Queue Prune<span class="h-badge">[H]</span></button>
-</div>
+<div class="actions" id="action-buttons"></div>
 
 <table id="task-table">
   <thead>
@@ -208,7 +199,31 @@ async function queueTask(type) {
   }
 }
 
+async function loadActions() {
+  try {
+    const r = await fetch('/api/actions');
+    const actions = await r.json();
+    const container = document.getElementById('action-buttons');
+    for (const a of actions) {
+      const btn = document.createElement('button');
+      btn.className = 'primary';
+      btn.onclick = () => queueTask(a.name);
+      btn.textContent = 'Queue ' + a.label;
+      if (a.human_review) {
+        const badge = document.createElement('span');
+        badge.className = 'h-badge';
+        badge.textContent = '[H]';
+        btn.appendChild(badge);
+      }
+      container.appendChild(btn);
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 // Initial load + polling
+loadActions();
 refreshTasks();
 setInterval(refreshTasks, 5000);
 </script>

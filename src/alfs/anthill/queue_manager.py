@@ -8,6 +8,8 @@ import subprocess
 import threading
 import uuid
 
+from alfs.actions import ACTIONS_BY_NAME
+
 
 class TaskStatus(str, Enum):
     pending = "pending"
@@ -15,17 +17,6 @@ class TaskStatus(str, Enum):
     done = "done"
     failed = "failed"
 
-
-TASK_COMMANDS: dict[str, list[str]] = {
-    "update": ["make", "update"],
-    "relabel": ["make", "relabel"],
-    "dedupe": ["make", "dedupe"],
-    "postag": ["make", "postag"],
-    "cleanup": ["make", "cleanup"],
-    "rewrite": ["make", "rewrite"],
-    "retag": ["make", "retag"],
-    "prune": ["make", "prune"],
-}
 
 MAX_LOG_LINES = 5000
 
@@ -56,7 +47,7 @@ class QueueManager:
         t.start()
 
     def enqueue(self, task_type: str) -> Task:
-        if task_type not in TASK_COMMANDS:
+        if task_type not in ACTIONS_BY_NAME:
             raise ValueError(f"Unsupported task type: {task_type!r}")
         task = Task(
             id=str(uuid.uuid4()),
@@ -102,7 +93,7 @@ class QueueManager:
         thread.start()
 
     def _run_task(self, task: Task) -> None:
-        cmd = TASK_COMMANDS[task.type]
+        cmd = ACTIONS_BY_NAME[task.type].cmd
         try:
             proc = subprocess.Popen(
                 cmd,

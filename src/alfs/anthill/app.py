@@ -4,6 +4,8 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
+from alfs.actions import ACTIONS
+
 from .queue_manager import QueueManager, Task
 
 app = Flask(__name__)
@@ -21,6 +23,16 @@ def _task_to_dict(task: Task) -> dict:
         "returncode": task.returncode,
         "log_count": len(task.log_lines),
     }
+
+
+@app.get("/api/actions")
+def list_actions():
+    return jsonify(
+        [
+            {"name": a.name, "label": a.label, "human_review": a.human_review}
+            for a in ACTIONS
+        ]
+    )
 
 
 @app.get("/")
