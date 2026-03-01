@@ -75,6 +75,9 @@
   .pos-table tr.pos-changed td { background: #1a2a1a; }
   .pos-table tr.pos-unchanged td { color: #555; }
   .pos-arrow { color: #fa0; margin: 0 4px; }
+  .prune-removed td { color: #e44; }
+  .prune-kept   td { color: #555; }
+  .prune-stat      { font-size: 0.8rem; }
 </style>
 </head>
 <body>
@@ -124,6 +127,7 @@ function esc(s) {
 
 function renderCard(c) {
   if (c.type === 'pos_tag') return renderPosTagBody(c);
+  if (c.type === 'prune')   return renderPruneBody(c);
   return renderRewriteBody(c);
 }
 
@@ -138,6 +142,33 @@ function renderRewriteBody(c) {
       ${renderSenses(c.data.after, c.examples)}
     </div>
   </div>`;
+}
+
+function renderPruneBody(c) {
+  const before = c.data.before || [];
+  const removed = new Set((c.data.removed || []).map(r => r.index));
+  const removedStats = Object.fromEntries((c.data.removed || []).map(r => [r.index, r]));
+  const rows = before.map((s, i) => {
+    if (removed.has(i)) {
+      const st = removedStats[i];
+      const pct = st ? Math.round(st.pct_lt3 * 100) : '?';
+      const tot = st ? st.total : '?';
+      return `<tr class="prune-removed">
+        <td>${i+1}.</td>
+        <td><s>${esc(s.definition)}</s></td>
+        <td class="prune-stat">${pct}% &lt;3 (n=${tot})</td>
+      </tr>`;
+    }
+    return `<tr class="prune-kept">
+      <td>${i+1}.</td>
+      <td>${esc(s.definition)}</td>
+      <td></td>
+    </tr>`;
+  }).join('');
+  return `<table class="pos-table">
+    <thead><tr><th>#</th><th>Definition</th><th>Quality</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function renderPosTagBody(c) {

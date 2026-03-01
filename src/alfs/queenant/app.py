@@ -19,7 +19,7 @@ _docs: pl.DataFrame | None = None
 
 
 def apply_change(change: Change, sense_store: SenseStore) -> None:
-    if change.type in (ChangeType.rewrite, ChangeType.pos_tag):
+    if change.type in (ChangeType.rewrite, ChangeType.pos_tag, ChangeType.prune):
         after = [Sense.model_validate(s) for s in change.data["after"]]
         sense_store.update(
             change.form,
