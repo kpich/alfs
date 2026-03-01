@@ -30,41 +30,25 @@ def select_top_n(
     rng: np.random.Generator,
     redirect_forms: set[str] | frozenset[str] = frozenset(),
 ) -> list[str]:
-    """Return up to top_n forms sorted by priority score, descending.
+    """Return up to top_n forms sampled proportionally to unlabeled instance count.
 
-    Score = binomial(unlabeled, bad_rate) where
-    bad_rate = (n_bad + 1) / (n_labeled + 2) with Beta(1,1) prior.
-    n_bad counts occurrences with rating in {0, 1} (NONE or POOR sense coverage).
-    n_good counts occurrences with rating in {2, 3}.
+    Forms with more unlabeled instances have a higher probability of being selected.
+    Forms with zero unlabeled instances are excluded.
     """
     total_counts = (
         occurrences_df.select("form").group_by("form").agg(pl.len().alias("total"))
     )
 
-    n_bad = (
-        labeled_df.filter(pl.col("rating").is_in([0, 1]))
-        .select(["form", "doc_id", "byte_offset"])
+    n_labeled = (
+        labeled_df.select(["form", "doc_id", "byte_offset"])
         .unique()
         .group_by("form")
-        .agg(pl.len().alias("n_bad"))
-    )
-
-    n_good = (
-        labeled_df.filter(pl.col("rating").is_in([2, 3]))
-        .select(["form", "doc_id", "byte_offset"])
-        .unique()
-        .group_by("form")
-        .agg(pl.len().alias("n_good"))
+        .agg(pl.len().alias("n_labeled"))
     )
 
     candidates = (
-        total_counts.join(n_bad, on="form", how="left")
-        .join(n_good, on="form", how="left")
-        .with_columns(
-            pl.col("n_bad").fill_null(0),
-            pl.col("n_good").fill_null(0),
-        )
-        .with_columns((pl.col("n_bad") + pl.col("n_good")).alias("n_labeled"))
+        total_counts.join(n_labeled, on="form", how="left")
+        .with_columns(pl.col("n_labeled").fill_null(0))
         .with_columns((pl.col("total") - pl.col("n_labeled")).alias("unlabeled"))
         .filter(
             pl.col("form").map_elements(
@@ -77,17 +61,15 @@ def select_top_n(
         candidates = candidates.filter(~pl.col("form").is_in(list(redirect_forms)))
 
     forms = candidates["form"].to_list()
-    n_bad_arr = candidates["n_bad"].to_numpy().astype(np.int64)
-    n_labeled_arr = candidates["n_labeled"].to_numpy().astype(np.int64)
-    unlabeled_arr = candidates["unlabeled"].to_numpy().astype(np.int64)
-
-    bad_rate = (n_bad_arr + 1) / (n_labeled_arr + 2)
-    scores = rng.binomial(np.maximum(0, unlabeled_arr), bad_rate)
-
-    order = np.argsort(scores)[::-1]
-    sorted_forms = [forms[i] for i in order]
-
-    return sorted_forms[:top_n]
+    unlabeled_arr = candidates["unlabeled"].to_numpy().astype(np.float64)
+    weights = np.maximum(0.0, unlabeled_arr)
+    total_weight = weights.sum()
+    if total_weight == 0:
+        return []
+    probs = weights / total_weight
+    n = min(top_n, int((weights > 0).sum()))
+    chosen_indices = rng.choice(len(forms), size=n, replace=False, p=probs)
+    return [forms[i] for i in chosen_indices]
 
 
 def main() -> None:

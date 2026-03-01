@@ -37,9 +37,8 @@ def test_basic_unlabeled_sort():
     occ = _occurrences({"A": 100, "B": 90})
     lab = _labeled([("A", "doc1", i) for i in range(20)])
     result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
-    # A has 20 bad labels → bad_rate≈0.95, score~76; B has none → bad_rate=0.5, score~45
-    # A ranks first due to high bad rate despite fewer raw unlabeled occurrences
-    assert result[0] == "A"
+    # A has 80 unlabeled; B has 90 unlabeled → both have nonzero weight, both returned
+    assert set(result) == {"A", "B"}
 
 
 def test_all_labeled_form_loses():
@@ -86,38 +85,39 @@ def test_rating_zero_treated_as_unlabeled():
     occ = _occurrences({"A": 10})
     lab = _labeled([("A", "doc1", i) for i in range(10)], rating=0)
     result = select_top_n(occ, lab, top_n=1, rng=np.random.default_rng(0))
-    assert result == ["A"]  # only form with letters; returned even with score=0
+    # All 10 occurrences labeled (rating=0 still counts as labeled) → unlabeled=0 →
+    # excluded
+    assert result == []
 
 
-def test_high_bad_rate_beats_high_volume():
-    # X: few occurrences but 80% bad rate; Y: many occurrences but all good labels
+def test_high_volume_wins():
+    # X: few unlabeled; Y: many unlabeled regardless of rating quality
     occ = _occurrences({"X": 20, "Y": 200})
-    lab_x = _labeled([("X", "doc1", i) for i in range(4)], rating=1)  # 4 bad
-    lab_y = _labeled([("Y", "doc2", i) for i in range(50)], rating=3)  # 50 good
+    lab_x = _labeled([("X", "doc1", i) for i in range(4)], rating=1)  # 4 labeled
+    lab_y = _labeled([("Y", "doc2", i) for i in range(50)], rating=3)  # 50 labeled
     lab = pl.concat([lab_x, lab_y])
     result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
-    # X: 16 unlabeled, bad_rate=5/6≈0.83 → expected score~13
-    # Y: 150 unlabeled, bad_rate=1/52≈0.02 → expected score~3
-    assert result[0] == "X"
+    # X: 16 unlabeled; Y: 150 unlabeled → Y has much higher weight, selected first
+    assert result[0] == "Y"
 
 
 def test_cold_start_form_gets_half_rate():
-    # Form with no labels gets bad_rate = (0+1)/(0+2) = 0.5 via Beta(1,1) prior
+    # Form with no labels has all occurrences unlabeled → nonzero weight → selected
     occ = _occurrences({"coldword": 20})
     lab = _labeled([])
     result = select_top_n(occ, lab, top_n=1, rng=np.random.default_rng(0))
-    # With bad_rate=0.5 and 20 unlabeled, expected score=10; form should be selected
+    # All 20 occurrences unlabeled → weight=20 → form is selected
     assert result == ["coldword"]
 
 
 def test_all_excellent_ratings_deprioritized():
-    # Form with all EXCELLENT labels gets very low bad_rate → low score
+    # "excellent" has more unlabeled instances than "unknown" despite high label
+    # coverage
     occ = _occurrences({"excellent": 50, "unknown": 10})
     lab = _labeled([("excellent", "doc1", i) for i in range(30)], rating=3)
     result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
-    # "unknown": 10 unlabeled, bad_rate=0.5, expected score=5
-    # "excellent": 20 unlabeled, bad_rate=1/32≈0.03, expected score~0.6
-    assert result[0] == "unknown"
+    # "excellent": 20 unlabeled; "unknown": 10 unlabeled → "excellent" has higher weight
+    assert result[0] == "excellent"
 
 
 def test_redirect_forms_excluded():

@@ -128,7 +128,11 @@ class QueueManager:
                     TaskStatus.done if proc.returncode == 0 else TaskStatus.failed
                 )
                 task.ended_at = datetime.now(UTC)
-                elapsed = (task.ended_at - task.started_at).total_seconds()
+                elapsed = (
+                    (task.ended_at - task.started_at).total_seconds()
+                    if task.started_at
+                    else 0.0
+                )
                 self._durations.setdefault(task.type, []).append(elapsed)
         except Exception as exc:
             with self._lock:
