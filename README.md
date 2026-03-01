@@ -22,6 +22,7 @@ in dev stay tuned
 | `make conductor` | Start work-queue UI at http://localhost:5002 |
 | `make update` | Induce senses + label occurrences → `alfs_data/` |
 | `make relabel [NWORDS=N]` | Re-label N randomly-selected words (default 5) |
+| `make label_new [NWORDS=N]` | Label new instances for N random inventory words (default 10) |
 | `make dedupe` | LLM-check case-variant entries → set redirects in `senses.db` |
 | `make postag` | LLM-assign POS tags to all untagged senses in `senses.db` |
 | `make cleanup` | Clear stale senses from redirect entries in `senses.db` |

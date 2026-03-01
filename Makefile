@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel dedupe postag cleanup rewrite retag prune validate compile viewer backup conductor queenant install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune validate compile viewer backup conductor queenant install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB  ?= ../alfs_data/senses.db
 LABELED_DB ?= ../alfs_data/labeled.db
@@ -18,6 +18,9 @@ update:
 
 relabel:
 	bash scripts/relabel.sh --nwords $(NWORDS)
+
+label_new:
+	bash scripts/label_new.sh --nwords $(NWORDS)
 
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \

@@ -24,6 +24,12 @@ ACTIONS: list[Action] = [
         ["make", "relabel"],
         description="Re-run labeling pipeline",
     ),
+    Action(
+        "label_new",
+        "Label New",
+        ["make", "label_new"],
+        description="Label new corpus instances for random forms from inventory",
+    ),
     Action("dedupe", "Dedupe", ["make", "dedupe"], description="Deduplicate senses"),
     Action(
         "postag", "POS-tag", ["make", "postag"], description="Add part-of-speech tags"
