@@ -126,8 +126,9 @@ function esc(s) {
 }
 
 function renderCard(c) {
-  if (c.type === 'pos_tag') return renderPosTagBody(c);
-  if (c.type === 'prune')   return renderPruneBody(c);
+  if (c.type === 'pos_tag')        return renderPosTagBody(c);
+  if (c.type === 'prune')          return renderPruneBody(c);
+  if (c.type === 'morph_redirect') return renderMorphRedirectBody(c);
   return renderRewriteBody(c);
 }
 
@@ -171,6 +172,13 @@ function renderPruneBody(c) {
   </table>`;
 }
 
+function renderExamples(exs) {
+  if (!exs || exs.length === 0) return '';
+  return '<div class="examples">' +
+    exs.map(ex => `<div class="example">${ex}</div>`).join('') +
+    '</div>';
+}
+
 function renderPosTagBody(c) {
   const before = c.data.before || [];
   const after  = c.data.after  || [];
@@ -182,9 +190,10 @@ function renderPosTagBody(c) {
     const posCell = changed
       ? `${esc(bPos)}<span class="pos-arrow">→</span>${esc(aPos)}`
       : esc(bPos);
+    const exBlock = renderExamples(c.examples && c.examples[i]);
     return `<tr class="${rowClass}">
       <td>${i + 1}.</td>
-      <td>${esc(s.definition)}</td>
+      <td>${esc(s.definition)}${exBlock}</td>
       <td>${posCell}</td>
     </tr>`;
   }).join('');
@@ -192,6 +201,35 @@ function renderPosTagBody(c) {
     <thead><tr><th>#</th><th>Definition</th><th>POS</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function renderMorphRedirectBody(c) {
+  const before = c.data.before;
+  const after  = c.data.after;
+  const exBlock = renderExamples(c.examples && c.examples[0]);
+  const idx = c.data.derived_sense_idx;
+  return `<div class="diff-grid">
+    <div class="diff-col">
+      <div class="diff-label">Before (sense ${idx + 1})</div>
+      <div class="sense-item">
+        <span class="sense-num">${idx + 1}.</span>
+        <span class="sense-def">${esc(before.definition)}</span>
+        ${exBlock}
+      </div>
+    </div>
+    <div class="diff-col">
+      <div class="diff-label">After</div>
+      <div class="sense-item">
+        <span class="sense-num">${idx + 1}.</span>
+        <span class="sense-def">${esc(after.definition)}</span>
+        <div style="margin-top:6px;font-size:0.8rem;color:#888">
+          base: <span style="color:#aaa">${esc(c.data.base_form)}</span>
+          sense ${c.data.base_sense_idx + 1}
+          — <span style="color:#fa0">${esc(c.data.relation)}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function render() {

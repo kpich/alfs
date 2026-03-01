@@ -44,6 +44,20 @@ def _examples_for_change(change: Change) -> list[list[str]]:
     """Return per-sense example snippets (rating>=3) for the change's form."""
     if _labeled is None or _docs is None:
         return []
+    if change.type == ChangeType.morph_redirect:
+        idx = change.data["derived_sense_idx"]
+        return [
+            fetch_instances(
+                change.form,
+                sense_key(idx),
+                _labeled,
+                _docs,
+                min_rating=3,
+                context_chars=60,
+                max_instances=3,
+                bold_form=True,
+            )
+        ]
     n_senses = len(change.data.get("before", []))
     return [
         fetch_instances(
