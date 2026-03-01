@@ -5,7 +5,7 @@ params.text_data_dir = "${launchDir}/../text_data"
 params.docs          = "${params.text_data_dir}/latest/docs.parquet"
 params.out_date      = new Date().format('yyyy-MM-dd')
 params.out_dir       = "${params.seg_data_dir}/${params.out_date}"
-params.num_shards    = 4
+params.num_shards    = 6
 
 process SEGMENT_DOCS_SHARD {
     input:  tuple path("docs.parquet"), val(shard_idx)

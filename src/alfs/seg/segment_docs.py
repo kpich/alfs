@@ -6,9 +6,36 @@ Usage:
 """
 
 import argparse
+from collections.abc import Iterator
 
 import polars as pl
+import pyarrow as pa  # type: ignore[import-untyped]
+import pyarrow.parquet as pq  # type: ignore[import-untyped]
 import spacy
+
+CHUNK_SIZE = 800_000
+
+PA_SCHEMA = pa.schema(
+    [
+        ("form", pa.string()),
+        ("doc_id", pa.string()),
+        ("byte_offset", pa.int64()),
+    ]
+)
+
+
+def iter_chunks(text: str) -> Iterator[tuple[str, int]]:
+    """Yield (chunk_text, chunk_start_chars) pairs."""
+    start = 0
+    while start < len(text):
+        end = min(start + CHUNK_SIZE, len(text))
+        if end < len(text):
+            # back up to last whitespace
+            ws = text.rfind(" ", start, end)
+            if ws > start:
+                end = ws + 1
+        yield text[start:end], start
+        start = end
 
 
 def main() -> None:
@@ -33,23 +60,34 @@ def main() -> None:
 
     nlp = spacy.load("en_core_web_sm")
 
-    rows: list[dict[str, object]] = []
-    for row in df.iter_rows(named=True):
-        doc_id: str = row["doc_id"]
-        text: str = row["text"]
-        spacy_doc = nlp(text)
-        for token in spacy_doc:
-            byte_offset = len(text[: token.idx].encode())
-            rows.append(
-                {"form": token.text, "doc_id": doc_id, "byte_offset": byte_offset}
+    with pq.ParquetWriter(args.output, PA_SCHEMA) as writer:
+        for row in df.iter_rows(named=True):
+            doc_id: str = row["doc_id"]
+            text: str = row["text"]
+            rows: list[dict[str, object]] = []
+            for chunk, chunk_start_chars in iter_chunks(text):
+                chunk_start_bytes = len(text[:chunk_start_chars].encode())
+                spacy_doc = nlp(chunk)
+                for token in spacy_doc:
+                    byte_offset = chunk_start_bytes + len(chunk[: token.idx].encode())
+                    rows.append(
+                        {
+                            "form": token.text,
+                            "doc_id": doc_id,
+                            "byte_offset": byte_offset,
+                        }
+                    )
+            table = pa.table(
+                {
+                    "form": [r["form"] for r in rows],
+                    "doc_id": [r["doc_id"] for r in rows],
+                    "byte_offset": [r["byte_offset"] for r in rows],
+                },
+                schema=PA_SCHEMA,
             )
+            writer.write_table(table)
 
-    print(f"Writing {len(rows)} occurrences to {args.output}...")
-    out_df = pl.DataFrame(
-        rows, schema={"form": pl.String, "doc_id": pl.String, "byte_offset": pl.Int64}
-    )
-    out_df.write_parquet(args.output)
-    print(f"Done. Shape: {out_df.shape}")
+    print(f"Done writing {args.output}")
 
 
 if __name__ == "__main__":

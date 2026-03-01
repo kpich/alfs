@@ -13,6 +13,7 @@ dependencies = [
     "numpy>=1",
     "ollama>=0.4",
     "polars>=1",
+    "pyarrow>=14",
     "pydantic>=2",
     "pyyaml>=6",
     "spacy>=3.8",
@@ -32,6 +33,7 @@ dev = [
     "ruff",
     "types-pyyaml",
 ]
+
 
 [tool.pytest.ini_options]
 testpaths = ["src"]
