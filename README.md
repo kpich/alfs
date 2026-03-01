@@ -15,8 +15,9 @@ in dev stay tuned
 | `make seg` | Segment docs → `seg_data/` |
 | `make update` | Induce senses + label occurrences → `alfs_data/` |
 | `make relabel [NWORDS=N]` | Re-label N randomly-selected words (default 5); set NWORDS larger for broader runs |
-| `make dedupe` | LLM-check case-variant entries → set redirects in `alfs.json` |
-| `make postag` | LLM-assign POS tags to all untagged senses in `alfs.json` |
+| `make dedupe` | LLM-check case-variant entries → set redirects in `senses.db` |
+| `make postag` | LLM-assign POS tags to all untagged senses in `senses.db` |
+| `make cleanup` | Clear stale senses from redirect entries in `senses.db` |
 | `make validate` | Check that all byte_offsets in `labeled.parquet` still resolve to the right token in `docs.parquet`; exits nonzero if any are stale |
 | `make compile` | Compile → `viewer_data/data.json` |
 | `make viewer` | Start viewer at http://localhost:5001 |
