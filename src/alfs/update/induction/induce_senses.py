@@ -118,7 +118,7 @@ def main() -> None:
 
     sense = Sense(
         definition=data["definition"],
-        subsenses=data.get("subsenses", []),
+        subsenses=data.get("subsenses") or None,
     )
     alf = Alf(form=form, senses=[sense])
 

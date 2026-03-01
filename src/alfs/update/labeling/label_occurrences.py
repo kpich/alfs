@@ -55,7 +55,7 @@ def build_sense_menu(store: SenseStore, form: str) -> str:
     for i, sense in enumerate(target_alf.senses):
         pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
         lines.append(f"{i + 1}.{pos_tag} {sense.definition}")
-        for j, sub in enumerate(sense.subsenses):
+        for j, sub in enumerate(sense.subsenses or []):
             sub_key = sense_key(i, j)
             lines.append(f"   {sub_key}. {sub}")
     return "\n".join(lines)

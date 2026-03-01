@@ -72,7 +72,7 @@ def main() -> None:
         after = [
             Sense(
                 definition=s["definition"],
-                subsenses=s.get("subsenses", []),
+                subsenses=s.get("subsenses") or None,
                 pos=alf.senses[i].pos,
             )
             for i, s in enumerate(returned)

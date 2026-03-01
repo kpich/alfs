@@ -7,7 +7,7 @@ class Sense(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     definition: str = Field(min_length=1)
-    subsenses: list[str] = []  # up to one level of sub-definitions
+    subsenses: list[str] | None = None  # up to one level of sub-definitions
     pos: PartOfSpeech | None = None
 
 
@@ -26,7 +26,7 @@ class Alf(BaseModel):
         sense = self.senses[top_idx]
         if sub_idx is None:
             return sense.definition
-        return sense.subsenses[sub_idx]
+        return (sense.subsenses or [])[sub_idx]
 
 
 class Alfs(BaseModel):

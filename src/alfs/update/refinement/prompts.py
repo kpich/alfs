@@ -12,7 +12,7 @@ def rewrite_prompt(form: str, senses: list[Sense]) -> str:
     ]
     for i, s in enumerate(senses, 1):
         lines.append(f"  {i}. {s.definition}")
-        for sub in s.subsenses:
+        for sub in s.subsenses or []:
             lines.append(f"     \u2022 {sub}")
     lines += [
         "",

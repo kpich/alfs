@@ -29,7 +29,9 @@ def main() -> None:
     for form, alf in sorted(entries.items()):
         first = form[0].lower() if form and form[0].isalpha() else None
         key = first if first is not None else "special"
-        buckets.setdefault(key, []).append(alf.model_dump(exclude_none=True))
+        buckets.setdefault(key, []).append(
+            alf.model_dump(exclude_none=True, mode="json")
+        )
 
     repo = Path(args.senses_repo)
     repo.mkdir(parents=True, exist_ok=True)
