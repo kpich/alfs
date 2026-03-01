@@ -1,3 +1,27 @@
+from alfs.data_models.alf import Sense
+
+
+def rewrite_prompt(form: str, senses: list[Sense]) -> str:
+    lines = [
+        "You are a lexicographer improving dictionary entries.",
+        "",
+        f'Rewrite the sense definitions for "{form}" to be clearer and more precise.',
+        "Keep exactly the same number of senses. Preserve meaning; improve phrasing.",
+        "",
+        "Current definitions:",
+    ]
+    for i, s in enumerate(senses, 1):
+        lines.append(f"  {i}. {s.definition}")
+        for sub in s.subsenses:
+            lines.append(f"     \u2022 {sub}")
+    lines += [
+        "",
+        "Respond with ONLY valid JSON: "
+        '{"senses": [{"definition": "...", "subsenses": [...]}, ...]}',
+    ]
+    return "\n".join(lines)
+
+
 def postag_prompt(form: str, definition: str, instances: list[str]) -> str:
     instances_section = ""
     if instances:
