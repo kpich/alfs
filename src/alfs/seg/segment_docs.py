@@ -17,11 +17,19 @@ def main() -> None:
     parser.add_argument(
         "--output", required=True, help="Output path for raw_occurrences.parquet"
     )
+    parser.add_argument(
+        "--shard-index", type=int, default=0, help="Shard index (0-based)"
+    )
+    parser.add_argument(
+        "--num-shards", type=int, default=1, help="Total number of shards"
+    )
     args = parser.parse_args()
 
     print(f"Loading docs from {args.docs}...")
     df = pl.read_parquet(args.docs)
     print(f"Loaded {len(df)} docs")
+    df = df[args.shard_index :: args.num_shards]
+    print(f"Shard {args.shard_index}/{args.num_shards}: {len(df)} docs")
 
     nlp = spacy.load("en_core_web_sm")
 

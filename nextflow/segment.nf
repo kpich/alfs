@@ -5,35 +5,39 @@ params.text_data_dir = "${launchDir}/../text_data"
 params.docs          = "${params.text_data_dir}/latest/docs.parquet"
 params.out_date      = new Date().format('yyyy-MM-dd')
 params.out_dir       = "${params.seg_data_dir}/${params.out_date}"
+params.num_shards    = 4
 
-process SEGMENT_DOCS {
-    publishDir params.out_dir, mode: 'copy'
-    input:  path "docs.parquet"
-    output: path "raw_occurrences.parquet"
+process SEGMENT_DOCS_SHARD {
+    input:  tuple path("docs.parquet"), val(shard_idx)
+    output: path "occurrences_${shard_idx}.parquet"
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.seg.segment_docs \
-        --docs   docs.parquet \
-        --output raw_occurrences.parquet
+        --docs        docs.parquet \
+        --shard-index ${shard_idx} \
+        --num-shards  ${params.num_shards} \
+        --output      occurrences_${shard_idx}.parquet
     """
 }
 
 process AGGREGATE_OCCURRENCES {
     publishDir "${params.out_dir}/by_prefix", mode: 'copy'
-    input:  path "raw_occurrences.parquet"
+    input:  path "*.parquet"
     output: path "*"
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.seg.aggregate_occurrences \
-        --occurrences raw_occurrences.parquet \
+        --occurrences *.parquet \
         --output-dir  .
     """
 }
 
 workflow {
-    docs_ch = Channel.fromPath(params.docs)
-    SEGMENT_DOCS(docs_ch)
-    AGGREGATE_OCCURRENCES(SEGMENT_DOCS.out)
+    docs_ch       = Channel.fromPath(params.docs)
+    shard_indices = Channel.from(0..<params.num_shards)
+
+    shards = SEGMENT_DOCS_SHARD(docs_ch.combine(shard_indices))
+    AGGREGATE_OCCURRENCES(shards.collect())
 }
 
 workflow.onComplete {

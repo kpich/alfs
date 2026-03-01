@@ -20,7 +20,10 @@ def _prefix(form: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Aggregate occurrences by prefix")
     parser.add_argument(
-        "--occurrences", required=True, help="Path to raw_occurrences.parquet"
+        "--occurrences",
+        nargs="+",
+        required=True,
+        help="Path(s) to occurrences parquet file(s)",
     )
     parser.add_argument(
         "--output-dir", required=True, help="Output directory for by_prefix layout"
