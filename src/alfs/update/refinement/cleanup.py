@@ -29,9 +29,8 @@ def main() -> None:
 
     store = SenseStore(Path(args.senses_db))
     fixed = 0
-    for form in store.all_forms():
-        alf = store.get(form)
-        if alf and alf.redirect and alf.senses:
+    for form, alf in store.all_entries().items():
+        if alf.redirect and alf.senses:
             store.update(form, _clear_senses)
             print(f"  cleared senses on redirect: {form!r} → {alf.redirect!r}")
             fixed += 1
