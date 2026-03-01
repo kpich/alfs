@@ -61,6 +61,13 @@ ACTIONS: list[Action] = [
         human_review=True,
         description="Prune low-quality senses (requires approval)",
     ),
+    Action(
+        "morph_redirect",
+        "Morph Redirect",
+        ["make", "morph_redirect"],
+        human_review=True,
+        description="Propose morphological derivation links (requires approval)",
+    ),
 ]
 
 ACTIONS_BY_NAME: dict[str, Action] = {a.name: a for a in ACTIONS}

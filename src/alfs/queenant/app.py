@@ -7,7 +7,7 @@ from flask import Flask, jsonify, render_template
 import polars as pl
 
 from alfs.corpus import fetch_instances
-from alfs.data_models.alf import Sense, sense_key
+from alfs.data_models.alf import Alf, Sense, sense_key
 from alfs.data_models.change_store import Change, ChangeStatus, ChangeStore, ChangeType
 from alfs.data_models.sense_store import SenseStore
 
@@ -27,6 +27,17 @@ def apply_change(change: Change, sense_store: SenseStore) -> None:
                 update={"senses": after}
             ),
         )
+    elif change.type == ChangeType.morph_redirect:
+        idx = change.data["derived_sense_idx"]
+        after_sense = Sense.model_validate(change.data["after"])
+
+        def apply_fn(existing: Alf | None) -> Alf:
+            assert existing is not None
+            senses = list(existing.senses)
+            senses[idx] = after_sense
+            return existing.model_copy(update={"senses": senses})
+
+        sense_store.update(change.form, apply_fn)
 
 
 def _examples_for_change(change: Change) -> list[list[str]]:

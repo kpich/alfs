@@ -1,4 +1,4 @@
-from alfs.data_models.alf import Sense
+from alfs.data_models.alf import Alf, Sense
 
 
 def rewrite_prompt(form: str, senses: list[Sense]) -> str:
@@ -40,6 +40,64 @@ def postag_prompt(form: str, definition: str, instances: list[str]) -> str:
         f"Choose one of: noun, verb, adjective, adverb, preposition, conjunction, "
         f"pronoun, determiner, interjection, other.\n"
         f'\nRespond with ONLY valid JSON: {{"pos": "noun"}}'
+    )
+
+
+def morph_screen_prompt(forms: list[str]) -> str:
+    forms_list = "\n".join(f"  - {f}" for f in forms)
+    return (
+        "You are a lexicographer identifying morphological derivations.\n"
+        "\n"
+        "Below is a list of word forms from a dictionary inventory.\n"
+        "Identify which forms are likely morphological derivations of a more basic\n"
+        "English word (e.g. plural, past tense, comparative, etc.).\n"
+        "Only include a form if you believe its base form is a common English word\n"
+        "(not a proper noun, not an obscure technical term).\n"
+        "\n"
+        f"Forms:\n{forms_list}\n"
+        "\n"
+        "Respond with ONLY valid JSON: "
+        '{"candidates": [{"form": "dogs", "base": "dog"}, ...]}\n'
+        "If no forms are derivations, return an empty candidates list."
+    )
+
+
+def morph_analyze_prompt(
+    derived_form: str,
+    base_form: str,
+    derived_alf: Alf,
+    base_alf: Alf,
+) -> str:
+    def fmt_senses(alf: Alf) -> str:
+        lines = []
+        for i, s in enumerate(alf.senses):
+            pos_tag = f" [{s.pos}]" if s.pos else ""
+            lines.append(f"  {i}. {s.definition}{pos_tag}")
+        return "\n".join(lines) if lines else "  (no senses)"
+
+    return (
+        "You are a lexicographer identifying morphological relationships between\n"
+        "dictionary sense pairs.\n"
+        "\n"
+        f'Derived form: "{derived_form}"\n'
+        f"Senses (0-indexed):\n{fmt_senses(derived_alf)}\n"
+        "\n"
+        f'Base form: "{base_form}"\n'
+        f"Senses (0-indexed):\n{fmt_senses(base_alf)}\n"
+        "\n"
+        "For each sense of the derived form that is a direct morphological derivation\n"
+        "of a sense of the base form, provide:\n"
+        "  - derived_sense_idx: index into derived form's senses\n"
+        "  - base_sense_idx: index into base form's senses\n"
+        "  - relation: one of plural, past_tense, third_person_singular,\n"
+        "    present_participle, comparative, superlative\n"
+        "  - proposed_definition: a concise dictionary-style definition\n"
+        '    (e.g. "plural form of dog (n.)")\n'
+        "\n"
+        'Respond with ONLY valid JSON: {"relations": [{"derived_sense_idx": 0,\n'
+        '"base_sense_idx": 1, "relation": "plural",\n'
+        '"proposed_definition": "plural form of dog (n.)"}]}\n'
+        "If no derivational links exist, return an empty relations list."
     )
 
 

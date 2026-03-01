@@ -29,7 +29,8 @@ in dev stay tuned
 | `make rewrite` | LLM-suggest definition rewrites for 5 random words → `changes.db` `[H]` |
 | `make retag` | LLM-re-evaluate POS tags for 10 random tagged words → `changes.db` `[H]` |
 | `make prune` | Queue removal of top-5 worst-quality senses (>20% rated <3) → `changes.db` `[H]` |
-| `make queenant` | Start human-approval UI for rewrite/retag/prune changes at http://localhost:5003 |
+| `make morph_redirect` | Queue morphological redirect proposals (e.g. plural, past tense) → `changes.db` `[H]` |
+| `make queenant` | Start human-approval UI for pending changes at http://localhost:5003 |
 
 ### Viewer
 

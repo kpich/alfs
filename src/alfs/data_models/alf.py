@@ -1,6 +1,17 @@
+from enum import Enum
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from alfs.data_models.pos import PartOfSpeech
+
+
+class MorphRelation(str, Enum):
+    plural = "plural"
+    past_tense = "past_tense"
+    third_person_singular = "third_person_singular"
+    present_participle = "present_participle"
+    comparative = "comparative"
+    superlative = "superlative"
 
 
 class Sense(BaseModel):
@@ -9,6 +20,8 @@ class Sense(BaseModel):
     definition: str = Field(min_length=1)
     subsenses: list[str] | None = None  # up to one level of sub-definitions
     pos: PartOfSpeech | None = None
+    morph_base: str | None = None
+    morph_relation: MorphRelation | None = None
 
 
 class Alf(BaseModel):

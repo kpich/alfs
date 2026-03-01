@@ -13,6 +13,7 @@ class ChangeType(str, Enum):
     rewrite = "rewrite"
     pos_tag = "pos_tag"
     prune = "prune"
+    morph_redirect = "morph_redirect"
 
 
 class ChangeStatus(str, Enum):
