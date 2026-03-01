@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel dedupe postag validate compile viewer backup conductor install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel dedupe postag cleanup validate compile viewer backup conductor install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB  ?= ../alfs_data/senses.db
 LABELED_DB ?= ../alfs_data/labeled.db
@@ -27,6 +27,10 @@ postag:
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS)
+
+cleanup:
+	uv run --no-sync python -m alfs.update.refinement.cleanup \
+		--senses-db $(SENSES_DB)
 
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
