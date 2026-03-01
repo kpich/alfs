@@ -1,73 +1,23 @@
-"""Parse a Wikibooks XML dump and write sampled docs to Parquet.
+"""Parse a JSONL page dump and write docs to Parquet.
 
 Usage:
     python -m alfs.etl.parse_dump \
-        --dump dump.xml.bz2 --num-docs 10 --seed 42 --output docs.parquet
+        --pages pages.jsonl \
+        --source wikibooks \
+        --shard-index 0 \
+        --num-shards 4 \
+        --output docs.parquet
 """
 
 import argparse
-import bz2
 import hashlib
-import random
+import json
 from urllib.parse import quote
-import xml.etree.ElementTree as ET
 
 import mwparserfromhell
 import polars as pl
 
 from alfs.data_models.doc import Doc
-
-NS = "http://www.mediawiki.org/xml/export-0.11/"
-
-
-def stream_pages(dump_path: str) -> list[dict]:
-    pages = []
-    with bz2.open(dump_path) as f:
-        for _event, elem in ET.iterparse(f, events=["end"]):
-            if elem.tag != f"{{{NS}}}page":
-                continue
-
-            ns_elem = elem.find(f"{{{NS}}}ns")
-            if ns_elem is None or ns_elem.text != "0":
-                elem.clear()
-                continue
-
-            title_elem = elem.find(f"{{{NS}}}title")
-            title = title_elem.text if title_elem is not None else ""
-            if not title or "/" in title:
-                elem.clear()
-                continue
-
-            revision = elem.find(f"{{{NS}}}revision")
-            if revision is None:
-                elem.clear()
-                continue
-
-            text_elem = revision.find(f"{{{NS}}}text")
-            wikitext = text_elem.text if text_elem is not None else ""
-            if not wikitext:
-                elem.clear()
-                continue
-
-            timestamp_elem = revision.find(f"{{{NS}}}timestamp")
-            timestamp = timestamp_elem.text if timestamp_elem is not None else ""
-            year = int(timestamp[:4]) if timestamp else None
-
-            contributor = revision.find(f"{{{NS}}}contributor")
-            username_elem = (
-                contributor.find(f"{{{NS}}}username")
-                if contributor is not None
-                else None
-            )
-            author = username_elem.text if username_elem is not None else None
-
-            pages.append(
-                {"title": title, "wikitext": wikitext, "year": year, "author": author}
-            )
-            elem.clear()
-
-    return pages
-
 
 BASE_URLS = {
     "wikibooks": "https://en.wikibooks.org/wiki/",
@@ -76,12 +26,8 @@ BASE_URLS = {
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Parse MediaWiki XML dump to Parquet")
-    parser.add_argument("--dump", required=True, help="Path to .xml.bz2 dump file")
-    parser.add_argument(
-        "--num-docs", type=int, required=True, help="Number of docs to sample"
-    )
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
+    parser = argparse.ArgumentParser(description="Parse JSONL page dump to Parquet")
+    parser.add_argument("--pages", required=True, help="Path to JSONL from stream_dump")
     parser.add_argument("--output", required=True, help="Output Parquet file path")
     parser.add_argument(
         "--source",
@@ -89,21 +35,26 @@ def main() -> None:
         choices=list(BASE_URLS),
         help="Source corpus name",
     )
+    parser.add_argument(
+        "--shard-index", type=int, default=0, help="Shard index (0-based)"
+    )
+    parser.add_argument(
+        "--num-shards", type=int, default=1, help="Total number of shards"
+    )
     args = parser.parse_args()
 
     base_url = BASE_URLS[args.source]
 
-    print(f"Streaming pages from {args.dump}...")
-    all_pages = stream_pages(args.dump)
-    print(f"Found {len(all_pages)} top-level pages")
-
-    sampled = random.Random(args.seed).sample(
-        all_pages, min(args.num_docs, len(all_pages))
+    with open(args.pages) as f:
+        all_pages = [json.loads(line) for line in f]
+    shard = all_pages[args.shard_index :: args.num_shards]
+    n_total = len(all_pages)
+    print(
+        f"Shard {args.shard_index}/{args.num_shards}: {len(shard)} of {n_total} pages"
     )
-    print(f"Sampled {len(sampled)} pages, parsing wikitext...")
 
     docs: list[Doc] = []
-    for page in sampled:
+    for page in shard:
         text = mwparserfromhell.parse(page["wikitext"]).strip_code().strip()
         doc_id = hashlib.sha256(text.encode()).hexdigest()[:8]
         title = page["title"]
