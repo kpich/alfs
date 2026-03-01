@@ -1,7 +1,8 @@
-.PHONY: etl seg update relabel dedupe postag cleanup validate compile viewer backup conductor install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel dedupe postag cleanup rewrite validate compile viewer backup conductor queenant install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB  ?= ../alfs_data/senses.db
 LABELED_DB ?= ../alfs_data/labeled.db
+CHANGES_DB ?= ../alfs_data/changes.db
 DOCS       ?= ../text_data/latest/docs.parquet
 SENSES_REPO ?= ../alfs_senses
 NWORDS     ?= 5
@@ -32,6 +33,11 @@ cleanup:
 	uv run --no-sync python -m alfs.update.refinement.cleanup \
 		--senses-db $(SENSES_DB)
 
+rewrite:
+	uv run --no-sync python -m alfs.update.refinement.rewrite \
+		--senses-db $(SENSES_DB) \
+		--changes-db $(CHANGES_DB)
+
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
 		--labeled-db $(LABELED_DB) --docs $(DOCS)
@@ -48,6 +54,11 @@ backup:
 
 conductor:
 	uv run --no-sync python -m alfs.anthill
+
+queenant:
+	uv run --no-sync python -m alfs.queenant \
+		--senses-db $(SENSES_DB) \
+		--changes-db $(CHANGES_DB)
 
 install_precommit_hooks:
 	uv sync --group dev

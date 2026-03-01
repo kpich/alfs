@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Queenant — Sense Approval</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #1a1a1a; color: #ddd; padding: 20px; }
+  h1 { font-size: 1.2rem; margin-bottom: 4px; color: #fff; }
+  #summary { font-size: 0.85rem; color: #888; margin-bottom: 20px; }
+
+  .card {
+    border: 1px solid #333; border-radius: 4px;
+    margin-bottom: 16px; overflow: hidden;
+  }
+  .card-header {
+    background: #222; padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-form { font-size: 1.1rem; color: #fff; font-weight: bold; }
+  .card-actions { display: flex; gap: 8px; }
+
+  button {
+    padding: 5px 14px; border: 1px solid #555; border-radius: 3px;
+    background: #2a2a2a; color: #ddd; cursor: pointer; font-family: monospace;
+    font-size: 0.85rem;
+  }
+  button:hover:not(:disabled) { background: #3a3a3a; border-color: #888; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .btn-approve { border-color: #4a9; color: #4a9; }
+  .btn-approve:hover:not(:disabled) { background: #1a3a30; }
+  .btn-reject  { border-color: #e44; color: #e44; }
+  .btn-reject:hover:not(:disabled)  { background: #3a1a1a; }
+
+  .diff-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    border-top: 1px solid #333;
+  }
+  .diff-col { padding: 12px 14px; }
+  .diff-col + .diff-col { border-left: 1px solid #333; }
+  .diff-label {
+    font-size: 0.75rem; color: #888; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 8px;
+  }
+  .sense-item { margin-bottom: 8px; }
+  .sense-num { color: #4a9; margin-right: 4px; }
+  .sense-def { color: #ddd; }
+  .subsense { color: #aaa; margin-left: 16px; margin-top: 2px; font-size: 0.85rem; }
+  .subsense::before { content: '\2022  '; }
+
+  .empty { color: #555; font-style: italic; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Queenant — Sense Approval</h1>
+<div id="summary">Loading…</div>
+<div id="cards"></div>
+
+<script>
+let pendingChanges = [];
+
+async function loadChanges() {
+  try {
+    const r = await fetch('/api/changes');
+    pendingChanges = await r.json();
+    render();
+  } catch (e) {
+    // network hiccup — ignore
+  }
+}
+
+function renderSenses(senses) {
+  if (!senses || senses.length === 0) return '<span class="sense-def" style="color:#555">(none)</span>';
+  return senses.map((s, i) => {
+    const subs = (s.subsenses || []).map(sub =>
+      `<div class="subsense">${esc(sub)}</div>`
+    ).join('');
+    return `<div class="sense-item">
+      <span class="sense-num">${i + 1}.</span>
+      <span class="sense-def">${esc(s.definition)}</span>
+      ${subs}
+    </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function render() {
+  const summary = document.getElementById('summary');
+  const cards = document.getElementById('cards');
+
+  summary.textContent = `${pendingChanges.length} pending change${pendingChanges.length === 1 ? '' : 's'}`;
+
+  if (pendingChanges.length === 0) {
+    cards.innerHTML = '<div class="empty">No pending changes. Run <code>make rewrite</code> to generate suggestions.</div>';
+    return;
+  }
+
+  cards.innerHTML = pendingChanges.map(c => `
+    <div class="card" id="card-${c.id}">
+      <div class="card-header">
+        <span class="card-form">${esc(c.form)}</span>
+        <div class="card-actions">
+          <button class="btn-approve" onclick="act('${c.id}', 'approve')">Approve</button>
+          <button class="btn-reject"  onclick="act('${c.id}', 'reject')">Reject</button>
+        </div>
+      </div>
+      <div class="diff-grid">
+        <div class="diff-col">
+          <div class="diff-label">Before</div>
+          ${renderSenses(c.data.before)}
+        </div>
+        <div class="diff-col">
+          <div class="diff-label">After</div>
+          ${renderSenses(c.data.after)}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function act(id, action) {
+  const card = document.getElementById('card-' + id);
+  const btns = card ? card.querySelectorAll('button') : [];
+  btns.forEach(b => b.disabled = true);
+
+  try {
+    const r = await fetch(`/api/changes/${id}/${action}`, {method: 'POST'});
+    if (!r.ok) {
+      const err = await r.json();
+      alert('Error: ' + (err.error || r.status));
+      btns.forEach(b => b.disabled = false);
+      return;
+    }
+    pendingChanges = pendingChanges.filter(c => c.id !== id);
+    render();
+  } catch (e) {
+    alert('Request failed: ' + e);
+    btns.forEach(b => b.disabled = false);
+  }
+}
+
+// Initial load + auto-refresh every 10s
+loadChanges();
+setInterval(loadChanges, 10000);
+</script>
+</body>
+</html>

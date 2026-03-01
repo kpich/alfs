@@ -22,6 +22,7 @@ TASK_COMMANDS: dict[str, list[str]] = {
     "dedupe": ["make", "dedupe"],
     "postag": ["make", "postag"],
     "cleanup": ["make", "cleanup"],
+    "rewrite": ["make", "rewrite"],
 }
 
 MAX_LOG_LINES = 5000
