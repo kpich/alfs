@@ -9,16 +9,20 @@ import polars as pl
 from alfs.corpus import fetch_instances
 from alfs.data_models.alf import Alf, Sense, sense_key
 from alfs.data_models.change_store import Change, ChangeStatus, ChangeStore, ChangeType
+from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 
 app = Flask(__name__)
 _sense_store: SenseStore | None = None
 _change_store: ChangeStore | None = None
+_occ_store: OccurrenceStore | None = None
 _labeled: pl.DataFrame | None = None
 _docs: pl.DataFrame | None = None
 
 
-def apply_change(change: Change, sense_store: SenseStore) -> None:
+def apply_change(
+    change: Change, sense_store: SenseStore, occ_store: OccurrenceStore | None = None
+) -> None:
     if change.type in (ChangeType.rewrite, ChangeType.pos_tag, ChangeType.prune):
         after = [Sense.model_validate(s) for s in change.data["after"]]
         sense_store.update(
@@ -38,6 +42,17 @@ def apply_change(change: Change, sense_store: SenseStore) -> None:
             return existing.model_copy(update={"senses": senses})
 
         sense_store.update(change.form, apply_fn)
+    elif change.type == ChangeType.trim_sense:
+        deleted_idx = change.data["deleted_idx"]
+        after = [Sense.model_validate(s) for s in change.data["after"]]
+        sense_store.update(
+            change.form,
+            lambda existing: existing.model_copy(  # type: ignore[union-attr]
+                update={"senses": after}
+            ),
+        )
+        if occ_store is not None:
+            occ_store.delete_and_reindex_sense(change.form, deleted_idx)
 
 
 def _examples_for_change(change: Change) -> list[list[str]]:
@@ -107,7 +122,7 @@ def approve_change(id: str):
         return jsonify({"error": "not found"}), 404
     if change.status != ChangeStatus.pending:
         return jsonify({"error": "change is not pending"}), 409
-    apply_change(change, _sense_store)
+    apply_change(change, _sense_store, _occ_store)
     _change_store.set_status(id, ChangeStatus.approved, reviewed_at=datetime.utcnow())
     return jsonify({"ok": True})
 
@@ -131,13 +146,12 @@ def main(
     docs: Path | None = None,
     port: int = 5003,
 ) -> None:
-    global _sense_store, _change_store, _labeled, _docs
+    global _sense_store, _change_store, _occ_store, _labeled, _docs
     _sense_store = SenseStore(senses_db)
     _change_store = ChangeStore(changes_db)
     if labeled_db is not None and labeled_db.exists():
-        from alfs.data_models.occurrence_store import OccurrenceStore
-
-        _labeled = OccurrenceStore(labeled_db).to_polars()
+        _occ_store = OccurrenceStore(labeled_db)
+        _labeled = _occ_store.to_polars()
     if docs is not None and docs.exists():
         _docs = pl.read_parquet(docs)
     app.run(host="127.0.0.1", port=port, debug=False)

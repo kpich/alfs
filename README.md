@@ -30,6 +30,7 @@ in dev stay tuned
 | `make retag` | LLM-re-evaluate POS tags for 10 random tagged words → `changes.db` `[H]` |
 | `make prune` | Queue removal of top-5 worst-quality senses (>20% rated <3) → `changes.db` `[H]` |
 | `make morph_redirect` | Queue morphological redirect proposals (e.g. plural, past tense) → `changes.db` `[H]` |
+| `make trim_senses` | LLM-identify redundant senses in 50 random multi-sense words → `changes.db` `[H]` |
 | `make queenant` | Start human-approval UI for pending changes at http://localhost:5003 |
 
 ### Viewer

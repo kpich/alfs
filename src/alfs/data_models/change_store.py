@@ -14,6 +14,7 @@ class ChangeType(str, Enum):
     pos_tag = "pos_tag"
     prune = "prune"
     morph_redirect = "morph_redirect"
+    trim_sense = "trim_sense"
 
 
 class ChangeStatus(str, Enum):

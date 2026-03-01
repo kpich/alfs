@@ -101,6 +101,34 @@ def morph_analyze_prompt(
     )
 
 
+def trim_sense_prompt(form: str, senses: list[Sense], examples: list[list[str]]) -> str:
+    lines = [
+        "You are a lexicographer reviewing dictionary senses for redundancy.",
+        "",
+        f'Word: "{form}"',
+        "",
+        "Senses:",
+    ]
+    for i, (s, exs) in enumerate(zip(senses, examples, strict=False), 1):
+        lines.append(f"  {i}. {s.definition}")
+        for sub in s.subsenses or []:
+            lines.append(f"     \u2022 {sub}")
+        for ex in exs:
+            lines.append(f"     \u2014 {ex}")
+    lines += [
+        "",
+        "Are any two senses redundantly similar — covering the same concept such that"
+        " one should be deleted?",
+        "",
+        "If so, give the NUMBER (1-based) of the weaker sense to delete"
+        " and a brief reason.",
+        "If all senses are distinct, set sense_num to null.",
+        "",
+        'Respond with ONLY valid JSON: {"sense_num": 2, "reason": "..."}',
+    ]
+    return "\n".join(lines)
+
+
 def critic_prompt(form: str, before: list[Sense], after: list[Sense]) -> str:
     lines = [
         "You are a senior lexicographer reviewing a proposed revision"

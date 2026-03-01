@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect validate compile viewer backup conductor queenant install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect trim_senses validate compile viewer backup conductor queenant install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB  ?= ../alfs_data/senses.db
 LABELED_DB ?= ../alfs_data/labeled.db
@@ -58,6 +58,14 @@ morph_redirect:
 	uv run --no-sync python -m alfs.update.refinement.morph_redirect \
 		--senses-db $(SENSES_DB) \
 		--changes-db $(CHANGES_DB)
+
+trim_senses:
+	uv run --no-sync python -m alfs.update.refinement.trim_sense \
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--docs $(DOCS) \
+		--changes-db $(CHANGES_DB) \
+		--n 50
 
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
