@@ -36,6 +36,15 @@ _SCREEN_SCHEMA = {
     "required": ["candidates"],
 }
 
+_MORPH_CRITIC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "is_valid": {"type": "boolean"},
+        "reason": {"type": "string"},
+    },
+    "required": ["is_valid", "reason"],
+}
+
 _ANALYZE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -116,11 +125,13 @@ def main() -> None:
         )
         candidates = screen_data.get("candidates", [])
 
-        # Filter: base must also be in the eligible inventory
+        # Filter: base must also be in the eligible inventory, no self-references
         valid_pairs = [
             (c["form"], c["base"])
             for c in candidates
-            if c["form"] in eligible_set and c["base"] in eligible_set
+            if c["form"] in eligible_set
+            and c["base"] in eligible_set
+            and c["form"] != c["base"]
         ]
 
         for derived_form, base_form in valid_pairs:
@@ -164,6 +175,20 @@ def main() -> None:
                     "morph_base": base_form,
                     "morph_relation": relation,
                 }
+
+                verdict = llm.chat_json(
+                    args.model,
+                    prompts.morph_critic_prompt(
+                        derived_form, base_form, relation, proposed_def
+                    ),
+                    format=_MORPH_CRITIC_SCHEMA,
+                )
+                if not verdict.get("is_valid", True):
+                    print(
+                        f"  skipped: critic rejected {derived_form!r} ← {base_form!r}"
+                        f" ({verdict.get('reason', '')})"
+                    )
+                    continue
 
                 change = Change(
                     id=str(uuid.uuid4()),

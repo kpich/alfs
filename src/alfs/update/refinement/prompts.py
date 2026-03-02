@@ -49,16 +49,27 @@ def morph_screen_prompt(forms: list[str]) -> str:
         "You are a lexicographer identifying morphological derivations.\n"
         "\n"
         "Below is a list of word forms from a dictionary inventory.\n"
-        "Identify which forms are likely morphological derivations of a more basic\n"
-        "English word (e.g. plural, past tense, comparative, etc.).\n"
-        "Only include a form if you believe its base form is a common English word\n"
-        "(not a proper noun, not an obscure technical term).\n"
+        "Identify forms that are regular inflections of a more basic English word.\n"
+        "Qualifying categories:\n"
+        "  - Plural forms (dogs ← dog, boxes ← box)\n"
+        "  - Verbal inflections (walked ← walk, running ← run, goes ← go)\n"
+        "  - Comparative or superlative forms (faster ← fast, best ← good)\n"
+        "\n"
+        "Do NOT include:\n"
+        "  - Pronoun case changes (our ← we, him ← he, her ← she)\n"
+        "  - Derivational morphology (happiness ← happy, driver ← drive)\n"
+        "  - Semantic or etymological relations (second ← same)\n"
+        "  - A form that is its own base\n"
+        "\n"
+        "Only include a form if its base is a common English word"
+        " (not a proper noun, not an obscure term).\n"
+        "If in doubt, leave it out.\n"
         "\n"
         f"Forms:\n{forms_list}\n"
         "\n"
         "Respond with ONLY valid JSON: "
         '{"candidates": [{"form": "dogs", "base": "dog"}, ...]}\n'
-        "If no forms are derivations, return an empty candidates list."
+        "If no forms qualify, return an empty candidates list."
     )
 
 
@@ -89,8 +100,8 @@ def morph_analyze_prompt(
         "of a sense of the base form, provide:\n"
         "  - derived_sense_idx: index into derived form's senses\n"
         "  - base_sense_idx: index into base form's senses\n"
-        "  - relation: one of plural, past_tense, third_person_singular,\n"
-        "    present_participle, comparative, superlative\n"
+        "  - relation: a short description of the inflectional relationship\n"
+        '    (e.g. "plural", "verbal inflection", "comparative form")\n'
         "  - proposed_definition: a concise dictionary-style definition\n"
         '    (e.g. "plural form of dog (n.)")\n'
         "\n"
@@ -160,6 +171,34 @@ def critic_prompt(form: str, before: list[Sense], after: list[Sense]) -> str:
         'Respond with ONLY valid JSON: {"is_improvement": true, "reason": "..."}',
     ]
     return "\n".join(lines)
+
+
+def morph_critic_prompt(
+    derived_form: str,
+    base_form: str,
+    relation: str,
+    proposed_definition: str,
+) -> str:
+    return (
+        "You are a lexicographer verifying a proposed morphological redirect.\n"
+        "\n"
+        f'Derived form: "{derived_form}"\n'
+        f'Base form: "{base_form}"\n'
+        f"Proposed relation: {relation}\n"
+        f"Proposed definition: {proposed_definition}\n"
+        "\n"
+        f'Is "{derived_form}" a genuine regular inflectional form of "{base_form}"'
+        " with the described relationship?\n"
+        "Regular inflections include plurals, verbal inflections (past tense,"
+        " present participle, etc.), and comparative/superlative forms.\n"
+        "Reject if:\n"
+        "  - the relationship is pronoun case (our ← we), derivational"
+        " (happiness ← happy), or semantic/etymological\n"
+        "  - the forms are not morphologically related at all\n"
+        "  - the proposed definition does not accurately describe the link\n"
+        "\n"
+        'Respond with ONLY valid JSON: {"is_valid": true, "reason": "..."}'
+    )
 
 
 def dedup_prompt(
