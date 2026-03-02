@@ -1,3 +1,25 @@
+def induction_critic_prompt(
+    form: str, definition: str, existing_defs: list[str]
+) -> str:
+    existing_block = ""
+    if existing_defs:
+        numbered = "\n".join(f"{i+1}. {d}" for i, d in enumerate(existing_defs))
+        existing_block = f"Existing senses:\n{numbered}\n\n"
+    return (
+        f'Review this proposed dictionary sense for "{form}".\n'
+        f"{existing_block}"
+        f'Proposed definition: "{definition}"\n\n'
+        f"Reject if ANY of the following:\n"
+        f'- "{form}" is a parser artifact, OCR error, or not a real word/expression '
+        f"(garbled tokens, stray punctuation, malformed sequences). "
+        f"Rare, archaic, or obscure real words are fine.\n"
+        f"- The definition is vague, circular, or clearly wrong.\n"
+        f"- The meaning is already captured by an existing sense above "
+        f"(even if worded differently).\n\n"
+        f'Output JSON only: {{"is_valid": true, "reason": "..."}}'
+    )
+
+
 def induction_prompt(
     form: str, contexts: list[str], existing_defs: list[str] | None = None
 ) -> str:

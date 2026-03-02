@@ -1,11 +1,12 @@
 .PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect trim_senses validate compile viewer backup conductor clerk clerk-watch install_precommit_hooks dev test mypy cleandata
 
-SENSES_DB   ?= ../alfs_data/senses.db
-LABELED_DB  ?= ../alfs_data/labeled.db
-CLERK_QUEUE ?= ../clerk_queue
-DOCS        ?= ../text_data/latest/docs.parquet
-SENSES_REPO ?= ../alfs_senses
-NWORDS      ?= 5
+SENSES_DB    ?= ../alfs_data/senses.db
+LABELED_DB   ?= ../alfs_data/labeled.db
+CLERK_QUEUE  ?= ../clerk_queue
+DOCS         ?= ../text_data/latest/docs.parquet
+SENSES_REPO  ?= ../alfs_senses
+SEG_DATA_DIR ?= ../seg_data/latest/by_prefix
+NWORDS       ?= 5
 
 etl:
 	bash scripts/etl.sh
@@ -14,7 +15,12 @@ seg:
 	bash scripts/segment.sh
 
 update:
-	bash scripts/update.sh
+	bash scripts/update.sh \
+		--seg-data-dir $(SEG_DATA_DIR) \
+		--docs $(DOCS) \
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--queue-dir $(CLERK_QUEUE)
 
 relabel:
 	bash scripts/relabel.sh --nwords $(NWORDS)

@@ -61,6 +61,66 @@ def select_top_n(
     return [forms[i] for i in chosen_indices]
 
 
+def run(
+    seg_data_dir: str | Path,
+    top_n: int,
+    output_dir: str | Path,
+    senses_db: str | Path | None = None,
+    labeled_db: str | Path | None = None,
+    seed: int | None = None,
+) -> list[Path]:
+    seg_dir = Path(seg_data_dir)
+    parquet_files = list(seg_dir.glob("*/occurrences.parquet"))
+    if not parquet_files:
+        raise FileNotFoundError(
+            f"No occurrences.parquet files found in {seg_dir}. Run `make seg` first."
+        )
+
+    total_counts = (
+        pl.concat([pl.scan_parquet(str(f)).select("form") for f in parquet_files])
+        .group_by("form")
+        .agg(pl.len().alias("total"))
+        .collect()
+    )
+
+    if labeled_db and Path(labeled_db).exists():
+        n_labeled_counts = (
+            OccurrenceStore(Path(labeled_db))
+            .count_by_form()
+            .rename({"n_total": "n_labeled"})
+            .select(["form", "n_labeled"])
+        )
+    else:
+        n_labeled_counts = pl.DataFrame(
+            {"form": [], "n_labeled": []},
+            schema={"form": pl.String, "n_labeled": pl.Int64},
+        )
+
+    redirect_forms: set[str] = set()
+    if senses_db and Path(senses_db).exists():
+        store = SenseStore(Path(senses_db))
+        entries = store.all_entries()
+        redirect_forms = {f for f, alf in entries.items() if alf.redirect is not None}
+
+    rng = np.random.default_rng(seed)
+    forms = select_top_n(total_counts, n_labeled_counts, top_n, rng, redirect_forms)
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    result: list[Path] = []
+    for form in forms:
+        target = UpdateTarget(form=form)
+        safe = quote(form, safe="")
+        out_path = out_dir / f"{safe}.json"
+        out_path.write_text(target.model_dump_json())
+        print(f"  {form}")
+        result.append(out_path)
+
+    print(f"Wrote {len(forms)} targets to {out_dir}")
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Select top-N forms by priority score")
     parser.add_argument(
@@ -73,55 +133,14 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None, help="RNG seed")
     args = parser.parse_args()
 
-    seg_dir = Path(args.seg_data_dir)
-    parquet_files = list(seg_dir.glob("*/occurrences.parquet"))
-    if not parquet_files:
-        raise FileNotFoundError(
-            f"No occurrences.parquet files found in {seg_dir}. " "Run `make seg` first."
-        )
-
-    total_counts = (
-        pl.concat([pl.scan_parquet(str(f)).select("form") for f in parquet_files])
-        .group_by("form")
-        .agg(pl.len().alias("total"))
-        .collect()
+    run(
+        args.seg_data_dir,
+        args.top_n,
+        args.output_dir,
+        args.senses_db,
+        args.labeled_db,
+        args.seed,
     )
-
-    if args.labeled_db and Path(args.labeled_db).exists():
-        n_labeled_counts = (
-            OccurrenceStore(Path(args.labeled_db))
-            .count_by_form()
-            .rename({"n_total": "n_labeled"})
-            .select(["form", "n_labeled"])
-        )
-    else:
-        n_labeled_counts = pl.DataFrame(
-            {"form": [], "n_labeled": []},
-            schema={"form": pl.String, "n_labeled": pl.Int64},
-        )
-
-    redirect_forms: set[str] = set()
-    if args.senses_db and Path(args.senses_db).exists():
-        store = SenseStore(Path(args.senses_db))
-        entries = store.all_entries()
-        redirect_forms = {f for f, alf in entries.items() if alf.redirect is not None}
-
-    rng = np.random.default_rng(args.seed)
-    forms = select_top_n(
-        total_counts, n_labeled_counts, args.top_n, rng, redirect_forms
-    )
-
-    out_dir = Path(args.output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    for form in forms:
-        target = UpdateTarget(form=form)
-        safe = quote(form, safe="")
-        out_path = out_dir / f"{safe}.json"
-        out_path.write_text(target.model_dump_json())
-        print(f"  {form}")
-
-    print(f"Wrote {len(forms)} targets to {out_dir}")
 
 
 if __name__ == "__main__":

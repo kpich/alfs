@@ -61,6 +61,80 @@ def build_sense_menu(store: SenseStore, form: str) -> str:
     return "\n".join(lines)
 
 
+def run(
+    target_file: str | Path,
+    seg_data_dir: str | Path,
+    docs: str | Path,
+    senses_db: str | Path,
+    labeled_db: str | Path,
+    model: str = "llama3.1:8b",
+    context_chars: int = 150,
+    max_occurrences: int = 100,
+) -> None:
+    target = UpdateTarget.model_validate_json(Path(target_file).read_text())
+    form = target.form
+
+    sense_store = SenseStore(Path(senses_db))
+    occ_store = OccurrenceStore(Path(labeled_db))
+
+    sense_menu = build_sense_menu(sense_store, form)
+
+    prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
+    occ_path = Path(seg_data_dir) / prefix / "occurrences.parquet"
+    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
+
+    labeled_pairs: set[tuple[str, int]] = set()
+    existing = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
+    for row in existing.select(["doc_id", "byte_offset"]).iter_rows():
+        labeled_pairs.add((row[0], row[1]))
+
+    to_process = [
+        occ
+        for occ in df.to_dicts()
+        if (occ["doc_id"], occ["byte_offset"]) not in labeled_pairs
+    ][:max_occurrences]
+
+    needed_doc_ids = list({occ["doc_id"] for occ in to_process})
+    docs_df = (
+        pl.scan_parquet(str(docs))
+        .filter(pl.col("doc_id").is_in(needed_doc_ids))
+        .collect(engine="streaming")
+    )
+    docs_map = dict(
+        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
+    )
+
+    # TODO: batch occurrences into a single prompt instead of one LLM call
+    # per occurrence
+    upsert_rows: list[tuple[str, str, int, str, int]] = []
+    for occ in to_process:
+        doc_id = occ["doc_id"]
+        byte_offset = occ["byte_offset"]
+
+        text = docs_map.get(doc_id, "")
+        if not text:
+            continue
+
+        context = extract_context(text, byte_offset, form, context_chars)
+        prompt = prompts.labeling_prompt(form, context, sense_menu)
+        data = llm.chat_json(model, prompt, format=_LABEL_SCHEMA)
+        ann = AnnotatedOccurrence(
+            doc_id=doc_id,
+            byte_offset=byte_offset,
+            sense_key=data["sense_key"],
+            rating=OccurrenceRating(data["rating"]),
+        )
+        upsert_rows.append(
+            (form, ann.doc_id, ann.byte_offset, ann.sense_key, ann.rating.value)
+        )
+
+    if upsert_rows:
+        occ_store.upsert_many(upsert_rows)
+        print(f"Labeled {len(upsert_rows)} occurrences for '{form}' → labeled.db")
+    else:
+        print(f"No new occurrences to label for '{form}'")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Label occurrences with sense keys and ratings"
@@ -77,68 +151,16 @@ def main() -> None:
     )  # TODO: artificially low for dev
     args = parser.parse_args()
 
-    target = UpdateTarget.model_validate_json(Path(args.target).read_text())
-    form = target.form
-
-    sense_store = SenseStore(Path(args.senses_db))
-    occ_store = OccurrenceStore(Path(args.labeled_db))
-
-    sense_menu = build_sense_menu(sense_store, form)
-
-    prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
-    occ_path = Path(args.seg_data_dir) / prefix / "occurrences.parquet"
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
-
-    labeled_pairs: set[tuple[str, int]] = set()
-    existing = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
-    for row in existing.select(["doc_id", "byte_offset"]).iter_rows():
-        labeled_pairs.add((row[0], row[1]))
-
-    to_process = [
-        occ
-        for occ in df.to_dicts()
-        if (occ["doc_id"], occ["byte_offset"]) not in labeled_pairs
-    ][: args.max_occurrences]
-
-    needed_doc_ids = list({occ["doc_id"] for occ in to_process})
-    docs_df = (
-        pl.scan_parquet(args.docs)
-        .filter(pl.col("doc_id").is_in(needed_doc_ids))
-        .collect(engine="streaming")
+    run(
+        args.target,
+        args.seg_data_dir,
+        args.docs,
+        args.senses_db,
+        args.labeled_db,
+        args.model,
+        args.context_chars,
+        args.max_occurrences,
     )
-    docs = dict(
-        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
-    )
-
-    # TODO: batch occurrences into a single prompt instead of one LLM call
-    # per occurrence
-    upsert_rows: list[tuple[str, str, int, str, int]] = []
-    for occ in to_process:
-        doc_id = occ["doc_id"]
-        byte_offset = occ["byte_offset"]
-
-        text = docs.get(doc_id, "")
-        if not text:
-            continue
-
-        context = extract_context(text, byte_offset, form, args.context_chars)
-        prompt = prompts.labeling_prompt(form, context, sense_menu)
-        data = llm.chat_json(args.model, prompt, format=_LABEL_SCHEMA)
-        ann = AnnotatedOccurrence(
-            doc_id=doc_id,
-            byte_offset=byte_offset,
-            sense_key=data["sense_key"],
-            rating=OccurrenceRating(data["rating"]),
-        )
-        upsert_rows.append(
-            (form, ann.doc_id, ann.byte_offset, ann.sense_key, ann.rating.value)
-        )
-
-    if upsert_rows:
-        occ_store.upsert_many(upsert_rows)
-        print(f"Labeled {len(upsert_rows)} occurrences for '{form}' → labeled.db")
-    else:
-        print(f"No new occurrences to label for '{form}'")
 
 
 if __name__ == "__main__":

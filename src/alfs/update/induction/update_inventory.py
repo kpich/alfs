@@ -31,6 +31,22 @@ def merge_entry(existing: Alf, new: Alf) -> Alf:
     )
 
 
+def run(senses_file: str | Path, senses_db: str | Path, queue_dir: str | Path) -> None:
+    alf = Alf.model_validate_json(Path(senses_file).read_text())
+    if not alf.senses:
+        print(f"No new senses for '{alf.form}' (empty senses file)")
+        return
+
+    request = AddSensesRequest(
+        id=str(uuid.uuid4()),
+        created_at=datetime.utcnow(),
+        form=alf.form,
+        new_senses=list(alf.senses),
+    )
+    enqueue(request, Path(queue_dir))
+    print(f"  Queued add_senses for '{alf.form}' ({len(alf.senses)} senses)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Augment senses.db with new senses for a single form"
@@ -46,19 +62,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    alf = Alf.model_validate_json(Path(args.senses_file).read_text())
-    if not alf.senses:
-        print(f"No new senses for '{alf.form}' (empty senses file)")
-        return
-
-    request = AddSensesRequest(
-        id=str(uuid.uuid4()),
-        created_at=datetime.utcnow(),
-        form=alf.form,
-        new_senses=list(alf.senses),
-    )
-    enqueue(request, Path(args.queue_dir))
-    print(f"  Queued add_senses for '{alf.form}' ({len(alf.senses)} senses)")
+    run(args.senses_file, args.senses_db, args.queue_dir)
 
 
 if __name__ == "__main__":

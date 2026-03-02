@@ -31,12 +31,113 @@ _SENSE_SCHEMA = {
     "required": ["definition", "examples", "subsenses"],
 }
 
+_CRITIC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "is_valid": {"type": "boolean"},
+        "reason": {"type": "string"},
+    },
+    "required": ["is_valid", "reason"],
+}
+
 
 def extract_context(text: str, byte_offset: int, form: str, context_chars: int) -> str:
     char_offset = len(text.encode()[:byte_offset].decode())
     start = max(0, char_offset - context_chars)
     end = char_offset + len(form) + context_chars
     return text[start:end]
+
+
+def run(
+    target_file: str | Path,
+    seg_data_dir: str | Path,
+    docs: str | Path,
+    output: str | Path,
+    model: str = "llama3.1:8b",
+    context_chars: int = 150,
+    max_samples: int = 20,
+    senses_db: str | Path | None = None,
+    labeled_db: str | Path | None = None,
+) -> None:
+    target = UpdateTarget.model_validate_json(Path(target_file).read_text())
+    form = target.form
+
+    existing_defs: list[str] = []
+    if senses_db and Path(senses_db).exists():
+        store = SenseStore(Path(senses_db))
+        entry = store.read(form)
+        if entry:
+            existing_defs = [s.definition for s in entry.senses]
+
+    prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
+    occ_path = Path(seg_data_dir) / prefix / "occurrences.parquet"
+    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
+    all_occurrences = list(df.select(["doc_id", "byte_offset"]).iter_rows(named=True))
+
+    well_labeled: set[tuple[str, int]] = set()
+    if labeled_db and Path(labeled_db).exists():
+        occ_store = OccurrenceStore(Path(labeled_db))
+        ldf = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
+        for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
+            well_labeled.add((row[0], row[1]))
+    all_occurrences = [
+        o
+        for o in all_occurrences
+        if (o["doc_id"], o["byte_offset"]) not in well_labeled
+    ]
+
+    random.seed(42)
+    samples = random.sample(all_occurrences, min(max_samples, len(all_occurrences)))
+
+    needed_doc_ids = list({occ["doc_id"] for occ in samples})
+    docs_df = (
+        pl.scan_parquet(str(docs))
+        .filter(pl.col("doc_id").is_in(needed_doc_ids))
+        .collect(engine="streaming")
+    )
+    docs_map = dict(
+        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
+    )
+
+    contexts = []
+    for occ in samples:
+        text = docs_map.get(occ["doc_id"], "")
+        if not text:
+            continue
+        ctx = extract_context(text, occ["byte_offset"], form, context_chars)
+        contexts.append(ctx)
+
+    if not contexts:
+        raise ValueError(f"No contexts found for form '{form}'")
+
+    prompt = prompts.induction_prompt(form, contexts, existing_defs)
+    data = llm.chat_json(model, prompt, format=_SENSE_SCHEMA)
+
+    if data.get("all_covered", False) and existing_defs:
+        alf = Alf(form=form, senses=[])
+        Path(output).write_text(alf.model_dump_json())
+        print(f"Existing senses cover all contexts for '{form}'; no new sense added.")
+        return
+
+    sense = Sense(
+        definition=data["definition"],
+        subsenses=data.get("subsenses") or None,
+    )
+
+    verdict = llm.chat_json(
+        model,
+        prompts.induction_critic_prompt(form, sense.definition, existing_defs),
+        format=_CRITIC_SCHEMA,
+    )
+    if not verdict.get("is_valid", True):
+        alf = Alf(form=form, senses=[])
+        Path(output).write_text(alf.model_dump_json())
+        print(f"  critic rejected '{form}': {verdict.get('reason', '')}")
+        return
+
+    alf = Alf(form=form, senses=[sense])
+    Path(output).write_text(alf.model_dump_json())
+    print(f"Wrote 1 sense for '{form}' to {output}")
 
 
 def main() -> None:
@@ -58,77 +159,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    target = UpdateTarget.model_validate_json(Path(args.target).read_text())
-    form = target.form
-
-    existing_defs: list[str] = []
-    if args.senses_db and Path(args.senses_db).exists():
-        store = SenseStore(Path(args.senses_db))
-        entry = store.read(form)
-        if entry:
-            existing_defs = [s.definition for s in entry.senses]
-
-    prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
-    occ_path = Path(args.seg_data_dir) / prefix / "occurrences.parquet"
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
-    occurrences = df.select(["doc_id", "byte_offset"]).iter_rows(named=True)
-    all_occurrences = list(occurrences)
-
-    well_labeled: set[tuple[str, int]] = set()
-    if args.labeled_db and Path(args.labeled_db).exists():
-        occ_store = OccurrenceStore(Path(args.labeled_db))
-        ldf = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
-        for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
-            well_labeled.add((row[0], row[1]))
-    all_occurrences = [
-        o
-        for o in all_occurrences
-        if (o["doc_id"], o["byte_offset"]) not in well_labeled
-    ]
-
-    random.seed(42)
-    samples = random.sample(
-        all_occurrences, min(args.max_samples, len(all_occurrences))
+    run(
+        args.target,
+        args.seg_data_dir,
+        args.docs,
+        args.output,
+        args.model,
+        args.context_chars,
+        args.max_samples,
+        args.senses_db,
+        args.labeled_db,
     )
-
-    needed_doc_ids = list({occ["doc_id"] for occ in samples})
-    docs_df = (
-        pl.scan_parquet(args.docs)
-        .filter(pl.col("doc_id").is_in(needed_doc_ids))
-        .collect(engine="streaming")
-    )
-    docs = dict(
-        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
-    )
-
-    contexts = []
-    for occ in samples:
-        text = docs.get(occ["doc_id"], "")
-        if not text:
-            continue
-        ctx = extract_context(text, occ["byte_offset"], form, args.context_chars)
-        contexts.append(ctx)
-
-    if not contexts:
-        raise ValueError(f"No contexts found for form '{form}'")
-
-    prompt = prompts.induction_prompt(form, contexts, existing_defs)
-    data = llm.chat_json(args.model, prompt, format=_SENSE_SCHEMA)
-
-    if data.get("all_covered", False) and existing_defs:
-        alf = Alf(form=form, senses=[])
-        Path(args.output).write_text(alf.model_dump_json())
-        print(f"Existing senses cover all contexts for '{form}'; no new sense added.")
-        return
-
-    sense = Sense(
-        definition=data["definition"],
-        subsenses=data.get("subsenses") or None,
-    )
-    alf = Alf(form=form, senses=[sense])
-
-    Path(args.output).write_text(alf.model_dump_json())
-    print(f"Wrote 1 sense for '{form}' to {args.output}")
 
 
 if __name__ == "__main__":

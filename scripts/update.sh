@@ -14,4 +14,4 @@ if ! curl -sf http://localhost:11434/ > /dev/null 2>&1; then
     done
 fi
 
-nextflow run nextflow/update.nf "$@"
+uv run --no-sync python -m alfs.update.run_update "$@"
