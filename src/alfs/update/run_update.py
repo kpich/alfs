@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
 from pathlib import Path
 import sys
 import tempfile
@@ -33,13 +34,18 @@ def main() -> None:
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--queue-dir", required=True, help="Path to clerk queue dir")
-    parser.add_argument("--model", default="llama3.1:8b")
+    parser.add_argument("--model", default="gemma2:9b")
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-samples", type=int, default=20)
-    parser.add_argument("--max-occurrences", type=int, default=100)
+    parser.add_argument("--max-occurrences", type=int, default=15)
     parser.add_argument("--workers", type=int, default=4)
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s: %(message)s",
+    )
 
     senses_db = Path(args.senses_db)
     labeled_db = Path(args.labeled_db)
