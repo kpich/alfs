@@ -36,6 +36,15 @@ _POS_SCHEMA = {
     "required": ["pos"],
 }
 
+_POS_CRITIC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "is_valid": {"type": "boolean"},
+        "reason": {"type": "string"},
+    },
+    "required": ["is_valid", "reason"],
+}
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -79,6 +88,21 @@ def main() -> None:
             new_pos = PartOfSpeech(data["pos"])
 
             if new_pos != sense.pos:
+                critic = llm.chat_json(
+                    args.model,
+                    prompts.postag_critic_prompt(
+                        form, sense.definition, new_pos.value, instances
+                    ),
+                    format=_POS_CRITIC_SCHEMA,
+                )
+                if not critic.get("is_valid", True):
+                    print(
+                        f"  {form!r} sense {top_idx + 1}: critic rejected"
+                        f" {sense.pos.value}→{new_pos.value}"
+                        f" ({critic.get('reason', '')})"
+                    )
+                    new_senses.append(sense)
+                    continue
                 changed_descriptions.append(
                     f"  sense {top_idx + 1}: {sense.pos.value}→{new_pos.value}"
                 )

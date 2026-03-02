@@ -32,6 +32,15 @@ _POS_SCHEMA = {
     "required": ["pos"],
 }
 
+_POS_CRITIC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "is_valid": {"type": "boolean"},
+        "reason": {"type": "string"},
+    },
+    "required": ["is_valid", "reason"],
+}
+
 
 def _make_tagger(
     form: str,
@@ -53,7 +62,22 @@ def _make_tagger(
             instances = fetch_instances(form, sk, labeled_df, docs_df)
             prompt = prompts.postag_prompt(form, sense.definition, instances)
             data = llm.chat_json(model, prompt, format=_POS_SCHEMA)
-            pos = PartOfSpeech(data["pos"])
+            pos_str = data["pos"]
+            critic = llm.chat_json(
+                model,
+                prompts.postag_critic_prompt(
+                    form, sense.definition, pos_str, instances
+                ),
+                format=_POS_CRITIC_SCHEMA,
+            )
+            if not critic.get("is_valid", True):
+                print(
+                    f"  {form!r} sense {top_idx + 1}: critic rejected"
+                    f" pos={pos_str!r} ({critic.get('reason', '')})"
+                )
+                new_senses.append(sense)
+                continue
+            pos = PartOfSpeech(pos_str)
             new_senses.append(sense.model_copy(update={"pos": pos}))
 
         tagged = sum(1 for s in new_senses if s.pos is not None)

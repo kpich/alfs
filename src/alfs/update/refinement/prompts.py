@@ -44,6 +44,28 @@ def postag_prompt(form: str, definition: str, instances: list[str]) -> str:
     )
 
 
+def postag_critic_prompt(
+    form: str, definition: str, pos: str, instances: list[str]
+) -> str:
+    instances_section = ""
+    if instances:
+        numbered = "\n".join(
+            f"  {i + 1}. ...{ctx}..." for i, ctx in enumerate(instances)
+        )
+        instances_section = f"\nExample uses in context:\n{numbered}\n"
+
+    return (
+        f"You are a lexicographer verifying a part-of-speech tag assignment.\n"
+        f"\n"
+        f'Word: "{form}"\n'
+        f"Definition: {definition}\n"
+        f"{instances_section}"
+        f"\nProposed POS: {pos}\n"
+        f"\nIs this POS tag correct for this sense?\n"
+        f'\nRespond with ONLY valid JSON: {{"is_valid": true, "reason": "..."}}'
+    )
+
+
 def morph_screen_prompt(forms: list[str]) -> str:
     forms_list = "\n".join(f"  - {f}" for f in forms)
     return (
