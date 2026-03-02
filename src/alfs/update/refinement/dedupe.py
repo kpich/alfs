@@ -3,12 +3,17 @@
 Usage:
     python -m alfs.update.refinement.dedupe \\
         --senses-db ../alfs_data/senses.db \\
+        --queue-dir ../clerk_queue \\
         [--model gemma2:9b] [--dry-run]
 """
 
 import argparse
+from datetime import datetime
 from pathlib import Path
+import uuid
 
+from alfs.clerk.queue import enqueue
+from alfs.clerk.request import SetRedirectRequest
 from alfs.data_models.alf import Alf
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
@@ -46,15 +51,19 @@ def main() -> None:
         description="LLM-assisted redirect detection for case-variant entries"
     )
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
     parser.add_argument("--model", default="gemma2:9b")
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print verdicts without modifying senses.db",
+        help="Print verdicts without enqueuing changes",
     )
     args = parser.parse_args()
 
     store = SenseStore(Path(args.senses_db))
+    queue_dir = Path(args.queue_dir)
     entries = store.all_entries()
     candidates = find_candidates(entries)
 
@@ -78,17 +87,16 @@ def main() -> None:
         print(f"  {form!r} -> {lower_form!r}: {verdict} — {reason}")
 
         if is_redirect and not args.dry_run:
-            existing = entries[form]
-            store.write(
-                Alf(
-                    form=existing.form,
-                    senses=list(existing.senses),
-                    redirect=lower_form,
-                )
+            request = SetRedirectRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.utcnow(),
+                form=form,
+                redirect_to=lower_form,
             )
+            enqueue(request, queue_dir)
 
     if args.dry_run:
-        print("[dry-run] No changes written.")
+        print("[dry-run] No changes enqueued.")
     else:
         print("Done.")
 

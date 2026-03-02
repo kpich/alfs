@@ -1,9 +1,9 @@
-"""Propose morphological/derivational redirect links, queued for human approval.
+"""Propose morphological/derivational redirect links, via clerk queue.
 
 Usage:
     python -m alfs.update.refinement.morph_redirect \\
         --senses-db ../alfs_data/senses.db \\
-        --changes-db ../alfs_data/changes.db \\
+        --queue-dir ../clerk_queue \\
         [--n 50] [--batch-size 10] [--model gemma2:9b] [--seed 42]
 """
 
@@ -13,7 +13,8 @@ from pathlib import Path
 import random
 import uuid
 
-from alfs.data_models.change_store import Change, ChangeStatus, ChangeStore, ChangeType
+from alfs.clerk.queue import enqueue
+from alfs.clerk.request import MorphRedirectRequest
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
 from alfs.update.refinement import prompts
@@ -73,10 +74,12 @@ _ANALYZE_SCHEMA = {
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Propose morphological redirect links queued for human approval"
+        description="Propose morphological redirect links via clerk queue"
     )
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
-    parser.add_argument("--changes-db", required=True, help="Path to changes.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
     parser.add_argument("--n", type=int, default=50, help="Number of forms to sample")
     parser.add_argument(
         "--batch-size", type=int, default=10, help="Forms per screening batch"
@@ -86,7 +89,7 @@ def main() -> None:
     args = parser.parse_args()
 
     sense_store = SenseStore(Path(args.senses_db))
-    change_store = ChangeStore(Path(args.changes_db))
+    queue_dir = Path(args.queue_dir)
 
     all_entries = sense_store.all_entries()
 
@@ -97,12 +100,6 @@ def main() -> None:
         if alf.redirect is None and alf.senses
     }
     eligible_set = set(eligible.keys())
-
-    # Build set of already-pending (form, derived_sense_idx) pairs to skip duplicates
-    pending_pairs: set[tuple[str, int]] = set()
-    for change in change_store.all_pending():
-        if change.type == ChangeType.morph_redirect:
-            pending_pairs.add((change.form, change.data["derived_sense_idx"]))
 
     # Sample eligible forms
     rng = random.Random(args.seed)
@@ -153,10 +150,6 @@ def main() -> None:
                 relation = rel["relation"]
                 proposed_def = rel["proposed_definition"]
 
-                # Skip already-pending pairs
-                if (derived_form, derived_idx) in pending_pairs:
-                    continue
-
                 # Validate indices are in range
                 if derived_idx < 0 or derived_idx >= len(derived_alf.senses):
                     print(
@@ -168,13 +161,13 @@ def main() -> None:
                     continue
 
                 derived_sense = derived_alf.senses[derived_idx]
-                before = derived_sense.model_dump(exclude_none=True)
-                after = {
-                    **before,
-                    "definition": proposed_def,
-                    "morph_base": base_form,
-                    "morph_relation": relation,
-                }
+                after_sense = derived_sense.model_copy(
+                    update={
+                        "definition": proposed_def,
+                        "morph_base": base_form,
+                        "morph_relation": relation,
+                    }
+                )
 
                 verdict = llm.chat_json(
                     args.model,
@@ -190,23 +183,18 @@ def main() -> None:
                     )
                     continue
 
-                change = Change(
+                request = MorphRedirectRequest(
                     id=str(uuid.uuid4()),
-                    type=ChangeType.morph_redirect,
-                    form=derived_form,
-                    data={
-                        "derived_sense_idx": derived_idx,
-                        "base_form": base_form,
-                        "base_sense_idx": base_idx,
-                        "relation": relation,
-                        "before": before,
-                        "after": after,
-                    },
-                    status=ChangeStatus.pending,
                     created_at=datetime.utcnow(),
+                    form=derived_form,
+                    derived_sense_idx=derived_idx,
+                    base_form=base_form,
+                    base_sense_idx=base_idx,
+                    relation=relation,
+                    before=derived_sense,
+                    after=after_sense,
                 )
-                change_store.add(change)
-                pending_pairs.add((derived_form, derived_idx))
+                enqueue(request, queue_dir)
                 total_queued += 1
                 print(
                     f"  queued: {derived_form!r} sense {derived_idx}"
