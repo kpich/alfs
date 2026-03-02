@@ -10,6 +10,7 @@ Usage:
 import argparse
 import bz2
 import json
+import re
 import xml.etree.ElementTree as ET
 
 NS = "http://www.mediawiki.org/xml/export-0.11/"
@@ -67,6 +68,10 @@ def main() -> None:
             timestamp_elem = revision.find(f"{{{NS}}}timestamp")
             timestamp = timestamp_elem.text if timestamp_elem is not None else ""
             year = int(timestamp[:4]) if timestamp else None
+            if args.source == "wikisource" and wikitext:
+                m = re.search(r"\|\s*year\s*=\s*(\d{4})", wikitext)
+                if m:
+                    year = int(m.group(1))
 
             contributor = revision.find(f"{{{NS}}}contributor")
             username_elem = (
