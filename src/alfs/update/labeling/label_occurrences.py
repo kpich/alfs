@@ -89,33 +89,33 @@ def main() -> None:
     occ_path = Path(args.seg_data_dir) / prefix / "occurrences.parquet"
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
 
-    needed_doc_ids = df["doc_id"].unique().to_list()
-    docs_df = (
-        pl.scan_parquet(args.docs)
-        .filter(pl.col("doc_id").is_in(needed_doc_ids))
-        .collect()
-    )
-    docs = dict(
-        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
-    )
-
     labeled_pairs: set[tuple[str, int]] = set()
     existing = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
     for row in existing.select(["doc_id", "byte_offset"]).iter_rows():
         labeled_pairs.add((row[0], row[1]))
 
+    to_process = [
+        occ
+        for occ in df.to_dicts()
+        if (occ["doc_id"], occ["byte_offset"]) not in labeled_pairs
+    ][: args.max_occurrences]
+
+    needed_doc_ids = list({occ["doc_id"] for occ in to_process})
+    docs_df = (
+        pl.scan_parquet(args.docs)
+        .filter(pl.col("doc_id").is_in(needed_doc_ids))
+        .collect(streaming=True)
+    )
+    docs = dict(
+        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
+    )
+
     # TODO: batch occurrences into a single prompt instead of one LLM call
     # per occurrence
     upsert_rows: list[tuple[str, str, int, str, int]] = []
-    for occ in df.to_dicts():
-        if len(upsert_rows) >= args.max_occurrences:
-            break
-
+    for occ in to_process:
         doc_id = occ["doc_id"]
         byte_offset = occ["byte_offset"]
-
-        if (doc_id, byte_offset) in labeled_pairs:
-            continue
 
         text = docs.get(doc_id, "")
         if not text:
