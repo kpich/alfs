@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect trim_senses validate compile viewer backup conductor clerk install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect trim_senses validate compile viewer backup conductor clerk clerk-watch install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB   ?= ../alfs_data/senses.db
 LABELED_DB  ?= ../alfs_data/labeled.db
@@ -74,6 +74,13 @@ clerk:
 		--queue-dir $(CLERK_QUEUE) \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB)
+
+clerk-watch:
+	uv run --no-sync python -m alfs.clerk.worker \
+		--queue-dir $(CLERK_QUEUE) \
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--watch
 
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
