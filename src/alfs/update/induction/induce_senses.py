@@ -95,7 +95,7 @@ def main() -> None:
     docs_df = (
         pl.scan_parquet(args.docs)
         .filter(pl.col("doc_id").is_in(needed_doc_ids))
-        .collect(streaming=True)
+        .collect(engine="streaming")
     )
     docs = dict(
         zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
