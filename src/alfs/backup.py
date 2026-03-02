@@ -25,19 +25,29 @@ def main() -> None:
     store = SenseStore(Path(args.senses_db))
     entries = store.all_entries()
 
-    buckets: dict[str, list[dict]] = {}
+    # buckets keyed by (dir, file) where dir=first letter, file=digraph (first two)
+    buckets: dict[tuple[str, str], list[dict]] = {}
     for form, alf in sorted(entries.items()):
         first = form[0].lower() if form and form[0].isalpha() else None
-        key = first if first is not None else "special"
-        buckets.setdefault(key, []).append(
+        if first is None:
+            bucket_key: tuple[str, str] = ("", "special")
+        else:
+            digraph = form[:2].lower()
+            bucket_key = (first, digraph)
+        buckets.setdefault(bucket_key, []).append(
             alf.model_dump(exclude_none=True, mode="json")
         )
 
     repo = Path(args.senses_repo)
     repo.mkdir(parents=True, exist_ok=True)
 
-    for key, alfs_list in sorted(buckets.items()):
-        out_path = repo / f"{key}.yaml"
+    for (dir_key, file_key), alfs_list in sorted(buckets.items()):
+        if not dir_key:
+            out_path = repo / "special.yaml"
+        else:
+            out_dir = repo / dir_key
+            out_dir.mkdir(exist_ok=True)
+            out_path = out_dir / f"{file_key}.yaml"
         out_path.write_text(yaml.dump(alfs_list, allow_unicode=True, sort_keys=False))
         print(f"  Wrote {len(alfs_list)} entries → {out_path}")
 
