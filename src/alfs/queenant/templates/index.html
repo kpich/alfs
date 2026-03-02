@@ -265,8 +265,14 @@ async function act(id, action) {
   try {
     const r = await fetch(`/api/changes/${id}/${action}`, {method: 'POST'});
     if (!r.ok) {
-      const err = await r.json();
-      alert('Error: ' + (err.error || r.status));
+      let errMsg = String(r.status);
+      try {
+        const err = await r.json();
+        errMsg = err.error || errMsg;
+      } catch (_) {
+        errMsg = await r.text().catch(() => errMsg);
+      }
+      alert('Error: ' + errMsg);
       btns.forEach(b => b.disabled = false);
       return;
     }

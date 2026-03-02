@@ -122,7 +122,10 @@ def approve_change(id: str):
         return jsonify({"error": "not found"}), 404
     if change.status != ChangeStatus.pending:
         return jsonify({"error": "change is not pending"}), 409
-    apply_change(change, _sense_store, _occ_store)
+    try:
+        apply_change(change, _sense_store, _occ_store)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     _change_store.set_status(id, ChangeStatus.approved, reviewed_at=datetime.utcnow())
     return jsonify({"ok": True})
 
