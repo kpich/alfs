@@ -9,13 +9,21 @@ def induction_critic_prompt(
         f'Review this proposed dictionary sense for "{form}".\n'
         f"{existing_block}"
         f'Proposed definition: "{definition}"\n\n'
-        f"Reject if ANY of the following:\n"
+        f"Default to accepting. Only reject if you are highly confident of "
+        f"one of these:\n"
         f'- "{form}" is a parser artifact, OCR error, or not a real word/expression '
         f"(garbled tokens, stray punctuation, malformed sequences). "
         f"Rare, archaic, or obscure real words are fine.\n"
-        f"- The definition is vague, circular, or clearly wrong.\n"
-        f"- The meaning is already captured by an existing sense above "
-        f"(even if worded differently).\n\n"
+        f"- The definition is factually wrong or nonsensical (not merely imprecise "
+        f"or general — imprecise definitions are acceptable).\n"
+        f'- The definition is circular: it uses "{form}" itself (or an obvious direct '
+        f'derivative like "{form}s" or "{form}ed") as the core of the explanation, '
+        f'e.g. "animals: the state of being an animal". Using related vocabulary '
+        f"is normal dictionary practice and is NOT circular.\n"
+        f"- The proposed meaning is nearly identical to an existing sense — not just "
+        f"related, overlapping, or less precise, but essentially the same meaning.\n\n"
+        f"Do NOT reject for vagueness, generality, or imprecision. "
+        f"When in doubt, accept.\n\n"
         f'Output JSON only: {{"is_valid": true, "reason": "..."}}'
     )
 
