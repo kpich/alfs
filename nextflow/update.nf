@@ -1,14 +1,15 @@
 nextflow.enable.dsl = 2
 
-params.top_n           = 10
-params.model           = "gemma2:9b"
-params.context_chars   = 150
-params.max_samples     = 20
-params.max_occurrences = 15
-params.seg_data_dir    = "${launchDir}/../seg_data"
-params.text_data_dir   = "${launchDir}/../text_data"
-params.senses_db       = "${launchDir}/../alfs_data/senses.db"
-params.labeled_db      = "${launchDir}/../alfs_data/labeled.db"
+params.top_n            = 10
+params.model            = "gemma2:9b"
+params.context_chars    = 150
+params.max_samples      = 20
+params.max_occurrences  = 15
+params.seg_data_dir     = "${launchDir}/../seg_data"
+params.text_data_dir    = "${launchDir}/../text_data"
+params.senses_db        = "${launchDir}/../alfs_data/senses.db"
+params.labeled_db       = "${launchDir}/../alfs_data/labeled.db"
+params.clerk_queue_dir  = "${launchDir}/../clerk_queue"
 
 process SELECT_TARGETS {
     input:  path("by_prefix")
@@ -42,7 +43,8 @@ process UPDATE_INVENTORY {
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.update.induction.update_inventory \
-        --senses-file senses_file.json --senses-db ${params.senses_db}
+        --senses-file senses_file.json --senses-db ${params.senses_db} \
+        --queue-dir ${params.clerk_queue_dir}
     """
 }
 

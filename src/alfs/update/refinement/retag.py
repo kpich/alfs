@@ -1,11 +1,11 @@
-"""LLM-assisted POS re-evaluation for already-tagged senses, queued for human approval.
+"""LLM-assisted POS re-evaluation for already-tagged senses, via clerk queue.
 
 Usage:
     python -m alfs.update.refinement.retag \\
         --senses-db ../alfs_data/senses.db \\
         --labeled-db ../alfs_data/labeled.db \\
         --docs ../text_data/latest/docs.parquet \\
-        --changes-db ../alfs_data/changes.db \\
+        --queue-dir ../clerk_queue \\
         [--n 10] [--model gemma2:9b]
 """
 
@@ -17,9 +17,10 @@ import uuid
 
 import polars as pl
 
+from alfs.clerk.queue import enqueue
+from alfs.clerk.request import PosTagRequest
 from alfs.corpus import fetch_instances
 from alfs.data_models.alf import sense_key
-from alfs.data_models.change_store import Change, ChangeStatus, ChangeStore, ChangeType
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
@@ -48,19 +49,21 @@ _POS_CRITIC_SCHEMA = {
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="LLM-assisted POS re-evaluation queued for human approval"
+        description="LLM-assisted POS re-evaluation via clerk queue"
     )
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
-    parser.add_argument("--changes-db", required=True, help="Path to changes.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
     parser.add_argument("--n", type=int, default=10, help="Number of forms to retag")
     parser.add_argument("--model", default="gemma2:9b")
     args = parser.parse_args()
 
     sense_store = SenseStore(Path(args.senses_db))
     occ_store = OccurrenceStore(Path(args.labeled_db))
-    change_store = ChangeStore(Path(args.changes_db))
+    queue_dir = Path(args.queue_dir)
     labeled_df = occ_store.to_polars()
     docs_df = pl.read_parquet(args.docs)
 
@@ -111,18 +114,14 @@ def main() -> None:
                 new_senses.append(sense)
 
         if changed_descriptions:
-            change = Change(
+            request = PosTagRequest(
                 id=str(uuid.uuid4()),
-                type=ChangeType.pos_tag,
-                form=form,
-                data={
-                    "before": [s.model_dump() for s in alf.senses],
-                    "after": [s.model_dump() for s in new_senses],
-                },
-                status=ChangeStatus.pending,
                 created_at=datetime.utcnow(),
+                form=form,
+                before=list(alf.senses),
+                after=new_senses,
             )
-            change_store.add(change)
+            enqueue(request, queue_dir)
             print(f"  {form!r}: queued pos_tag change")
             for desc in changed_descriptions:
                 print(desc)

@@ -2,14 +2,18 @@
 
 Usage:
     python -m alfs.update.induction.update_inventory \\
-        --senses-file {form}_senses.json --senses-db senses.db
+        --senses-file {form}_senses.json --senses-db senses.db \\
+        --queue-dir ../clerk_queue
 """
 
 import argparse
+from datetime import datetime
 from pathlib import Path
+import uuid
 
+from alfs.clerk.queue import enqueue
+from alfs.clerk.request import AddSensesRequest
 from alfs.data_models.alf import Alf
-from alfs.data_models.sense_store import SenseStore
 
 
 def merge_entry(existing: Alf, new: Alf) -> Alf:
@@ -37,6 +41,9 @@ def main() -> None:
         help="Path to {form}_senses.json from INDUCE_SENSES",
     )
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
     args = parser.parse_args()
 
     alf = Alf.model_validate_json(Path(args.senses_file).read_text())
@@ -44,21 +51,14 @@ def main() -> None:
         print(f"No new senses for '{alf.form}' (empty senses file)")
         return
 
-    store = SenseStore(Path(args.senses_db))
-
-    def merge(existing: Alf | None) -> Alf:
-        if existing is None:
-            print(f"  Added new entry for '{alf.form}' ({len(alf.senses)} senses)")
-            return alf
-        merged = merge_entry(existing, alf)
-        new_count = len(merged.senses) - len(existing.senses)
-        if new_count:
-            print(f"  Appended {new_count} new senses for '{alf.form}'")
-        else:
-            print(f"  No new senses for '{alf.form}' (all duplicates)")
-        return merged
-
-    store.update(alf.form, merge)
+    request = AddSensesRequest(
+        id=str(uuid.uuid4()),
+        created_at=datetime.utcnow(),
+        form=alf.form,
+        new_senses=list(alf.senses),
+    )
+    enqueue(request, Path(args.queue_dir))
+    print(f"  Queued add_senses for '{alf.form}' ({len(alf.senses)} senses)")
 
 
 if __name__ == "__main__":

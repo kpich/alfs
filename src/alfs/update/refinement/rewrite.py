@@ -1,9 +1,9 @@
-"""LLM-assisted sense rewrite suggestions, queued for human approval.
+"""LLM-assisted sense rewrite suggestions, auto-applied via clerk queue.
 
 Usage:
     python -m alfs.update.refinement.rewrite \\
         --senses-db ../alfs_data/senses.db \\
-        --changes-db ../alfs_data/changes.db \\
+        --queue-dir ../clerk_queue \\
         [--n 5] [--model gemma2:9b]
 """
 
@@ -13,8 +13,9 @@ from pathlib import Path
 import random
 import uuid
 
+from alfs.clerk.queue import enqueue
+from alfs.clerk.request import RewriteRequest
 from alfs.data_models.alf import Sense
-from alfs.data_models.change_store import Change, ChangeStatus, ChangeStore, ChangeType
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
 from alfs.update.refinement import prompts
@@ -49,16 +50,18 @@ _REWRITE_SCHEMA = {
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="LLM-assisted sense rewrite suggestions queued for human approval"
+        description="LLM-assisted sense rewrite suggestions via clerk queue"
     )
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
-    parser.add_argument("--changes-db", required=True, help="Path to changes.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
     parser.add_argument("--n", type=int, default=5, help="Number of forms to rewrite")
     parser.add_argument("--model", default="gemma2:9b")
     args = parser.parse_args()
 
     store = SenseStore(Path(args.senses_db))
-    change_store = ChangeStore(Path(args.changes_db))
+    queue_dir = Path(args.queue_dir)
 
     eligible = [
         (f, a) for f, a in store.all_entries().items() if not a.redirect and a.senses
@@ -95,18 +98,14 @@ def main() -> None:
             print(f"  skipped {form!r} (critic: {verdict.get('reason', '')})")
             continue
 
-        change = Change(
+        request = RewriteRequest(
             id=str(uuid.uuid4()),
-            type=ChangeType.rewrite,
-            form=form,
-            data={
-                "before": [s.model_dump() for s in alf.senses],
-                "after": [s.model_dump() for s in after],
-            },
-            status=ChangeStatus.pending,
             created_at=datetime.utcnow(),
+            form=form,
+            before=list(alf.senses),
+            after=after,
         )
-        change_store.add(change)
+        enqueue(request, queue_dir)
         print(f"  queued rewrite for: {form!r}")
 
     print("Done.")

@@ -1,11 +1,11 @@
-"""LLM-driven redundant-sense deletion, queued for human approval.
+"""LLM-driven redundant-sense deletion, auto-applied via clerk queue.
 
 Usage:
     python -m alfs.update.refinement.trim_sense \\
         --senses-db ../alfs_data/senses.db \\
         --labeled-db ../alfs_data/labeled.db \\
         --docs ../text_data/latest/docs.parquet \\
-        --changes-db ../alfs_data/changes.db \\
+        --queue-dir ../clerk_queue \\
         [--n 50] [--model gemma2:9b]
 """
 
@@ -17,9 +17,10 @@ import uuid
 
 import polars as pl
 
+from alfs.clerk.queue import enqueue
+from alfs.clerk.request import TrimSenseRequest
 from alfs.corpus import fetch_instances
 from alfs.data_models.alf import sense_key
-from alfs.data_models.change_store import Change, ChangeStatus, ChangeStore, ChangeType
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
@@ -37,21 +38,23 @@ _TRIM_SCHEMA = {
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="LLM-driven redundant-sense deletion queued for human approval"
+        description="LLM-driven redundant-sense deletion via clerk queue"
     )
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
-    parser.add_argument("--changes-db", required=True, help="Path to changes.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
     parser.add_argument("--n", type=int, default=50, help="Number of forms to evaluate")
     parser.add_argument("--model", default="gemma2:9b")
     args = parser.parse_args()
 
     store = SenseStore(Path(args.senses_db))
     occ_store = OccurrenceStore(Path(args.labeled_db))
-    change_store = ChangeStore(Path(args.changes_db))
     docs_df = pl.read_parquet(args.docs)
     labeled_df = occ_store.to_polars()
+    queue_dir = Path(args.queue_dir)
 
     eligible = [
         (f, a)
@@ -97,20 +100,16 @@ def main() -> None:
         deleted_idx = sense_num - 1
         remaining = [s for i, s in enumerate(alf.senses) if i != deleted_idx]
 
-        change = Change(
+        request = TrimSenseRequest(
             id=str(uuid.uuid4()),
-            type=ChangeType.trim_sense,
-            form=form,
-            data={
-                "before": [s.model_dump() for s in alf.senses],
-                "after": [s.model_dump() for s in remaining],
-                "deleted_idx": deleted_idx,
-                "reason": reason,
-            },
-            status=ChangeStatus.pending,
             created_at=datetime.utcnow(),
+            form=form,
+            before=list(alf.senses),
+            after=remaining,
+            deleted_idx=deleted_idx,
+            reason=reason,
         )
-        change_store.add(change)
+        enqueue(request, queue_dir)
         print(f"  queued trim for {form!r}: sense {sense_num} — {reason}")
 
     print("Done.")

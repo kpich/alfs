@@ -1,11 +1,11 @@
-.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect trim_senses validate compile viewer backup conductor queenant install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect trim_senses validate compile viewer backup conductor clerk install_precommit_hooks dev test mypy cleandata
 
-SENSES_DB  ?= ../alfs_data/senses.db
-LABELED_DB ?= ../alfs_data/labeled.db
-CHANGES_DB ?= ../alfs_data/changes.db
-DOCS       ?= ../text_data/latest/docs.parquet
+SENSES_DB   ?= ../alfs_data/senses.db
+LABELED_DB  ?= ../alfs_data/labeled.db
+CLERK_QUEUE ?= ../clerk_queue
+DOCS        ?= ../text_data/latest/docs.parquet
 SENSES_REPO ?= ../alfs_senses
-NWORDS     ?= 5
+NWORDS      ?= 5
 
 etl:
 	bash scripts/etl.sh
@@ -24,13 +24,15 @@ label_new:
 
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \
-		--senses-db $(SENSES_DB)
+		--senses-db $(SENSES_DB) \
+		--queue-dir $(CLERK_QUEUE)
 
 postag:
 	uv run --no-sync python -m alfs.update.refinement.postag \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
-		--docs $(DOCS)
+		--docs $(DOCS) \
+		--queue-dir $(CLERK_QUEUE)
 
 cleanup:
 	uv run --no-sync python -m alfs.update.refinement.cleanup \
@@ -39,33 +41,39 @@ cleanup:
 rewrite:
 	uv run --no-sync python -m alfs.update.refinement.rewrite \
 		--senses-db $(SENSES_DB) \
-		--changes-db $(CHANGES_DB)
+		--queue-dir $(CLERK_QUEUE)
 
 retag:
 	uv run --no-sync python -m alfs.update.refinement.retag \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
-		--changes-db $(CHANGES_DB)
+		--queue-dir $(CLERK_QUEUE)
 
 prune:
 	uv run --no-sync python -m alfs.update.refinement.prune \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
-		--changes-db $(CHANGES_DB)
+		--queue-dir $(CLERK_QUEUE)
 
 morph_redirect:
 	uv run --no-sync python -m alfs.update.refinement.morph_redirect \
 		--senses-db $(SENSES_DB) \
-		--changes-db $(CHANGES_DB)
+		--queue-dir $(CLERK_QUEUE)
 
 trim_senses:
 	uv run --no-sync python -m alfs.update.refinement.trim_sense \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
-		--changes-db $(CHANGES_DB) \
+		--queue-dir $(CLERK_QUEUE) \
 		--n 50
+
+clerk:
+	uv run --no-sync python -m alfs.clerk.worker \
+		--queue-dir $(CLERK_QUEUE) \
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB)
 
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
@@ -83,13 +91,6 @@ backup:
 
 conductor:
 	uv run --no-sync python -m alfs.anthill
-
-queenant:
-	uv run --no-sync python -m alfs.queenant \
-		--senses-db $(SENSES_DB) \
-		--changes-db $(CHANGES_DB) \
-		--labeled-db $(LABELED_DB) \
-		--docs $(DOCS)
 
 install_precommit_hooks:
 	uv sync --group dev

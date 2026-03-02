@@ -5,15 +5,20 @@ Usage:
         --senses-db ../alfs_data/senses.db \\
         --labeled-db ../alfs_data/labeled.db \\
         --docs ../text_data/latest/docs.parquet \\
+        --queue-dir ../clerk_queue \\
         [--model gemma2:9b]
 """
 
 import argparse
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
+import uuid
 
 import polars as pl
 
+from alfs.clerk.queue import enqueue
+from alfs.clerk.request import UpdatePosRequest
 from alfs.corpus import fetch_instances
 from alfs.data_models.alf import Alf, sense_key
 from alfs.data_models.occurrence_store import OccurrenceStore
@@ -92,16 +97,34 @@ def main() -> None:
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
     parser.add_argument("--model", default="gemma2:9b")
     args = parser.parse_args()
 
     sense_store = SenseStore(Path(args.senses_db))
     occ_store = OccurrenceStore(Path(args.labeled_db))
+    queue_dir = Path(args.queue_dir)
     labeled_df = occ_store.to_polars()
     docs_df = pl.read_parquet(args.docs)
 
     for form in sense_store.all_forms():
-        sense_store.update(form, _make_tagger(form, labeled_df, docs_df, args.model))
+        existing = sense_store.read(form)
+        if existing is None or existing.redirect:
+            continue
+        tagger = _make_tagger(form, labeled_df, docs_df, args.model)
+        updated = tagger(existing)
+        if list(updated.senses) == list(existing.senses):
+            continue
+        request = UpdatePosRequest(
+            id=str(uuid.uuid4()),
+            created_at=datetime.utcnow(),
+            form=form,
+            before=list(existing.senses),
+            after=list(updated.senses),
+        )
+        enqueue(request, queue_dir)
 
     print("Done tagging POS.")
 
