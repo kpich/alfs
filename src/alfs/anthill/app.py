@@ -28,12 +28,7 @@ def _task_to_dict(task: Task, est_duration: float | None = None) -> dict:
 
 @app.get("/api/actions")
 def list_actions():
-    return jsonify(
-        [
-            {"name": a.name, "label": a.label, "human_review": a.human_review}
-            for a in ACTIONS
-        ]
-    )
+    return jsonify([{"name": a.name, "label": a.label} for a in ACTIONS])
 
 
 @app.get("/")

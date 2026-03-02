@@ -18,7 +18,6 @@
   button:disabled { opacity: 0.4; cursor: default; }
   button.primary { border-color: #4a9; color: #4a9; }
   button.primary:hover:not(:disabled) { background: #1a3a30; }
-  .h-badge { color: #fa0; margin-left: 5px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th {
@@ -177,9 +176,8 @@ async function refreshTasks() {
 function maybeYolo(tasks) {
   const busy = tasks.some(t => t.status === 'pending' || t.status === 'running');
   if (busy) return;
-  const candidates = loadedActions.filter(a => !a.human_review);
-  if (candidates.length === 0) return;
-  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  if (loadedActions.length === 0) return;
+  const pick = loadedActions[Math.floor(Math.random() * loadedActions.length)];
   console.log('[YOLO] queue idle — auto-queuing', pick.name);
   queueTask(pick.name);
 }
@@ -261,12 +259,6 @@ async function loadActions() {
       btn.className = 'primary';
       btn.onclick = () => queueTask(a.name);
       btn.textContent = 'Queue ' + a.label;
-      if (a.human_review) {
-        const badge = document.createElement('span');
-        badge.className = 'h-badge';
-        badge.textContent = '[H]';
-        btn.appendChild(badge);
-      }
       container.appendChild(btn);
     }
   } catch (e) {

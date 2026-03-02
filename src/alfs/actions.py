@@ -10,7 +10,6 @@ class Action:
     name: str
     label: str
     cmd: list[str]
-    human_review: bool = False
     description: str = ""
 
 
@@ -91,8 +90,7 @@ def main() -> None:
 
     if cmd == "list":
         for a in ACTIONS:
-            h = " [H]" if a.human_review else ""
-            print(f"{a.name:<10} {a.label:<12}{h}  {a.description}")
+            print(f"{a.name:<10} {a.label:<12}  {a.description}")
 
     elif cmd == "run":
         if len(args) < 2:
