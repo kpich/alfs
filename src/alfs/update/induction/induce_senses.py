@@ -68,11 +68,6 @@ def main() -> None:
         if entry:
             existing_defs = [s.definition for s in entry.senses]
 
-    docs_df = pl.read_parquet(args.docs)
-    docs = dict(
-        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
-    )
-
     prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
     occ_path = Path(args.seg_data_dir) / prefix / "occurrences.parquet"
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
@@ -94,6 +89,16 @@ def main() -> None:
     random.seed(42)
     samples = random.sample(
         all_occurrences, min(args.max_samples, len(all_occurrences))
+    )
+
+    needed_doc_ids = list({occ["doc_id"] for occ in samples})
+    docs_df = (
+        pl.scan_parquet(args.docs)
+        .filter(pl.col("doc_id").is_in(needed_doc_ids))
+        .collect()
+    )
+    docs = dict(
+        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
     )
 
     contexts = []
