@@ -11,7 +11,8 @@ def rewrite_prompt(form: str, senses: list[Sense]) -> str:
         "Current definitions:",
     ]
     for i, s in enumerate(senses, 1):
-        lines.append(f"  {i}. {s.definition}")
+        pos_tag = f" [{s.pos.value}]" if s.pos else ""
+        lines.append(f"  {i}.{pos_tag} {s.definition}")
         for sub in s.subsenses or []:
             lines.append(f"     \u2022 {sub}")
     lines += [
@@ -150,12 +151,14 @@ def critic_prompt(form: str, before: list[Sense], after: list[Sense]) -> str:
         "Original definitions:",
     ]
     for i, s in enumerate(before, 1):
-        lines.append(f"  {i}. {s.definition}")
+        pos_tag = f" [{s.pos.value}]" if s.pos else ""
+        lines.append(f"  {i}.{pos_tag} {s.definition}")
         for sub in s.subsenses or []:
             lines.append(f"     \u2022 {sub}")
     lines += ["", "Proposed definitions:"]
     for i, s in enumerate(after, 1):
-        lines.append(f"  {i}. {s.definition}")
+        pos_tag = f" [{s.pos.value}]" if s.pos else ""
+        lines.append(f"  {i}.{pos_tag} {s.definition}")
         for sub in s.subsenses or []:
             lines.append(f"     \u2022 {sub}")
     lines += [
