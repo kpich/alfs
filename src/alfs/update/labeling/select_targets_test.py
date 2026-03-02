@@ -4,108 +4,84 @@ import polars as pl
 from alfs.update.labeling.select_targets import select_top_n
 
 
-def _occurrences(form_counts: dict[str, int]) -> pl.DataFrame:
-    forms = []
-    for form, count in form_counts.items():
-        forms.extend([form] * count)
-    return pl.DataFrame({"form": forms})
-
-
-def _labeled(rows: list[tuple[str, str, int]], rating: int = 1) -> pl.DataFrame:
-    if not rows:
-        return pl.DataFrame(
-            {"form": [], "doc_id": [], "byte_offset": [], "rating": []},
-            schema={
-                "form": pl.String,
-                "doc_id": pl.String,
-                "byte_offset": pl.Int64,
-                "rating": pl.Int64,
-            },
-        )
-    forms, doc_ids, offsets = zip(*rows, strict=False)
+def _total_counts(form_counts: dict[str, int]) -> pl.DataFrame:
     return pl.DataFrame(
-        {
-            "form": list(forms),
-            "doc_id": list(doc_ids),
-            "byte_offset": list(offsets),
-            "rating": [rating] * len(rows),
-        }
+        {"form": list(form_counts.keys()), "total": list(form_counts.values())}
+    )
+
+
+def _n_labeled_counts(form_labeled: dict[str, int]) -> pl.DataFrame:
+    if not form_labeled:
+        return pl.DataFrame(
+            {"form": [], "n_labeled": []},
+            schema={"form": pl.String, "n_labeled": pl.Int64},
+        )
+    return pl.DataFrame(
+        {"form": list(form_labeled.keys()), "n_labeled": list(form_labeled.values())}
     )
 
 
 def test_basic_unlabeled_sort():
-    occ = _occurrences({"A": 100, "B": 90})
-    lab = _labeled([("A", "doc1", i) for i in range(20)])
-    result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
+    tc = _total_counts({"A": 100, "B": 90})
+    nlc = _n_labeled_counts({"A": 20})
+    result = select_top_n(tc, nlc, top_n=2, rng=np.random.default_rng(0))
     # A has 80 unlabeled; B has 90 unlabeled → both have nonzero weight, both returned
     assert set(result) == {"A", "B"}
 
 
 def test_all_labeled_form_loses():
-    occ = _occurrences({"A": 50, "B": 40})
-    lab = _labeled([("A", "doc1", i) for i in range(50)])
-    result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
+    tc = _total_counts({"A": 50, "B": 40})
+    nlc = _n_labeled_counts({"A": 50})
+    result = select_top_n(tc, nlc, top_n=2, rng=np.random.default_rng(0))
     # A has 0 unlabeled → score=0 always; B has 40 unlabeled → B first
     assert result[0] == "B"
 
 
 def test_no_labeled_data():
-    occ = _occurrences({"A": 100, "B": 90})
-    lab = _labeled([])
-    result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
+    tc = _total_counts({"A": 100, "B": 90})
+    nlc = _n_labeled_counts({})
+    result = select_top_n(tc, nlc, top_n=2, rng=np.random.default_rng(0))
     # No labeled data → both cold-start with bad_rate=0.5; both should be returned
     assert set(result) == {"A", "B"}
 
 
 def test_top_n_caps_result():
-    occ = _occurrences({"a": 5, "b": 4, "c": 3, "d": 2, "e": 1})
-    lab = _labeled([])
-    result = select_top_n(occ, lab, top_n=3, rng=np.random.default_rng(0))
+    tc = _total_counts({"a": 5, "b": 4, "c": 3, "d": 2, "e": 1})
+    nlc = _n_labeled_counts({})
+    result = select_top_n(tc, nlc, top_n=3, rng=np.random.default_rng(0))
     assert len(result) == 3
 
 
 def test_non_letter_forms_filtered():
-    occ = _occurrences({"!!": 100, "ok": 90})
-    lab = _labeled([])
-    result = select_top_n(occ, lab, top_n=10, rng=np.random.default_rng(0))
+    tc = _total_counts({"!!": 100, "ok": 90})
+    nlc = _n_labeled_counts({})
+    result = select_top_n(tc, nlc, top_n=10, rng=np.random.default_rng(0))
     assert "!!" not in result
     assert "ok" in result
 
 
-def test_duplicate_labeled_rows_deduped():
-    occ = _occurrences({"the": 10})
-    # 3 rows with same (doc_id, byte_offset) — should count as 1 after dedup
-    lab = _labeled([("the", "doc1", 0), ("the", "doc1", 0), ("the", "doc1", 0)])
-    result = select_top_n(occ, lab, top_n=1, rng=np.random.default_rng(0))
-    # 10 total - 1 unique labeled = 9 unlabeled; form should still be returned
-    assert result == ["the"]
-
-
 def test_rating_zero_treated_as_unlabeled():
-    occ = _occurrences({"A": 10})
-    lab = _labeled([("A", "doc1", i) for i in range(10)], rating=0)
-    result = select_top_n(occ, lab, top_n=1, rng=np.random.default_rng(0))
-    # All 10 occurrences labeled (rating=0 still counts as labeled) → unlabeled=0 →
-    # excluded
+    tc = _total_counts({"A": 10})
+    nlc = _n_labeled_counts({"A": 10})
+    result = select_top_n(tc, nlc, top_n=1, rng=np.random.default_rng(0))
+    # All 10 occurrences labeled → unlabeled=0 → excluded
     assert result == []
 
 
 def test_high_volume_wins():
     # X: few unlabeled; Y: many unlabeled regardless of rating quality
-    occ = _occurrences({"X": 20, "Y": 200})
-    lab_x = _labeled([("X", "doc1", i) for i in range(4)], rating=1)  # 4 labeled
-    lab_y = _labeled([("Y", "doc2", i) for i in range(50)], rating=3)  # 50 labeled
-    lab = pl.concat([lab_x, lab_y])
-    result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
+    tc = _total_counts({"X": 20, "Y": 200})
+    nlc = _n_labeled_counts({"X": 4, "Y": 50})
+    result = select_top_n(tc, nlc, top_n=2, rng=np.random.default_rng(0))
     # X: 16 unlabeled; Y: 150 unlabeled → Y has much higher weight, selected first
     assert result[0] == "Y"
 
 
 def test_cold_start_form_gets_half_rate():
     # Form with no labels has all occurrences unlabeled → nonzero weight → selected
-    occ = _occurrences({"coldword": 20})
-    lab = _labeled([])
-    result = select_top_n(occ, lab, top_n=1, rng=np.random.default_rng(0))
+    tc = _total_counts({"coldword": 20})
+    nlc = _n_labeled_counts({})
+    result = select_top_n(tc, nlc, top_n=1, rng=np.random.default_rng(0))
     # All 20 occurrences unlabeled → weight=20 → form is selected
     assert result == ["coldword"]
 
@@ -113,18 +89,18 @@ def test_cold_start_form_gets_half_rate():
 def test_all_excellent_ratings_deprioritized():
     # "excellent" has more unlabeled instances than "unknown" despite high label
     # coverage
-    occ = _occurrences({"excellent": 50, "unknown": 10})
-    lab = _labeled([("excellent", "doc1", i) for i in range(30)], rating=3)
-    result = select_top_n(occ, lab, top_n=2, rng=np.random.default_rng(0))
+    tc = _total_counts({"excellent": 50, "unknown": 10})
+    nlc = _n_labeled_counts({"excellent": 30})
+    result = select_top_n(tc, nlc, top_n=2, rng=np.random.default_rng(0))
     # "excellent": 20 unlabeled; "unknown": 10 unlabeled → "excellent" has higher weight
     assert result[0] == "excellent"
 
 
 def test_redirect_forms_excluded():
-    occ = _occurrences({"The": 100, "the": 90})
-    lab = _labeled([])
+    tc = _total_counts({"The": 100, "the": 90})
+    nlc = _n_labeled_counts({})
     result = select_top_n(
-        occ, lab, top_n=10, rng=np.random.default_rng(0), redirect_forms={"The"}
+        tc, nlc, top_n=10, rng=np.random.default_rng(0), redirect_forms={"The"}
     )
     assert "The" not in result
     assert "the" in result

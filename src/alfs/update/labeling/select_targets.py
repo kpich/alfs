@@ -24,8 +24,8 @@ _WORD_RE = re.compile(r"[a-zA-Z]")
 
 
 def select_top_n(
-    occurrences_df: pl.DataFrame,  # columns: form (str)
-    labeled_df: pl.DataFrame,  # columns: form, doc_id, byte_offset, rating
+    total_counts: pl.DataFrame,  # columns: form (str), total (int)
+    n_labeled_counts: pl.DataFrame,  # columns: form (str), n_labeled (int)
     top_n: int,
     rng: np.random.Generator,
     redirect_forms: set[str] | frozenset[str] = frozenset(),
@@ -35,19 +35,8 @@ def select_top_n(
     Forms with more unlabeled instances have a higher probability of being selected.
     Forms with zero unlabeled instances are excluded.
     """
-    total_counts = (
-        occurrences_df.select("form").group_by("form").agg(pl.len().alias("total"))
-    )
-
-    n_labeled = (
-        labeled_df.select(["form", "doc_id", "byte_offset"])
-        .unique()
-        .group_by("form")
-        .agg(pl.len().alias("n_labeled"))
-    )
-
     candidates = (
-        total_counts.join(n_labeled, on="form", how="left")
+        total_counts.join(n_labeled_counts, on="form", how="left")
         .with_columns(pl.col("n_labeled").fill_null(0))
         .with_columns((pl.col("total") - pl.col("n_labeled")).alias("unlabeled"))
         .filter(
@@ -91,21 +80,24 @@ def main() -> None:
             f"No occurrences.parquet files found in {seg_dir}. " "Run `make seg` first."
         )
 
-    occurrences_df = pl.concat(
-        [pl.scan_parquet(str(f)).select("form") for f in parquet_files]
-    ).collect()
+    total_counts = (
+        pl.concat([pl.scan_parquet(str(f)).select("form") for f in parquet_files])
+        .group_by("form")
+        .agg(pl.len().alias("total"))
+        .collect()
+    )
 
     if args.labeled_db and Path(args.labeled_db).exists():
-        labeled_df = OccurrenceStore(Path(args.labeled_db)).to_polars()
+        n_labeled_counts = (
+            OccurrenceStore(Path(args.labeled_db))
+            .count_by_form()
+            .rename({"n_total": "n_labeled"})
+            .select(["form", "n_labeled"])
+        )
     else:
-        labeled_df = pl.DataFrame(
-            {"form": [], "doc_id": [], "byte_offset": [], "rating": []},
-            schema={
-                "form": pl.String,
-                "doc_id": pl.String,
-                "byte_offset": pl.Int64,
-                "rating": pl.Int64,
-            },
+        n_labeled_counts = pl.DataFrame(
+            {"form": [], "n_labeled": []},
+            schema={"form": pl.String, "n_labeled": pl.Int64},
         )
 
     redirect_forms: set[str] = set()
@@ -115,7 +107,9 @@ def main() -> None:
         redirect_forms = {f for f, alf in entries.items() if alf.redirect is not None}
 
     rng = np.random.default_rng(args.seed)
-    forms = select_top_n(occurrences_df, labeled_df, args.top_n, rng, redirect_forms)
+    forms = select_top_n(
+        total_counts, n_labeled_counts, args.top_n, rng, redirect_forms
+    )
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
