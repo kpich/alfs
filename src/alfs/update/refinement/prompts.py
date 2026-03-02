@@ -151,12 +151,12 @@ def trim_sense_prompt(form: str, senses: list[Sense], examples: list[list[str]])
             lines.append(f"     \u2014 {ex}")
     lines += [
         "",
-        "Are any two senses redundantly similar — covering the same concept such that"
-        " one should be deleted?",
+        "Should any sense be deleted? Delete if two senses cover the same concept"
+        " and one is weaker, or if the form is a parsing artifact rather than a"
+        " real word or expression.",
         "",
-        "If so, give the NUMBER (1-based) of the weaker sense to delete"
-        " and a brief reason.",
-        "If all senses are distinct, set sense_num to null.",
+        "If so, give the sense NUMBER (1-based) to delete and a brief reason.",
+        "If all senses are worth keeping, set sense_num to null.",
         "",
         'Respond with ONLY valid JSON: {"sense_num": 2, "reason": "..."}',
     ]
