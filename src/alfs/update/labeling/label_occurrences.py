@@ -77,6 +77,11 @@ def run(
     sense_store = SenseStore(Path(senses_db))
     occ_store = OccurrenceStore(Path(labeled_db))
 
+    entry = sense_store.read(form)
+    if entry is None or (not entry.senses and entry.redirect is None):
+        print(f"No senses for '{form}' in senses.db; skipping labeling.")
+        return
+
     sense_menu = build_sense_menu(sense_store, form)
 
     prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"

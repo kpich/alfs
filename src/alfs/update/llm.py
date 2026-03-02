@@ -6,10 +6,16 @@ import ollama
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
 
+# Per-call timeout in seconds; prevents threads from hanging indefinitely if
+# ollama becomes unresponsive.
+_TIMEOUT = 180
+
+_client = ollama.Client(timeout=_TIMEOUT)
+
 
 def chat(model: str, prompt: str, format: dict[str, Any] | None = None) -> str:
     """Send a single-turn chat to the given Ollama model and return the text."""
-    response = ollama.chat(
+    response = _client.chat(
         model=model, messages=[{"role": "user", "content": prompt}], format=format
     )
     return response["message"]["content"]

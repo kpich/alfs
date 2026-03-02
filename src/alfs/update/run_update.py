@@ -15,6 +15,7 @@ Usage:
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+import sys
 import tempfile
 import traceback
 
@@ -44,6 +45,8 @@ def main() -> None:
     labeled_db = Path(args.labeled_db)
     queue_dir = Path(args.queue_dir)
 
+    had_error = False
+
     with tempfile.TemporaryDirectory(prefix="alfs_update_") as tmpdir:
         targets_dir = Path(tmpdir) / "targets"
         senses_dir = Path(tmpdir) / "senses"
@@ -61,7 +64,7 @@ def main() -> None:
         )
         print(f"Selected {len(target_files)} targets.")
 
-        # Phase 2: parallel induction (critic inline in run_induce)
+        # Phase 2: parallel induction (critic inline in induce_senses.run)
         print("=== Phase 2: Induce senses ===")
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
             futures = {
@@ -84,6 +87,7 @@ def main() -> None:
                 try:
                     future.result()
                 except Exception:
+                    had_error = True
                     print(f"  ERROR inducing senses for {tf.name}:")
                     traceback.print_exc()
 
@@ -93,6 +97,7 @@ def main() -> None:
             try:
                 update_inventory.run(sf, senses_db, queue_dir)
             except Exception:
+                had_error = True
                 print(f"  ERROR updating inventory for {sf.name}:")
                 traceback.print_exc()
 
@@ -128,9 +133,13 @@ def main() -> None:
                 try:
                     future.result()
                 except Exception:
+                    had_error = True
                     print(f"  ERROR labeling {tf.name}:")
                     traceback.print_exc()
 
+    if had_error:
+        print("=== Update pipeline finished with errors ===")
+        sys.exit(1)
     print("=== Update pipeline complete ===")
 
 
