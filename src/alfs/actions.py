@@ -64,6 +64,12 @@ ACTIONS: list[Action] = [
         description="Propose morphological derivation links",
     ),
     Action(
+        "undo_morph",
+        "Undo Morph",
+        ["make", "undo_morph"],
+        description="Detect and undo incorrect morphological links",
+    ),
+    Action(
         "trim_senses",
         "Trim Senses",
         ["make", "trim_senses"],

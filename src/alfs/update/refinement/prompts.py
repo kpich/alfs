@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from alfs.data_models.alf import Alf, Sense
 
 
@@ -221,6 +223,67 @@ def morph_critic_prompt(
         " (happiness ← happy), or semantic/etymological\n"
         "  - the forms are not morphologically related at all\n"
         "  - the proposed definition does not accurately describe the link\n"
+        "\n"
+        'Respond with ONLY valid JSON: {"is_valid": true, "reason": "..."}'
+    )
+
+
+def undo_morph_screen_prompt(items: Sequence[tuple[str, int, Sense]]) -> str:
+    lines = [
+        "You are a lexicographer auditing a dictionary for incorrect"
+        " morphological links.",
+        "",
+        "Below are numbered dictionary senses that have been tagged as regular"
+        " inflections of a base word.",
+        "Identify any links that are clearly wrong — the form is NOT a genuine regular"
+        " inflection (plural, verbal inflection, comparative/superlative) of the base.",
+        "Also flag cases where the definition does not match the claimed link.",
+        "",
+        "For each bad link, propose a replacement standalone definition that describes"
+        " the form's actual meaning without reference to a base form.",
+        "If all links look correct, return an empty bad_links list.",
+        "",
+        "Items:",
+    ]
+    for i, (form, sense_idx, sense) in enumerate(items, 1):
+        morph_base = getattr(sense, "morph_base", None) or "?"
+        morph_relation = getattr(sense, "morph_relation", None) or "inflection"
+        definition = getattr(sense, "definition", "")
+        lines.append(f'{i}. "{form}" (sense {sense_idx})')
+        lines.append(f"   Definition: {definition}")
+        lines.append(f'   Morph link: {morph_relation} of "{morph_base}"')
+    lines += [
+        "",
+        "Respond with ONLY valid JSON:",
+        '{"bad_links": [{"item_num": 1, "proposed_definition": "..."}, ...]}',
+    ]
+    return "\n".join(lines)
+
+
+def undo_morph_critic_prompt(
+    form: str,
+    sense_idx: int,
+    morph_base: str,
+    morph_relation: str,
+    old_def: str,
+    new_def: str,
+) -> str:
+    return (
+        "You are a lexicographer reviewing a proposed correction"
+        " to a dictionary entry.\n"
+        "\n"
+        f'Word: "{form}" (sense {sense_idx})\n'
+        f"Current definition: {old_def}\n"
+        f'Morph link: tagged as "{morph_relation}" of "{morph_base}"\n'
+        "\n"
+        f"Proposed action: remove the morph link and replace the definition with:\n"
+        f'  "{new_def}"\n'
+        "\n"
+        f"Should the morph link be removed? Approve if the link is genuinely wrong"
+        f' (not a regular inflection of "{morph_base}") and the proposed'
+        f" standalone definition is reasonable.\n"
+        "Reject if the morph link is actually valid or the proposed definition is"
+        " poor quality.\n"
         "\n"
         'Respond with ONLY valid JSON: {"is_valid": true, "reason": "..."}'
     )

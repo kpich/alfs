@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect trim_senses validate compile viewer backup conductor clerk clerk-watch install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses validate compile viewer backup conductor clerk clerk-watch install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB    ?= ../alfs_data/senses.db
 LABELED_DB   ?= ../alfs_data/labeled.db
@@ -64,6 +64,11 @@ prune:
 
 morph_redirect:
 	uv run --no-sync python -m alfs.update.refinement.morph_redirect \
+		--senses-db $(SENSES_DB) \
+		--queue-dir $(CLERK_QUEUE)
+
+undo_morph:
+	uv run --no-sync python -m alfs.update.refinement.undo_morph \
 		--senses-db $(SENSES_DB) \
 		--queue-dir $(CLERK_QUEUE)
 
