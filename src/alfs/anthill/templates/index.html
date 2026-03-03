@@ -81,6 +81,8 @@ const logPollers = {};
 let yoloMode = false;
 let loadedActions = [];
 
+const YOLO_WEIGHTS = { update: 10, postag: 10, morph_redirect: 2 };
+
 function toggleYolo() {
   yoloMode = !yoloMode;
   const btn = document.getElementById('yolo-btn');
@@ -177,7 +179,14 @@ function maybeYolo(tasks) {
   const busy = tasks.some(t => t.status === 'pending' || t.status === 'running');
   if (busy) return;
   if (loadedActions.length === 0) return;
-  const pick = loadedActions[Math.floor(Math.random() * loadedActions.length)];
+  const weights = loadedActions.map(a => YOLO_WEIGHTS[a.name] ?? 1);
+  const total = weights.reduce((s, w) => s + w, 0);
+  let r = Math.random() * total;
+  let pick = loadedActions[loadedActions.length - 1];
+  for (let i = 0; i < loadedActions.length; i++) {
+    r -= weights[i];
+    if (r <= 0) { pick = loadedActions[i]; break; }
+  }
   console.log('[YOLO] queue idle — auto-queuing', pick.name);
   queueTask(pick.name);
 }
