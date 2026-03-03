@@ -46,10 +46,9 @@ def induction_prompt(
         f"or if it is a foreign word that would not appear in an English dictionary "
         f"(occurring almost entirely in non-English text rather than as a loanword or "
         f"expression commonly used in English), "
-        f'output {{"all_covered": true, "definition": "",'
-        f' "examples": [], "subsenses": []}}.\n'
-        f'Otherwise, find the single most common meaning of "{form}"'
-        f" in these sentences.\n"
+        f'output {{"all_covered": true, "senses": []}}.\n'
+        f'Otherwise, find all major distinct meanings of "{form}"'
+        f" clearly represented in these sentences.\n"
     )
     if existing_defs:
         numbered_defs = "\n".join(f"{i + 1}. {d}" for i, d in enumerate(existing_defs))
@@ -62,24 +61,25 @@ def induction_prompt(
             f"or if it is a foreign word that would not appear in an English "
             f"dictionary (occurring almost entirely in non-English text rather "
             f"than as a loanword or expression commonly used in English), "
-            f'output {{"all_covered": true, "definition": "",'
-            f' "examples": [], "subsenses": []}}.\n'
-            f'Otherwise, find the single most common meaning of "{form}"'
-            f" in these sentences that is NOT already covered above.\n"
+            f'output {{"all_covered": true, "senses": []}}.\n'
+            f'Otherwise, find all major distinct meanings of "{form}"'
+            f" in these sentences that are NOT already covered above.\n"
         )
 
     return (
         f'You are a lexicographer. Below are {n} sentences containing "{form}".\n'
         f"{existing_block}"
         f"{opt_out_clause}"
-        f"Group the sentence numbers that illustrate it,"
-        f" write a concise one-sentence definition.\n"
+        f"Only include a sense if it has substantial evidence (multiple examples).\n"
+        f"Each sense must be meaningfully distinct — not paraphrasable as another.\n"
+        f"For each sense, group the sentence numbers that illustrate it"
+        f" and write a concise one-sentence definition.\n"
         f"Output ONLY a JSON object — no prose, no markdown, no explanation.\n"
         f"Start your response with {{ and end with }}.\n"
         f"\n"
         f"Sentences:\n"
         f"{numbered}\n"
         f"\n"
-        f'{{"all_covered": false, "definition": "...", "examples": [1, 2],'
-        f' "subsenses": []}}'
+        f'{{"all_covered": false, "senses": [{{"definition": "...", "examples": [1, 2],'
+        f' "subsenses": []}}]}}'
     )

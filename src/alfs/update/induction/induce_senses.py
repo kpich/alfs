@@ -24,11 +24,20 @@ _SENSE_SCHEMA = {
     "type": "object",
     "properties": {
         "all_covered": {"type": "boolean"},
-        "definition": {"type": "string"},
-        "examples": {"type": "array", "items": {"type": "integer"}},
-        "subsenses": {"type": "array", "items": {"type": "string"}},
+        "senses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "definition": {"type": "string"},
+                    "examples": {"type": "array", "items": {"type": "integer"}},
+                    "subsenses": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["definition", "examples", "subsenses"],
+            },
+        },
     },
-    "required": ["definition", "examples", "subsenses"],
+    "required": ["senses"],
 }
 
 _CRITIC_SCHEMA = {
@@ -124,26 +133,31 @@ def run(
         print(f"Existing senses cover all contexts for '{form}'; no new sense added.")
         return
 
-    sense = Sense(
-        definition=data["definition"],
-        subsenses=data.get("subsenses") or None,
-        updated_by_model=model,
-    )
+    proposed = data.get("senses", [])
+    accepted: list[Sense] = []
+    for item in proposed:
+        sense = Sense(
+            definition=item["definition"],
+            subsenses=item.get("subsenses") or None,
+            updated_by_model=model,
+        )
+        verdict = llm.chat_json(
+            model,
+            prompts.induction_critic_prompt(
+                form,
+                sense.definition,
+                existing_defs + [s.definition for s in accepted],
+            ),
+            format=_CRITIC_SCHEMA,
+        )
+        if verdict.get("is_valid", True):
+            accepted.append(sense)
+        else:
+            print(f"  critic rejected '{form}': {verdict.get('reason', '')}")
 
-    verdict = llm.chat_json(
-        model,
-        prompts.induction_critic_prompt(form, sense.definition, existing_defs),
-        format=_CRITIC_SCHEMA,
-    )
-    if not verdict.get("is_valid", True):
-        alf = Alf(form=form, senses=[])
-        Path(output).write_text(alf.model_dump_json())
-        print(f"  critic rejected '{form}': {verdict.get('reason', '')}")
-        return
-
-    alf = Alf(form=form, senses=[sense])
+    alf = Alf(form=form, senses=accepted)
     Path(output).write_text(alf.model_dump_json())
-    print(f"Wrote 1 sense for '{form}' to {output}")
+    print(f"Wrote {len(accepted)} sense(s) for '{form}' to {output}")
 
 
 def main() -> None:
