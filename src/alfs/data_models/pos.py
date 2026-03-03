@@ -11,4 +11,5 @@ class PartOfSpeech(str, Enum):
     pronoun = "pronoun"
     determiner = "determiner"
     interjection = "interjection"
+    proper_noun = "proper_noun"
     other = "other"

@@ -41,7 +41,7 @@ def postag_prompt(form: str, definition: str, instances: list[str]) -> str:
         f"{instances_section}"
         f"\nWhat is the primary part of speech for this sense?\n"
         f"Choose one of: noun, verb, adjective, adverb, preposition, conjunction, "
-        f"pronoun, determiner, interjection, other.\n"
+        f"pronoun, determiner, interjection, proper_noun, other.\n"
         f'\nRespond with ONLY valid JSON: {{"pos": "noun"}}'
     )
 
