@@ -31,10 +31,11 @@ def select_top_n(
     min_count: int,
     redirect_forms: set[str] | frozenset[str] = frozenset(),
 ) -> list[str]:
-    """Return up to top_n forms sampled proportionally to unlabeled instance count.
+    """Return up to top_n forms sampled proportionally to log(1 + unlabeled count).
 
-    Forms with more unlabeled instances have a higher probability of being selected.
-    Forms with zero unlabeled instances are excluded.
+    Weights are log-transformed to compress Zipfian dynamic range: a form with 10k
+    unlabeled occurrences is ~3× more likely than one with 100, not 100×.
+    Forms with zero unlabeled instances still get weight 0 and are excluded.
     """
     candidates = (
         total_counts.join(n_labeled_counts, on="form", how="left")
@@ -53,7 +54,7 @@ def select_top_n(
 
     forms = candidates["form"].to_list()
     unlabeled_arr = candidates["unlabeled"].to_numpy().astype(np.float64)
-    weights = np.maximum(0.0, unlabeled_arr)
+    weights = np.log1p(np.maximum(0.0, unlabeled_arr))
     total_weight = weights.sum()
     if total_weight == 0:
         return []

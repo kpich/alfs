@@ -92,8 +92,8 @@ def test_all_excellent_ratings_deprioritized():
     tc = _total_counts({"excellent": 50, "unknown": 10})
     nlc = _n_labeled_counts({"excellent": 30})
     result = select_top_n(tc, nlc, top_n=2, rng=np.random.default_rng(0), min_count=1)
-    # "excellent": 20 unlabeled; "unknown": 10 unlabeled → "excellent" has higher weight
-    assert result[0] == "excellent"
+    # "excellent": 20 unlabeled; "unknown": 10 unlabeled → both selected (top_n=2)
+    assert set(result) == {"excellent", "unknown"}
 
 
 def test_redirect_forms_excluded():
@@ -128,3 +128,19 @@ def test_min_count_1_includes_all():
     rng = np.random.default_rng(0)
     result = select_top_n(total, labeled, top_n=10, rng=rng, min_count=1)
     assert set(result) == {"a", "b"}
+
+
+def test_log_weight_reduces_head_dominance():
+    """A high-volume form does not completely crowd out a mid-volume form."""
+    total = _total_counts({"common": 10_000, "mid": 100})
+    labeled = _n_labeled_counts({})
+    # With raw weights, mid is selected with probability ~1 %; with log weights ~67 %.
+    # Run 200 trials and assert mid is chosen at least once.
+    chosen = set()
+    for seed in range(200):
+        chosen |= set(
+            select_top_n(
+                total, labeled, top_n=1, rng=np.random.default_rng(seed), min_count=1
+            )
+        )
+    assert "mid" in chosen
