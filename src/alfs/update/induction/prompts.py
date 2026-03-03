@@ -6,6 +6,7 @@ def induction_critic_prompt(
         numbered = "\n".join(f"{i+1}. {d}" for i, d in enumerate(existing_defs))
         existing_block = f"Existing senses:\n{numbered}\n\n"
     return (
+        f"This is an English language dictionary. "
         f'Review this proposed dictionary sense for "{form}".\n'
         f"{existing_block}"
         f'Proposed definition: "{definition}"\n\n'
@@ -14,6 +15,10 @@ def induction_critic_prompt(
         f'- "{form}" is a parser artifact, OCR error, or not a real word/expression '
         f"(garbled tokens, stray punctuation, malformed sequences). "
         f"Rare, archaic, or obscure real words are fine.\n"
+        f'- "{form}" is a foreign word that would not appear in an English '
+        f"dictionary — it occurs almost entirely in non-English text rather than "
+        f"as a loanword or expression commonly used in English. "
+        f"Genuine loanwords (café, résumé, schadenfreude) are fine.\n"
         f"- The definition is factually wrong or nonsensical (not merely imprecise "
         f"or general — imprecise definitions are acceptable).\n"
         f'- The definition is circular: it uses "{form}" itself (or an obvious direct '
@@ -37,8 +42,11 @@ def induction_prompt(
 
     existing_block = ""
     opt_out_clause = (
-        f'If "{form}" is a parsing artifact rather than a real word or expression,'
-        f' output {{"all_covered": true, "definition": "",'
+        f'If "{form}" is a parsing artifact rather than a real word or expression, '
+        f"or if it is a foreign word that would not appear in an English dictionary "
+        f"(occurring almost entirely in non-English text rather than as a loanword or "
+        f"expression commonly used in English), "
+        f'output {{"all_covered": true, "definition": "",'
         f' "examples": [], "subsenses": []}}.\n'
         f'Otherwise, find the single most common meaning of "{form}"'
         f" in these sentences.\n"
@@ -50,8 +58,11 @@ def induction_prompt(
         )
         opt_out_clause = (
             f"If all sentences are already covered by the existing senses, or if"
-            f' "{form}" is a parsing artifact rather than a real word or expression,'
-            f' output {{"all_covered": true, "definition": "",'
+            f' "{form}" is a parsing artifact rather than a real word or expression, '
+            f"or if it is a foreign word that would not appear in an English "
+            f"dictionary (occurring almost entirely in non-English text rather "
+            f"than as a loanword or expression commonly used in English), "
+            f'output {{"all_covered": true, "definition": "",'
             f' "examples": [], "subsenses": []}}.\n'
             f'Otherwise, find the single most common meaning of "{form}"'
             f" in these sentences that is NOT already covered above.\n"
