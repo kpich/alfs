@@ -12,4 +12,4 @@ if ! curl -sf http://localhost:11434/ > /dev/null 2>&1; then
     done
 fi
 
-nextflow run nextflow/label_new.nf "$@"
+uv run --no-sync python -m alfs.update.labeling.run_label_new "$@"

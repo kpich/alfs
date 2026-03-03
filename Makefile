@@ -23,10 +23,20 @@ update:
 		--queue-dir $(CLERK_QUEUE)
 
 relabel:
-	bash scripts/relabel.sh --nwords $(NWORDS)
+	bash scripts/relabel.sh \
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--docs $(DOCS) \
+		--seg-data-dir $(SEG_DATA_DIR) \
+		--nwords $(NWORDS)
 
 label_new:
-	bash scripts/label_new.sh --nwords $(NWORDS)
+	bash scripts/label_new.sh \
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--docs $(DOCS) \
+		--seg-data-dir $(SEG_DATA_DIR) \
+		--nwords $(NWORDS)
 
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \
