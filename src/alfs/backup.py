@@ -32,7 +32,8 @@ def main() -> None:
         if first is None:
             bucket_key: tuple[str, str] = ("", "special")
         else:
-            digraph = form[:2].lower()
+            second = form[1].lower() if len(form) > 1 and form[1].isalpha() else ""
+            digraph = first + second
             bucket_key = (first, digraph)
         buckets.setdefault(bucket_key, []).append(
             alf.model_dump(exclude_none=True, mode="json")
