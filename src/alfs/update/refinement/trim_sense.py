@@ -20,7 +20,6 @@ import polars as pl
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import TrimSenseRequest
 from alfs.corpus import fetch_instances
-from alfs.data_models.alf import sense_key
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
@@ -67,7 +66,7 @@ def main() -> None:
         examples = [
             fetch_instances(
                 form,
-                sense_key(i),
+                alf.senses[i].id,
                 labeled_df,
                 docs_df,
                 min_rating=2,
@@ -97,8 +96,8 @@ def main() -> None:
             )
             continue
 
-        deleted_idx = sense_num - 1
-        remaining = [s for i, s in enumerate(alf.senses) if i != deleted_idx]
+        deleted_sense = alf.senses[sense_num - 1]
+        remaining = [s for s in alf.senses if s.id != deleted_sense.id]
 
         request = TrimSenseRequest(
             id=str(uuid.uuid4()),
@@ -106,7 +105,7 @@ def main() -> None:
             form=form,
             before=list(alf.senses),
             after=remaining,
-            deleted_idx=deleted_idx,
+            sense_id=deleted_sense.id,
             reason=reason,
         )
         enqueue(request, queue_dir)

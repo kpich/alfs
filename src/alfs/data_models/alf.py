@@ -1,11 +1,18 @@
+import uuid
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from alfs.data_models.pos import PartOfSpeech
 
 
+def _new_sense_id() -> str:
+    return str(uuid.uuid4())
+
+
 class Sense(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
+    id: str = Field(default_factory=_new_sense_id)
     definition: str = Field(min_length=1)
     subsenses: list[str] | None = None  # up to one level of sub-definitions
     pos: PartOfSpeech | None = None

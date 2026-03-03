@@ -78,43 +78,15 @@ class OccurrenceStore:
             return pl.DataFrame(schema=_SCHEMA)
         return pl.DataFrame(rows, schema=_SCHEMA, orient="row")
 
-    def delete_and_reindex_sense(self, form: str, deleted_top_idx: int) -> None:
-        """Delete occurrences for 0-based sense index and shift higher keys down."""
-        import re
-
-        deleted_key = str(deleted_top_idx + 1)
+    def delete_by_sense_id(self, form: str, sense_id: str) -> None:
+        """Delete all occurrences for a sense (top-level and subsenses)."""
         with self._connect() as con:
             con.execute(
-                "DELETE FROM labeled WHERE form = ? "
-                "AND (sense_key = ? OR sense_key LIKE ?)",
-                (form, deleted_key, f"{deleted_key}%"),
+                "DELETE FROM labeled "
+                "WHERE form = ? AND (sense_key = ? OR sense_key LIKE ?)",
+                (form, sense_id, f"{sense_id}%"),
             )
-            rows = con.execute(
-                "SELECT doc_id, byte_offset, sense_key FROM labeled WHERE form = ?",
-                (form,),
-            ).fetchall()
-            for doc_id, byte_offset, sk in rows:
-                try:
-                    num = int(sk)
-                    suffix = ""
-                except ValueError:
-                    m = re.match(r"^(\d+)([a-z]+)$", sk)
-                    if not m:
-                        continue
-                    num, suffix = int(m.group(1)), m.group(2)
-                if num > deleted_top_idx + 1:
-                    new_sk = str(num - 1) + suffix
-                    con.execute(
-                        "UPDATE labeled SET sense_key = ? "
-                        "WHERE form = ? AND doc_id = ? AND byte_offset = ?",
-                        (new_sk, form, doc_id, byte_offset),
-                    )
             con.commit()
-
-    def delete_and_reindex_senses(self, form: str, indices: list[int]) -> None:
-        """Delete occurrences for multiple sense indices and reindex remainder."""
-        for idx in sorted(indices, reverse=True):
-            self.delete_and_reindex_sense(form, idx)
 
     def count_by_form(self) -> pl.DataFrame:
         with self._connect() as con:
