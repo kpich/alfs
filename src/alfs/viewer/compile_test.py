@@ -115,6 +115,18 @@ def test_instances_included_per_sense():
     assert "<strong>run</strong>" in instances[0]
 
 
+def test_uuid_sense_keys_translated_to_positional():
+    """labeled.db stores UUID sense_keys; compile must translate to positional."""
+    sense = Sense(definition="to move quickly")
+    alfs = _alfs(Alf(form="run", senses=[sense]))
+    labeled = _labeled([("run", "doc1", 0, sense.id, 2)])
+    docs = _docs([("doc1", 2020, "")])
+
+    result = compile_entries(alfs, labeled, docs, {})
+
+    assert result["run"]["by_year"]["2020"]["1"] == 1
+
+
 def test_instances_empty_when_no_rating3():
     alfs = _alfs(
         Alf(form="walk", senses=[Sense(definition="to move on foot")]),

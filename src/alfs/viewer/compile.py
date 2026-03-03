@@ -28,6 +28,28 @@ def compile_entries(
     timestamps: dict[str, str | None] | None = None,
 ) -> dict:
     """Build the viewer entries dict, skipping redirect forms."""
+    uuid_to_pos: dict[str, str] = {}
+    for _form, alf in alfs.entries.items():
+        if alf.redirect is not None:
+            continue
+        for i, sense in enumerate(alf.senses):
+            uuid_to_pos[sense.id] = sense_key(i)
+            for j in range(len(sense.subsenses or [])):
+                uuid_to_pos[sense.id + chr(ord("a") + j)] = sense_key(i, j)
+
+    if uuid_to_pos:
+        trans = pl.DataFrame(
+            {
+                "sense_key": list(uuid_to_pos.keys()),
+                "pos_key": list(uuid_to_pos.values()),
+            }
+        )
+        labeled = (
+            labeled.join(trans, on="sense_key", how="left")
+            .with_columns(pl.coalesce(["pos_key", "sense_key"]).alias("sense_key"))
+            .drop("pos_key")
+        )
+
     joined = labeled.filter(pl.col("rating") >= 1).join(
         docs.select(["doc_id", "year"])
         .drop_nulls("year")
