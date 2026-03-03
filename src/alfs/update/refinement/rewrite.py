@@ -83,6 +83,7 @@ def main() -> None:
             continue
         after = [
             Sense(
+                id=alf.senses[i].id,
                 definition=s["definition"],
                 subsenses=s.get("subsenses") or None,
                 pos=alf.senses[i].pos,

@@ -36,7 +36,7 @@ dev = [
 
 
 [tool.pytest.ini_options]
-testpaths = ["src"]
+testpaths = ["src", "integration_tests"]
 
 [tool.uv]
 package = true

@@ -20,7 +20,6 @@ import polars as pl
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import PosTagRequest
 from alfs.corpus import fetch_instances
-from alfs.data_models.alf import sense_key
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
@@ -84,8 +83,7 @@ def main() -> None:
                 new_senses.append(sense)
                 continue
 
-            sk = sense_key(top_idx)
-            instances = fetch_instances(form, sk, labeled_df, docs_df)
+            instances = fetch_instances(form, sense.id, labeled_df, docs_df)
             prompt = prompts.postag_prompt(form, sense.definition, instances)
             data = llm.chat_json(args.model, prompt, format=_POS_SCHEMA)
             new_pos = PartOfSpeech(data["pos"])

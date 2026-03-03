@@ -20,7 +20,7 @@ import polars as pl
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import UpdatePosRequest
 from alfs.corpus import fetch_instances
-from alfs.data_models.alf import Alf, sense_key
+from alfs.data_models.alf import Alf
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
@@ -63,8 +63,7 @@ def _make_tagger(
                 new_senses.append(sense)
                 continue
 
-            sk = sense_key(top_idx)
-            instances = fetch_instances(form, sk, labeled_df, docs_df)
+            instances = fetch_instances(form, sense.id, labeled_df, docs_df)
             prompt = prompts.postag_prompt(form, sense.definition, instances)
             data = llm.chat_json(model, prompt, format=_POS_SCHEMA)
             pos_str = data["pos"]
