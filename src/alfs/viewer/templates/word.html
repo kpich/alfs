@@ -6,12 +6,15 @@
   <span class="badge {% if percentile <= 5 %}bg-success{% elif percentile <= 50 %}bg-primary{% else %}bg-secondary{% endif %} fs-6 ms-2">
     top {{ percentile }}% most frequent
   </span>
+  {% if is_recent %}
+  <span class="badge bg-warning text-dark ms-2">recently updated</span>
+  {% endif %}
 </h1>
 
 <h2 class="mt-4">Senses</h2>
 <ol>
 {% for sense in senses %}
-  <li>{% if sense.pos %}<em class="text-muted small">{{ sense.pos }}</em> {% endif %}{{ sense.definition }}
+  <li{% if is_recent %} class="mb-1 ps-2 border-start border-warning border-3"{% endif %}>{% if sense.pos %}<em class="text-muted small">{{ sense.pos }}</em> {% endif %}{{ sense.definition }}
     {% if sense.subsenses %}
     <ol type="a">
       {% for sub in sense.subsenses %}<li>{{ sub.definition }}</li>{% endfor %}

@@ -25,6 +25,7 @@ def compile_entries(
     labeled: pl.DataFrame,
     docs: pl.DataFrame,
     corpus_counts: dict[str, int],
+    timestamps: dict[str, str | None] | None = None,
 ) -> dict:
     """Build the viewer entries dict, skipping redirect forms."""
     joined = labeled.filter(pl.col("rating") >= 1).join(
@@ -94,6 +95,7 @@ def compile_entries(
         entries[form] = {
             "senses": senses,
             "by_year": dict(by_year_per_form.get(form, {})),
+            "updated_at": (timestamps or {}).get(form),
         }
 
     sorted_forms = sorted(entries, key=lambda f: corpus_counts.get(f, 0), reverse=True)
@@ -116,6 +118,7 @@ def main() -> None:
     sense_store = SenseStore(Path(args.senses_db))
     entries_dict = sense_store.all_entries()
     alfs = Alfs(entries=entries_dict)
+    timestamps = sense_store.all_timestamps()
 
     occ_store = OccurrenceStore(Path(args.labeled_db))
     labeled = occ_store.to_polars()
@@ -133,7 +136,7 @@ def main() -> None:
         zip(corpus_df["form"].to_list(), corpus_df["count"].to_list(), strict=False)
     )
 
-    entries = compile_entries(alfs, labeled, docs, corpus_counts)
+    entries = compile_entries(alfs, labeled, docs, corpus_counts, timestamps)
 
     output = {"entries": entries}
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)

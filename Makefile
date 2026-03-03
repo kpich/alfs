@@ -1,12 +1,14 @@
 .PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses validate compile viewer backup conductor clerk clerk-watch install_precommit_hooks dev test mypy cleandata
 
-SENSES_DB    ?= ../alfs_data/senses.db
-LABELED_DB   ?= ../alfs_data/labeled.db
-CLERK_QUEUE  ?= ../clerk_queue
-DOCS         ?= ../text_data/latest/docs.parquet
-SENSES_REPO  ?= ../alfs_senses
-SEG_DATA_DIR ?= ../seg_data/latest/by_prefix
-NWORDS       ?= 5
+SENSES_DB          ?= ../alfs_data/senses.db
+LABELED_DB         ?= ../alfs_data/labeled.db
+CLERK_QUEUE        ?= ../clerk_queue
+DOCS               ?= ../text_data/latest/docs.parquet
+SENSES_REPO        ?= ../alfs_senses
+SEG_DATA_DIR       ?= ../seg_data/latest/by_prefix
+NWORDS             ?= 5
+SENSE_UPDATE_MODEL ?= qwen2.5:32b
+LABEL_MODEL        ?= gemma2:9b
 
 etl:
 	bash scripts/etl.sh
@@ -20,7 +22,8 @@ update:
 		--docs $(DOCS) \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--model $(SENSE_UPDATE_MODEL)
 
 relabel:
 	bash scripts/relabel.sh \
@@ -28,7 +31,8 @@ relabel:
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
 		--seg-data-dir $(SEG_DATA_DIR) \
-		--nwords $(NWORDS)
+		--nwords $(NWORDS) \
+		--model $(LABEL_MODEL)
 
 label_new:
 	bash scripts/label_new.sh \
@@ -36,19 +40,22 @@ label_new:
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
 		--seg-data-dir $(SEG_DATA_DIR) \
-		--nwords $(NWORDS)
+		--nwords $(NWORDS) \
+		--model $(LABEL_MODEL)
 
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \
 		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--model $(SENSE_UPDATE_MODEL)
 
 postag:
 	uv run --no-sync python -m alfs.update.refinement.postag \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--model $(SENSE_UPDATE_MODEL)
 
 cleanup:
 	uv run --no-sync python -m alfs.update.refinement.cleanup \
@@ -57,14 +64,16 @@ cleanup:
 rewrite:
 	uv run --no-sync python -m alfs.update.refinement.rewrite \
 		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--model $(SENSE_UPDATE_MODEL)
 
 retag:
 	uv run --no-sync python -m alfs.update.refinement.retag \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--model $(SENSE_UPDATE_MODEL)
 
 prune:
 	uv run --no-sync python -m alfs.update.refinement.prune \
@@ -75,12 +84,14 @@ prune:
 morph_redirect:
 	uv run --no-sync python -m alfs.update.refinement.morph_redirect \
 		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--model $(SENSE_UPDATE_MODEL)
 
 undo_morph:
 	uv run --no-sync python -m alfs.update.refinement.undo_morph \
 		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--model $(SENSE_UPDATE_MODEL)
 
 trim_senses:
 	uv run --no-sync python -m alfs.update.refinement.trim_sense \
@@ -88,7 +99,8 @@ trim_senses:
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
 		--queue-dir $(CLERK_QUEUE) \
-		--n 50
+		--n 50 \
+		--model $(SENSE_UPDATE_MODEL)
 
 clerk:
 	uv run --no-sync python -m alfs.clerk.worker \

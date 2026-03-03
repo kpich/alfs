@@ -5,15 +5,28 @@ Usage:
 """
 
 import json
+import math
 from pathlib import Path
 
-from flask import Flask, abort, render_template
+from flask import Flask, abort, render_template, request
 
 DATA_PATH = Path("../viewer_data/data.json")
+
+PAGE_SIZE = 500
+RECENT_N = 100
 
 app = Flask(__name__)
 
 _data: dict | None = None
+
+
+def _recent_forms(data: dict) -> set[str]:
+    by_recency = sorted(
+        data["entries"].items(),
+        key=lambda x: x[1].get("updated_at") or "",
+        reverse=True,
+    )
+    return {form for form, _ in by_recency[:RECENT_N]}
 
 
 def get_data() -> dict:
@@ -26,8 +39,21 @@ def get_data() -> dict:
 @app.route("/")
 def index():
     data = get_data()
-    entries = sorted(data["entries"].items(), key=lambda x: x[0].lower())
-    return render_template("index.html", entries=entries)
+    page = request.args.get("page", 1, type=int)
+    recent = _recent_forms(data)
+    sorted_entries = sorted(data["entries"].items(), key=lambda x: x[0].lower())
+    total = len(sorted_entries)
+    total_pages = max(1, math.ceil(total / PAGE_SIZE))
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * PAGE_SIZE
+    return render_template(
+        "index.html",
+        entries=sorted_entries[start : start + PAGE_SIZE],
+        recent_forms=recent,
+        page=page,
+        total_pages=total_pages,
+        total=total,
+    )
 
 
 @app.route("/word/<form>")
@@ -36,6 +62,7 @@ def word(form: str):
     entry = data["entries"].get(form)
     if entry is None:
         abort(404)
+    is_recent = form in _recent_forms(data)
 
     senses = entry["senses"]
     by_year = entry.get("by_year", {})
@@ -79,6 +106,7 @@ def word(form: str):
         has_chart=has_chart,
         chart_data=json.dumps(chart_data),
         percentile=percentile,
+        is_recent=is_recent,
     )
 
 
