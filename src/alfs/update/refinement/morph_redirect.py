@@ -84,7 +84,7 @@ def main() -> None:
     parser.add_argument(
         "--batch-size", type=int, default=10, help="Forms per screening batch"
     )
-    parser.add_argument("--model", default="gemma2:9b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 
@@ -166,6 +166,7 @@ def main() -> None:
                         "definition": proposed_def,
                         "morph_base": base_form,
                         "morph_relation": relation,
+                        "updated_by_model": args.model,
                     }
                 )
 

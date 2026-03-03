@@ -57,7 +57,7 @@ def main() -> None:
         "--queue-dir", required=True, help="Path to clerk queue directory"
     )
     parser.add_argument("--n", type=int, default=5, help="Number of forms to rewrite")
-    parser.add_argument("--model", default="gemma2:9b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     args = parser.parse_args()
 
     store = SenseStore(Path(args.senses_db))
@@ -87,6 +87,7 @@ def main() -> None:
                 definition=s["definition"],
                 subsenses=s.get("subsenses") or None,
                 pos=alf.senses[i].pos,
+                updated_by_model=args.model,
             )
             for i, s in enumerate(returned)
         ]

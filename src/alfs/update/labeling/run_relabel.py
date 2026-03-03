@@ -4,7 +4,7 @@ Usage:
     python -m alfs.update.labeling.run_relabel \\
         --senses-db senses.db --labeled-db labeled.db \\
         --docs docs.parquet --seg-data-dir by_prefix/ \\
-        [--nwords 5] [--model llama3.1:8b] [--context-chars 150] [--max-occurrences 20]
+        [--nwords 5] [--model gemma2:9b] [--context-chars 150] [--max-occurrences 20]
 """
 
 import argparse
@@ -22,7 +22,7 @@ def main() -> None:
     parser.add_argument("--docs", required=True)
     parser.add_argument("--seg-data-dir", required=True)
     parser.add_argument("--nwords", type=int, default=5)
-    parser.add_argument("--model", default="llama3.1:8b")
+    parser.add_argument("--model", default="gemma2:9b")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-occurrences", type=int, default=20)
     args = parser.parse_args()

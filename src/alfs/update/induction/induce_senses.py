@@ -3,7 +3,7 @@
 Usage:
     python -m alfs.update.induction.induce_senses \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
-        --output senses.json --model llama3.1:8b --context-chars 150 --max-samples 20 \\
+        --output senses.json --model qwen2.5:32b --context-chars 150 --max-samples 20 \\
         [--senses-db senses.db] [--labeled-db labeled.db]
 """
 
@@ -53,7 +53,7 @@ def run(
     seg_data_dir: str | Path,
     docs: str | Path,
     output: str | Path,
-    model: str = "llama3.1:8b",
+    model: str = "qwen2.5:32b",
     context_chars: int = 150,
     max_samples: int = 20,
     senses_db: str | Path | None = None,
@@ -127,6 +127,7 @@ def run(
     sense = Sense(
         definition=data["definition"],
         subsenses=data.get("subsenses") or None,
+        updated_by_model=model,
     )
 
     verdict = llm.chat_json(
@@ -153,7 +154,7 @@ def main() -> None:
     )
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
     parser.add_argument("--output", required=True, help="Output path for senses.json")
-    parser.add_argument("--model", default="llama3.1:8b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-samples", type=int, default=20)
     parser.add_argument(

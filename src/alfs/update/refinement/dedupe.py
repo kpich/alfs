@@ -54,7 +54,7 @@ def main() -> None:
     parser.add_argument(
         "--queue-dir", required=True, help="Path to clerk queue directory"
     )
-    parser.add_argument("--model", default="gemma2:9b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     parser.add_argument(
         "--dry-run",
         action="store_true",

@@ -57,7 +57,7 @@ def main() -> None:
         "--queue-dir", required=True, help="Path to clerk queue directory"
     )
     parser.add_argument("--n", type=int, default=10, help="Number of forms to retag")
-    parser.add_argument("--model", default="gemma2:9b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     args = parser.parse_args()
 
     sense_store = SenseStore(Path(args.senses_db))
@@ -107,7 +107,11 @@ def main() -> None:
                 changed_descriptions.append(
                     f"  sense {top_idx + 1}: {sense.pos.value}→{new_pos.value}"
                 )
-                new_senses.append(sense.model_copy(update={"pos": new_pos}))
+                new_senses.append(
+                    sense.model_copy(
+                        update={"pos": new_pos, "updated_by_model": args.model}
+                    )
+                )
             else:
                 new_senses.append(sense)
 

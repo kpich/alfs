@@ -7,7 +7,7 @@ Usage:
     python -m alfs.update.run_update \\
         --seg-data-dir by_prefix/ --docs docs.parquet \\
         --senses-db senses.db --labeled-db labeled.db \\
-        --queue-dir ../clerk_queue [--model llama3.1:8b] [--top-n 10] \\
+        --queue-dir ../clerk_queue [--model qwen2.5:32b] [--top-n 10] \\
         [--context-chars 150] [--max-samples 20] [--max-occurrences 100] \\
         [--workers 4]
 """
@@ -34,7 +34,7 @@ def main() -> None:
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--queue-dir", required=True, help="Path to clerk queue dir")
-    parser.add_argument("--model", default="gemma2:9b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument(
         "--min-count", type=int, default=5, help="Minimum raw corpus occurrence count"

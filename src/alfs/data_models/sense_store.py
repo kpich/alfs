@@ -32,6 +32,7 @@ class SenseStore:
                 "morph_base TEXT, "
                 "morph_relation TEXT, "
                 "subsenses TEXT, "
+                "updated_by_model TEXT, "
                 "updated_at TEXT, "
                 "UNIQUE (form, position)"
                 ")"
@@ -50,8 +51,8 @@ class SenseStore:
         if wf is None:
             return None
         rows = con.execute(
-            "SELECT id, definition, pos, morph_base, morph_relation, subsenses "
-            "FROM senses WHERE form = ? ORDER BY position",
+            "SELECT id, definition, pos, morph_base, morph_relation, subsenses,"
+            " updated_by_model FROM senses WHERE form = ? ORDER BY position",
             (form,),
         ).fetchall()
         senses = [
@@ -62,6 +63,7 @@ class SenseStore:
                 morph_base=r[3],
                 morph_relation=r[4],
                 subsenses=json.loads(r[5]) if r[5] else None,
+                updated_by_model=r[6],
             )
             for r in rows
         ]
@@ -80,7 +82,7 @@ class SenseStore:
             r[0]: r[1:]
             for r in con.execute(
                 "SELECT id, definition, pos, morph_base, morph_relation,"
-                " subsenses, updated_at FROM senses WHERE form = ?",
+                " subsenses, updated_by_model, updated_at FROM senses WHERE form = ?",
                 (entry.form,),
             ).fetchall()
         }
@@ -97,16 +99,17 @@ class SenseStore:
             pos_val = sense.pos.value if sense.pos else None
             if sense.id in existing:
                 old = existing[sense.id]
-                content_changed = (old[0], old[1], old[2], old[3], old[4]) != (
+                content_changed = (old[0], old[1], old[2], old[3], old[4], old[5]) != (
                     sense.definition,
                     pos_val,
                     sense.morph_base,
                     sense.morph_relation,
                     subsenses_json,
+                    sense.updated_by_model,
                 )
                 con.execute(
                     "UPDATE senses SET form=?, position=?, definition=?, pos=?, "
-                    "morph_base=?, morph_relation=?, subsenses=?"
+                    "morph_base=?, morph_relation=?, subsenses=?, updated_by_model=?"
                     + (", updated_at=CURRENT_TIMESTAMP" if content_changed else "")
                     + " WHERE id=?",
                     (
@@ -117,14 +120,16 @@ class SenseStore:
                         sense.morph_base,
                         sense.morph_relation,
                         subsenses_json,
+                        sense.updated_by_model,
                         sense.id,
                     ),
                 )
             else:
                 con.execute(
                     "INSERT INTO senses (id, form, position, definition, pos, "
-                    "morph_base, morph_relation, subsenses, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    "morph_base, morph_relation, subsenses, updated_by_model,"
+                    " updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
                     (
                         sense.id,
                         entry.form,
@@ -134,6 +139,7 @@ class SenseStore:
                         sense.morph_base,
                         sense.morph_relation,
                         subsenses_json,
+                        sense.updated_by_model,
                     ),
                 )
 
@@ -171,11 +177,21 @@ class SenseStore:
             wf_rows = con.execute("SELECT form, redirect FROM wordforms").fetchall()
             sense_rows = con.execute(
                 "SELECT form, id, definition, pos, morph_base,"
-                " morph_relation, subsenses FROM senses ORDER BY form, position"
+                " morph_relation, subsenses, updated_by_model"
+                " FROM senses ORDER BY form, position"
             ).fetchall()
         senses_by_form: dict[str, list[Sense]] = defaultdict(list)
         for row in sense_rows:
-            form, id_, definition, pos, morph_base, morph_relation, subsenses = row
+            (
+                form,
+                id_,
+                definition,
+                pos,
+                morph_base,
+                morph_relation,
+                subsenses,
+                updated_by_model,
+            ) = row
             senses_by_form[form].append(
                 Sense(
                     id=id_,
@@ -184,6 +200,7 @@ class SenseStore:
                     morph_base=morph_base,
                     morph_relation=morph_relation,
                     subsenses=json.loads(subsenses) if subsenses else None,
+                    updated_by_model=updated_by_model,
                 )
             )
         return {

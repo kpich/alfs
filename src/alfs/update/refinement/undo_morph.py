@@ -59,7 +59,7 @@ def main() -> None:
     parser.add_argument(
         "--n", type=int, default=10, help="Number of morph-linked senses to sample"
     )
-    parser.add_argument("--model", default="gemma2:9b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 

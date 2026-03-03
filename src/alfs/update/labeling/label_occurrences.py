@@ -4,7 +4,7 @@ Usage:
     python -m alfs.update.labeling.label_occurrences \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
         --senses-db senses.db --labeled-db labeled.db \\
-        --model llama3.1:8b --context-chars 150
+        --model gemma2:9b --context-chars 150
 """
 
 import argparse
@@ -76,7 +76,7 @@ def run(
     docs: str | Path,
     senses_db: str | Path,
     labeled_db: str | Path,
-    model: str = "llama3.1:8b",
+    model: str = "gemma2:9b",
     context_chars: int = 150,
     max_occurrences: int = 100,
 ) -> None:
@@ -163,7 +163,7 @@ def main() -> None:
     parser.add_argument("--docs", required=True)
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
-    parser.add_argument("--model", default="llama3.1:8b")
+    parser.add_argument("--model", default="gemma2:9b")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument(
         "--max-occurrences", type=int, default=100

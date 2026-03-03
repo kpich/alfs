@@ -82,7 +82,9 @@ def _make_tagger(
                 new_senses.append(sense)
                 continue
             pos = PartOfSpeech(pos_str)
-            new_senses.append(sense.model_copy(update={"pos": pos}))
+            new_senses.append(
+                sense.model_copy(update={"pos": pos, "updated_by_model": model})
+            )
 
         tagged = sum(1 for s in new_senses if s.pos is not None)
         print(f"  {form!r}: {tagged}/{len(new_senses)} senses tagged")
@@ -99,7 +101,7 @@ def main() -> None:
     parser.add_argument(
         "--queue-dir", required=True, help="Path to clerk queue directory"
     )
-    parser.add_argument("--model", default="gemma2:9b")
+    parser.add_argument("--model", default="qwen2.5:32b")
     args = parser.parse_args()
 
     sense_store = SenseStore(Path(args.senses_db))

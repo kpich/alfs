@@ -18,6 +18,7 @@ class Sense(BaseModel):
     pos: PartOfSpeech | None = None
     morph_base: str | None = None
     morph_relation: str | None = None
+    updated_by_model: str | None = None
 
 
 class Alf(BaseModel):
