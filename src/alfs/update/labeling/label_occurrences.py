@@ -37,7 +37,12 @@ def extract_context(text: str, byte_offset: int, form: str, context_chars: int) 
     return text[start:end]
 
 
-def build_sense_menu(store: SenseStore, form: str) -> str:
+def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]:
+    """Return (menu_text, display_to_uuid_map).
+
+    display_to_uuid_map maps display keys like "1", "2a" to UUID-based sense keys
+    that are written to labeled.db.
+    """
     alf = store.read(form)
     if alf is None:
         raise ValueError(f"No entry for '{form}' in senses.db")
@@ -52,13 +57,17 @@ def build_sense_menu(store: SenseStore, form: str) -> str:
             f"Redirect target '{menu_form}' for '{form}' not found in senses.db"
         )
     lines = []
+    key_map: dict[str, str] = {}
     for i, sense in enumerate(target_alf.senses):
+        display = str(i + 1)
+        key_map[display] = sense.id
         pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
         lines.append(f"{i + 1}.{pos_tag} {sense.definition}")
         for j, sub in enumerate(sense.subsenses or []):
             sub_key = sense_key(i, j)
+            key_map[sub_key] = sense.id + chr(ord("a") + j)
             lines.append(f"   {sub_key}. {sub}")
-    return "\n".join(lines)
+    return "\n".join(lines), key_map
 
 
 def run(
@@ -82,7 +91,7 @@ def run(
         print(f"No senses for '{form}' in senses.db; skipping labeling.")
         return
 
-    sense_menu = build_sense_menu(sense_store, form)
+    sense_menu, key_map = build_sense_menu(sense_store, form)
 
     prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
     occ_path = Path(seg_data_dir) / prefix / "occurrences.parquet"
@@ -123,10 +132,12 @@ def run(
         context = extract_context(text, byte_offset, form, context_chars)
         prompt = prompts.labeling_prompt(form, context, sense_menu)
         data = llm.chat_json(model, prompt, format=_LABEL_SCHEMA)
+        display_key = data["sense_key"]
+        uuid_key = key_map.get(display_key, display_key)
         ann = AnnotatedOccurrence(
             doc_id=doc_id,
             byte_offset=byte_offset,
-            sense_key=data["sense_key"],
+            sense_key=uuid_key,
             rating=OccurrenceRating(data["rating"]),
         )
         upsert_rows.append(

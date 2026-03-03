@@ -72,14 +72,12 @@ def main() -> None:
             continue
         if len(alf.senses) <= 1:
             continue
-        # Validate sense_key maps to an actual sense index
-        try:
-            top_idx = int(sk) - 1  # sense_key is 1-based numeric string like "2"
-        except ValueError:
+        # sense_key is a UUID (top-level) or UUID+letter (subsense); extract base UUID
+        sense_id = sk[:-1] if len(sk) == 37 and sk[-1].isalpha() else sk
+        sense = next((s for s in alf.senses if s.id == sense_id), None)
+        if sense is None:
             continue
-        if top_idx < 0 or top_idx >= len(alf.senses):
-            continue
-        eligible_rows.append({**row, "top_idx": top_idx})
+        eligible_rows.append({**row, "sense_id": sense_id})
 
     if not eligible_rows:
         print("No eligible senses after filtering.")
@@ -93,15 +91,15 @@ def main() -> None:
     queued = 0
     for form, bad_rows in by_form.items():
         alf = all_entries[form]
-        bad_keys = {r["top_idx"] for r in bad_rows}
-        remaining = [s for i, s in enumerate(alf.senses) if i not in bad_keys]
+        bad_ids = {r["sense_id"] for r in bad_rows}
+        remaining = [s for s in alf.senses if s.id not in bad_ids]
 
         # Safety check: must leave at least 1 sense
         if not remaining:
             print(f"  {form!r}: skipping — would remove all senses")
             continue
 
-        removed_indices = [r["top_idx"] for r in bad_rows]
+        removed_ids = list(bad_ids)
 
         request = PruneRequest(
             id=str(uuid.uuid4()),
@@ -109,14 +107,17 @@ def main() -> None:
             form=form,
             before=list(alf.senses),
             after=remaining,
-            removed_indices=removed_indices,
+            removed_ids=removed_ids,
         )
         enqueue(request, queue_dir)
 
         for r in bad_rows:
             pct = round(r["pct_lt3"] * 100)
-            sk = sense_key(r["top_idx"])
-            print(f"  {form!r}: removing sense {sk} ({pct}% <3, n={r['total']})")
+            idx = next(i for i, s in enumerate(alf.senses) if s.id == r["sense_id"])
+            display_sk = sense_key(idx)
+            print(
+                f"  {form!r}: removing sense {display_sk} ({pct}% <3, n={r['total']})"
+            )
         queued += 1
 
     print(f"Queued {queued} prune change{'s' if queued != 1 else ''}.")

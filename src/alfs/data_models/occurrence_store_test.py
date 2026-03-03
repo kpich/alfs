@@ -86,49 +86,48 @@ def test_count_by_form_empty(store: OccurrenceStore) -> None:
     assert len(df) == 0
 
 
-def test_delete_and_reindex_senses_single(store: OccurrenceStore) -> None:
-    """Delete index 1 (sense 2), verify it's gone and sense 3 becomes sense 2."""
+def test_delete_by_sense_id_removes_top_level(store: OccurrenceStore) -> None:
+    """Deleting by UUID removes only that sense's rows."""
+    uid_a = "aaaaaaaa-0000-0000-0000-000000000001"
+    uid_b = "bbbbbbbb-0000-0000-0000-000000000002"
     store.upsert_many(
         [
-            ("run", "doc1", 0, "1", 3),
-            ("run", "doc1", 10, "2", 2),
-            ("run", "doc1", 20, "3", 2),
+            ("run", "doc1", 0, uid_a, 3),
+            ("run", "doc1", 10, uid_b, 2),
         ]
     )
-    store.delete_and_reindex_senses("run", [1])
-    df = store.query_form("run").sort("byte_offset")
-    assert len(df) == 2
-    assert df["sense_key"].to_list() == ["1", "2"]
+    store.delete_by_sense_id("run", uid_a)
+    df = store.query_form("run")
+    assert len(df) == 1
+    assert df["sense_key"][0] == uid_b
 
 
-def test_delete_and_reindex_senses_multiple(store: OccurrenceStore) -> None:
-    """Delete indices [0, 2] from 4 senses, verify senses 2 and 4 survive renumbered 1
-    and 2."""
+def test_delete_by_sense_id_removes_subsenses(store: OccurrenceStore) -> None:
+    """Deleting by UUID also removes subsense rows (UUID+letter)."""
+    uid = "aaaaaaaa-0000-0000-0000-000000000001"
     store.upsert_many(
         [
-            ("run", "doc1", 0, "1", 3),
-            ("run", "doc1", 10, "2", 2),
-            ("run", "doc1", 20, "3", 2),
-            ("run", "doc1", 30, "4", 3),
+            ("run", "doc1", 0, uid, 3),
+            ("run", "doc1", 10, uid + "a", 2),
+            ("run", "doc1", 20, uid + "b", 1),
+            ("run", "doc1", 30, "bbbbbbbb-0000-0000-0000-000000000002", 3),
         ]
     )
-    store.delete_and_reindex_senses("run", [0, 2])
-    df = store.query_form("run").sort("byte_offset")
-    assert len(df) == 2
-    assert df["sense_key"].to_list() == ["1", "2"]
-    assert df["byte_offset"].to_list() == [10, 30]
+    store.delete_by_sense_id("run", uid)
+    df = store.query_form("run")
+    assert len(df) == 1
+    assert df["sense_key"][0] == "bbbbbbbb-0000-0000-0000-000000000002"
 
 
-def test_delete_and_reindex_senses_with_subsense(store: OccurrenceStore) -> None:
-    """Verify subsense keys like '2a' shift correctly when a lower index is deleted."""
+def test_delete_by_sense_id_other_forms_unaffected(store: OccurrenceStore) -> None:
+    """Deleting by UUID for one form does not affect another form."""
+    uid = "aaaaaaaa-0000-0000-0000-000000000001"
     store.upsert_many(
         [
-            ("run", "doc1", 0, "1", 3),
-            ("run", "doc1", 10, "2a", 2),
-            ("run", "doc1", 20, "3", 2),
+            ("run", "doc1", 0, uid, 3),
+            ("walk", "doc1", 0, uid, 2),
         ]
     )
-    store.delete_and_reindex_senses("run", [0])
-    df = store.query_form("run").sort("byte_offset")
-    assert len(df) == 2
-    assert df["sense_key"].to_list() == ["1a", "2"]
+    store.delete_by_sense_id("run", uid)
+    assert len(store.query_form("run")) == 0
+    assert len(store.query_form("walk")) == 1

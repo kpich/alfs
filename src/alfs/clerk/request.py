@@ -96,7 +96,7 @@ class PruneRequest(BaseModel):
     form: str
     before: list[Sense]
     after: list[Sense]
-    removed_indices: list[int]
+    removed_ids: list[str]
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
         after = self.after
@@ -105,7 +105,8 @@ class PruneRequest(BaseModel):
             lambda e: e.model_copy(update={"senses": after}),  # type: ignore[union-attr]
         )
         if occ_store is not None:
-            occ_store.delete_and_reindex_senses(self.form, self.removed_indices)
+            for sid in self.removed_ids:
+                occ_store.delete_by_sense_id(self.form, sid)
 
 
 class TrimSenseRequest(BaseModel):
@@ -115,7 +116,7 @@ class TrimSenseRequest(BaseModel):
     form: str
     before: list[Sense]
     after: list[Sense]
-    deleted_idx: int
+    sense_id: str
     reason: str
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
@@ -125,7 +126,7 @@ class TrimSenseRequest(BaseModel):
             lambda e: e.model_copy(update={"senses": after}),  # type: ignore[union-attr]
         )
         if occ_store is not None:
-            occ_store.delete_and_reindex_senses(self.form, [self.deleted_idx])
+            occ_store.delete_by_sense_id(self.form, self.sense_id)
 
 
 class MorphRedirectRequest(BaseModel):
