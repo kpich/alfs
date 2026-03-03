@@ -71,6 +71,11 @@ def run(
 
     prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
     occ_path = Path(seg_data_dir) / prefix / "occurrences.parquet"
+    if not occ_path.exists():
+        alf = Alf(form=form, senses=[])
+        Path(output).write_text(alf.model_dump_json())
+        print(f"No occurrences parquet for '{form}' ({occ_path}); skipping.")
+        return
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
     all_occurrences = list(df.select(["doc_id", "byte_offset"]).iter_rows(named=True))
 

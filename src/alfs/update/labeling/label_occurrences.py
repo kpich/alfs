@@ -95,6 +95,9 @@ def run(
 
     prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
     occ_path = Path(seg_data_dir) / prefix / "occurrences.parquet"
+    if not occ_path.exists():
+        print(f"No occurrences parquet for '{form}' ({occ_path}); skipping labeling.")
+        return
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
 
     labeled_pairs: set[tuple[str, int]] = set()
