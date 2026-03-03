@@ -18,6 +18,42 @@ from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
 
 
+def generate_targets(
+    senses_db: Path,
+    output_dir: Path,
+    labeled_db: Path | None = None,
+    nwords: int | None = None,
+) -> list[Path]:
+    """Write one target JSON per form; return list of written paths."""
+    store = SenseStore(senses_db)
+    all_forms = store.all_forms()
+
+    if labeled_db and labeled_db.exists():
+        occ_store = OccurrenceStore(labeled_db)
+        labeled_df = occ_store.to_polars()
+        labeled_forms = set(labeled_df["form"].to_list())
+        forms = [f for f in all_forms if f in labeled_forms]
+    else:
+        forms = all_forms
+
+    if nwords is not None:
+        forms = random.sample(forms, min(nwords, len(forms)))
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    written: list[Path] = []
+    for form in forms:
+        target = UpdateTarget(form=form)
+        safe = quote(form, safe="")
+        path = output_dir / f"{safe}.json"
+        path.write_text(target.model_dump_json())
+        written.append(path)
+        print(f"  {form}")
+
+    print(f"Wrote {len(forms)} targets to {output_dir}")
+    return written
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate one target JSON file per form in senses.db"
@@ -39,30 +75,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    store = SenseStore(Path(args.senses_db))
-    all_forms = store.all_forms()
-
-    if args.labeled_db and Path(args.labeled_db).exists():
-        occ_store = OccurrenceStore(Path(args.labeled_db))
-        labeled_df = occ_store.to_polars()
-        labeled_forms = set(labeled_df["form"].to_list())
-        forms = [f for f in all_forms if f in labeled_forms]
-    else:
-        forms = all_forms
-
-    if args.nwords is not None:
-        forms = random.sample(forms, min(args.nwords, len(forms)))
-
-    out_dir = Path(args.output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    for form in forms:
-        target = UpdateTarget(form=form)
-        safe = quote(form, safe="")
-        (out_dir / f"{safe}.json").write_text(target.model_dump_json())
-        print(f"  {form}")
-
-    print(f"Wrote {len(forms)} targets to {out_dir}")
+    generate_targets(
+        Path(args.senses_db),
+        Path(args.output_dir),
+        Path(args.labeled_db) if args.labeled_db else None,
+        args.nwords,
+    )
 
 
 if __name__ == "__main__":
