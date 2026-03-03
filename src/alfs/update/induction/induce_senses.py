@@ -77,7 +77,7 @@ def run(
     well_labeled: set[tuple[str, int]] = set()
     if labeled_db and Path(labeled_db).exists():
         occ_store = OccurrenceStore(Path(labeled_db))
-        ldf = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
+        ldf = occ_store.query_form(form).filter(pl.col("rating").is_in([3]))
         for row in ldf.select(["doc_id", "byte_offset"]).iter_rows():
             well_labeled.add((row[0], row[1]))
     all_occurrences = [
