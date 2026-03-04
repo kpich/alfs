@@ -8,7 +8,7 @@ _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
 
 # Per-call timeout in seconds; prevents threads from hanging indefinitely if
 # ollama becomes unresponsive.
-_TIMEOUT = 180
+_TIMEOUT = 600
 
 _client = ollama.Client(timeout=_TIMEOUT)
 
