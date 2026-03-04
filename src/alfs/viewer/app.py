@@ -65,34 +65,32 @@ def word(form: str):
     is_recent = form in _recent_forms(data)
 
     senses = entry["senses"]
-    by_year = entry.get("by_year", {})
+    by_year_kde = entry.get("by_year_kde", {})
     percentile = entry["percentile"]
 
-    has_chart = bool(by_year)
+    has_chart = bool(by_year_kde)
     chart_data = {}
     if has_chart:
-        years = sorted(by_year.keys(), key=int)
         sense_keys = [s["key"] for s in senses]
-
         traces = []
         for sk in sense_keys:
-            y_vals = [by_year.get(yr, {}).get(sk, 0) for yr in years]
-            if any(v > 0 for v in y_vals):
+            pts = by_year_kde.get(sk)
+            if pts:
                 traces.append(
                     {
-                        "type": "bar",
+                        "type": "scatter",
+                        "mode": "lines",
                         "name": sk,
-                        "x": years,
-                        "y": y_vals,
+                        "x": [p[0] for p in pts],
+                        "y": [p[1] for p in pts],
                     }
                 )
 
         chart_data = {
             "traces": traces,
             "layout": {
-                "barmode": "stack",
                 "xaxis": {"title": "Year"},
-                "yaxis": {"title": "Occurrences"},
+                "yaxis": {"title": "share of labeled", "tickformat": ".0%"},
                 "width": 500,
                 "height": 300,
                 "autosize": False,
