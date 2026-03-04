@@ -35,7 +35,9 @@ def chat(model: str, prompt: str, format: dict[str, Any] | None = None) -> str:
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
-        return msg.content[0].text
+        block = msg.content[0]
+        assert isinstance(block, _anthropic_sdk.types.TextBlock)
+        return block.text
     response = _client.chat(
         model=model, messages=[{"role": "user", "content": prompt}], format=format
     )
