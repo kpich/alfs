@@ -55,6 +55,22 @@ make clerk-watch # apply queued sense mutations from clerk_queue/
 | `make compile` | Compile → `viewer_data/data.json` |
 | `make viewer` | Start viewer at http://localhost:5001 |
 
+### Backup
+
+| Target | What it does |
+|---|---|
+| `make backup` | Commit senses YAML to `alfs_senses/` repo |
+| `make backup-gdrive` | Sync `text_data/`, `alfs_data/`, `seg_data/` to Google Drive via rclone |
+
+`make backup-gdrive` requires a one-time setup:
+
+```bash
+brew install rclone
+rclone config   # New remote → name "gdrive" → Google Drive → follow prompts → browser auth
+```
+
+The remote must be named `gdrive` (or override with `make backup-gdrive GDRIVE_REMOTE=myremote`). Files are synced to `alfs_backup/` on Google Drive, with `text_data/cache/`, SQLite WAL files, and `latest` symlinks excluded.
+
 ### Dev
 
 | Target | What it does |
