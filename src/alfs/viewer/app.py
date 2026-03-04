@@ -90,7 +90,7 @@ def word(form: str):
             "traces": traces,
             "layout": {
                 "xaxis": {"title": "Year"},
-                "yaxis": {"title": "share of labeled", "tickformat": ".0%"},
+                "yaxis": {"title": "share of corpus", "tickformat": ".3%"},
                 "width": 500,
                 "height": 300,
                 "autosize": False,

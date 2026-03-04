@@ -85,9 +85,12 @@ def compile_entries(
     )
     counts = joined.group_by(["form", "sense_key", "year"]).agg(pl.len().alias("count"))
 
-    # Denominator: all labeled (any rating) per (form, year)
-    all_joined = apply_redirect(labeled.join(docs_with_year, on="doc_id", how="inner"))
-    year_totals_df = all_joined.group_by(["form", "year"]).agg(pl.len().alias("total"))
+    # Denominator: total labeled (any rating) across ALL words per year (global corpus)
+    all_joined = labeled.join(docs_with_year, on="doc_id", how="inner")
+    year_totals_df = all_joined.group_by("year").agg(pl.len().alias("total"))
+    global_year_totals: dict[int, int] = {}
+    for row in year_totals_df.iter_rows(named=True):
+        global_year_totals[row["year"]] = row["total"]
 
     # sense_year_counts per form: {sense_key: {year: count}}
     sense_year_counts_per_form: dict[str, dict[str, dict[int, int]]] = defaultdict(
@@ -97,11 +100,6 @@ def compile_entries(
         sense_year_counts_per_form[row["form"]][row["sense_key"]][row["year"]] = row[
             "count"
         ]
-
-    # year_totals per form: {year: total}
-    form_year_totals: dict[str, dict[int, int]] = defaultdict(dict)
-    for row in year_totals_df.iter_rows(named=True):
-        form_year_totals[row["form"]][row["year"]] = row["total"]
 
     entries: dict[str, dict] = {}
     for form, alf in alfs.entries.items():
@@ -137,7 +135,7 @@ def compile_entries(
 
         by_year_kde = compute_year_kde(
             sense_year_counts_per_form.get(form, {}),
-            form_year_totals.get(form, {}),
+            global_year_totals,
         )
         entries[form] = {
             "senses": senses,
