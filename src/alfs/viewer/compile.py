@@ -18,6 +18,7 @@ from alfs.corpus import fetch_instances
 from alfs.data_models.alf import Alfs, sense_key
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
+from alfs.viewer.stats import compute_year_kde
 
 
 def compile_entries(
@@ -50,37 +51,55 @@ def compile_entries(
             .drop("pos_key")
         )
 
-    joined = labeled.filter(pl.col("rating") >= 1).join(
+    docs_with_year = (
         docs.select(["doc_id", "year"])
         .drop_nulls("year")
-        .with_columns(pl.col("year").cast(pl.Int32)),
-        on="doc_id",
-        how="inner",
+        .with_columns(pl.col("year").cast(pl.Int32))
     )
     redirect_map = {
         form: alf.redirect
         for form, alf in alfs.entries.items()
         if alf.redirect is not None
     }
-    if redirect_map:
+
+    def apply_redirect(df: pl.DataFrame) -> pl.DataFrame:
+        if not redirect_map:
+            return df
         rdf = pl.DataFrame(
             {
                 "form": list(redirect_map.keys()),
                 "canonical": list(redirect_map.values()),
             }
         )
-        joined = (
-            joined.join(rdf, on="form", how="left")
+        return (
+            df.join(rdf, on="form", how="left")
             .with_columns(pl.coalesce(["canonical", "form"]).alias("form"))
             .drop("canonical")
         )
+
+    # Numerator: rating==3 occurrences per (form, sense_key, year)
+    joined = apply_redirect(
+        labeled.filter(pl.col("rating") == 3).join(
+            docs_with_year, on="doc_id", how="inner"
+        )
+    )
     counts = joined.group_by(["form", "sense_key", "year"]).agg(pl.len().alias("count"))
 
-    by_year_per_form: dict[str, dict[str, dict[str, int]]] = defaultdict(
+    # Denominator: total labeled (any rating) across ALL words per year (global corpus)
+    all_joined = labeled.join(docs_with_year, on="doc_id", how="inner")
+    year_totals_df = all_joined.group_by("year").agg(pl.len().alias("total"))
+    global_year_totals: dict[int, int] = {}
+    for row in year_totals_df.iter_rows(named=True):
+        global_year_totals[row["year"]] = row["total"]
+
+    # sense_year_counts per form: {sense_key: {year: count}}
+    sense_year_counts_per_form: dict[str, dict[str, dict[int, int]]] = defaultdict(
         lambda: defaultdict(dict)
     )
     for row in counts.iter_rows(named=True):
-        by_year_per_form[row["form"]][str(row["year"])][row["sense_key"]] = row["count"]
+        sense_year_counts_per_form[row["form"]][row["sense_key"]][row["year"]] = row[
+            "count"
+        ]
 
     entries: dict[str, dict] = {}
     for form, alf in alfs.entries.items():
@@ -114,9 +133,13 @@ def compile_entries(
             )
             senses.append(sense_entry)
 
+        by_year_kde = compute_year_kde(
+            sense_year_counts_per_form.get(form, {}),
+            global_year_totals,
+        )
         entries[form] = {
             "senses": senses,
-            "by_year": dict(by_year_per_form.get(form, {})),
+            "by_year_kde": dict(by_year_kde),
             "updated_at": (timestamps or {}).get(form),
         }
 

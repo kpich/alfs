@@ -75,7 +75,6 @@ def test_non_redirect_forms_included():
 
     assert "run" in result
     assert result["run"]["senses"][0]["definition"] == "to move quickly"
-    assert result["run"]["by_year"]["2020"]["1"] == 1
     assert 1 <= result["run"]["percentile"] <= 100
 
 
@@ -119,12 +118,13 @@ def test_uuid_sense_keys_translated_to_positional():
     """labeled.db stores UUID sense_keys; compile must translate to positional."""
     sense = Sense(definition="to move quickly")
     alfs = _alfs(Alf(form="run", senses=[sense]))
-    labeled = _labeled([("run", "doc1", 0, sense.id, 2)])
+    labeled = _labeled([("run", "doc1", 0, sense.id, 3)])
     docs = _docs([("doc1", 2020, "")])
 
     result = compile_entries(alfs, labeled, docs, {})
 
-    assert result["run"]["by_year"]["2020"]["1"] == 1
+    # KDE key should use positional key "1", not the UUID
+    assert "1" in result["run"]["by_year_kde"]
 
 
 def test_instances_empty_when_no_rating3():
