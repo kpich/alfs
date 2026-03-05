@@ -9,7 +9,7 @@
     <tr{% if form in recent_forms %} class="table-warning"{% endif %}>
       <td><a href="/word/{{ form }}">{{ form }}</a> <span class="text-muted small">({{ entry.senses | length }} {{ "sense" if entry.senses | length == 1 else "senses" }})</span></td>
       <td>
-        <span class="badge {% if entry.percentile <= 25 %}bg-primary{% else %}bg-secondary{% endif %}">
+        <span class="badge {% if entry.percentile <= 1 %}bg-success{% elif entry.percentile <= 25 %}bg-primary{% else %}bg-secondary{% endif %}">
           {{ entry.percentile }}%
         </span>
       </td>
