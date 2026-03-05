@@ -1,4 +1,4 @@
-"""LLM-assisted POS re-evaluation for already-tagged senses, via clerk queue.
+"""LLM-assisted POS tagging and re-evaluation for senses, via clerk queue.
 
 Usage:
     python -m alfs.update.refinement.retag \\
@@ -69,7 +69,7 @@ def main() -> None:
     eligible = [
         (f, a)
         for f, a in sense_store.all_entries().items()
-        if not a.redirect and any(s.pos is not None for s in a.senses)
+        if not a.redirect and a.senses
     ]
     selected = random.sample(eligible, min(args.n, len(eligible)))
 
@@ -79,15 +79,12 @@ def main() -> None:
         changed_descriptions = []
 
         for top_idx, sense in enumerate(alf.senses):
-            if sense.pos is None:
-                new_senses.append(sense)
-                continue
-
             instances = fetch_instances(form, sense.id, labeled_df, docs_df)
             prompt = prompts.postag_prompt(form, sense.definition, instances)
             data = llm.chat_json(args.model, prompt, format=_POS_SCHEMA)
             new_pos = PartOfSpeech(data["pos"])
 
+            old_pos_str = sense.pos.value if sense.pos else "None"
             if new_pos != sense.pos:
                 critic = llm.chat_json(
                     args.model,
@@ -99,13 +96,13 @@ def main() -> None:
                 if not critic.get("is_valid", True):
                     print(
                         f"  {form!r} sense {top_idx + 1}: critic rejected"
-                        f" {sense.pos.value}→{new_pos.value}"
+                        f" {old_pos_str}→{new_pos.value}"
                         f" ({critic.get('reason', '')})"
                     )
                     new_senses.append(sense)
                     continue
                 changed_descriptions.append(
-                    f"  sense {top_idx + 1}: {sense.pos.value}→{new_pos.value}"
+                    f"  sense {top_idx + 1}: {old_pos_str}→{new_pos.value}"
                 )
                 new_senses.append(
                     sense.model_copy(
