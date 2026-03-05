@@ -73,8 +73,10 @@ def induction_prompt(
         f"Only include a sense if the sentences clearly attest that meaning —"
         f" not if it is merely plausible.\n"
         f"Each sense must be meaningfully distinct — not paraphrasable as another.\n"
-        f"For each sense, group the sentence numbers that illustrate it"
-        f" and write a concise one-sentence definition.\n"
+        f"For each sense, group the sentence numbers that illustrate it,"
+        f" write a concise one-sentence definition, and assign a part of speech.\n"
+        f"Choose pos from: noun, verb, adjective, adverb, preposition, conjunction,"
+        f" pronoun, determiner, interjection, proper_noun, other.\n"
         f"Output ONLY a JSON object — no prose, no markdown, no explanation.\n"
         f"Start your response with {{ and end with }}.\n"
         f"\n"
@@ -82,5 +84,5 @@ def induction_prompt(
         f"{numbered}\n"
         f"\n"
         f'{{"all_covered": false, "senses": [{{"definition": "...", "examples": [1, 2],'
-        f' "subsenses": []}}]}}'
+        f' "pos": "noun"}}]}}'
     )

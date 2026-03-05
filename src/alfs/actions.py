@@ -31,9 +31,6 @@ ACTIONS: list[Action] = [
     ),
     Action("dedupe", "Dedupe", ["make", "dedupe"], description="Deduplicate senses"),
     Action(
-        "postag", "POS-tag", ["make", "postag"], description="Add part-of-speech tags"
-    ),
-    Action(
         "cleanup",
         "Cleanup",
         ["make", "cleanup"],

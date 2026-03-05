@@ -15,6 +15,7 @@ import polars as pl
 
 from alfs.data_models.alf import Alf, Sense
 from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
 from alfs.update import llm
@@ -31,9 +32,9 @@ _SENSE_SCHEMA = {
                 "properties": {
                     "definition": {"type": "string"},
                     "examples": {"type": "array", "items": {"type": "integer"}},
-                    "subsenses": {"type": "array", "items": {"type": "string"}},
+                    "pos": {"type": "string", "enum": [p.value for p in PartOfSpeech]},
                 },
-                "required": ["definition", "examples", "subsenses"],
+                "required": ["definition", "examples", "pos"],
             },
         },
     },
@@ -136,9 +137,15 @@ def run(
     proposed = data.get("senses", [])
     accepted: list[Sense] = []
     for item in proposed:
+        pos_str = item.get("pos")
+        try:
+            pos = PartOfSpeech(pos_str) if pos_str else None
+        except ValueError:
+            pos = None
         sense = Sense(
             definition=item["definition"],
             subsenses=item.get("subsenses") or None,
+            pos=pos,
             updated_by_model=model,
         )
         verdict = llm.chat_json(
