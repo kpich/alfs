@@ -18,6 +18,7 @@ from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
+from alfs.seg.aggregate_occurrences import prefix as form_prefix
 from alfs.update import llm
 from alfs.update.induction import prompts
 
@@ -79,8 +80,7 @@ def run(
         if entry:
             existing_defs = [s.definition for s in entry.senses]
 
-    prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
-    occ_path = Path(seg_data_dir) / prefix / "occurrences.parquet"
+    occ_path = Path(seg_data_dir) / form_prefix(form) / "occurrences.parquet"
     if not occ_path.exists():
         alf = Alf(form=form, senses=[])
         Path(output).write_text(alf.model_dump_json())
@@ -123,7 +123,12 @@ def run(
         contexts.append(ctx)
 
     if not contexts:
-        raise ValueError(f"No contexts found for form '{form}'")
+        alf = Alf(form=form, senses=[])
+        Path(output).write_text(alf.model_dump_json())
+        # TODO: investigate why doc_ids from occurrences parquet are absent from
+        # docs.parquet for this form — this likely indicates a data pipeline bug
+        print(f"No contexts found for '{form}'; skipping.")
+        return
 
     prompt = prompts.induction_prompt(form, contexts, existing_defs)
     data = llm.chat_json(model, prompt, format=_SENSE_SCHEMA)

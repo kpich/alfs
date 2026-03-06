@@ -17,6 +17,7 @@ from alfs.data_models.annotated_occurrence import AnnotatedOccurrence, Occurrenc
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
+from alfs.seg.aggregate_occurrences import prefix as form_prefix
 from alfs.update import llm
 from alfs.update.labeling import prompts
 
@@ -93,8 +94,7 @@ def run(
 
     sense_menu, key_map = build_sense_menu(sense_store, form)
 
-    prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
-    occ_path = Path(seg_data_dir) / prefix / "occurrences.parquet"
+    occ_path = Path(seg_data_dir) / form_prefix(form) / "occurrences.parquet"
     if not occ_path.exists():
         print(f"No occurrences parquet for '{form}' ({occ_path}); skipping labeling.")
         return

@@ -11,7 +11,7 @@ import os
 import polars as pl
 
 
-def _prefix(form: str) -> str:
+def prefix(form: str) -> str:
     if form and form[0].lower() in "abcdefghijklmnopqrstuvwxyz":
         return form[0].lower()
     return "other"
@@ -37,7 +37,7 @@ def main() -> None:
     df = df.with_columns(
         pl.col("form")
         .map_elements(
-            _prefix,
+            prefix,
             return_dtype=pl.String,
         )
         .alias("prefix")
@@ -46,17 +46,17 @@ def main() -> None:
     prefixes = df["prefix"].unique().sort().to_list()
     print(f"Writing {len(prefixes)} prefix groups to {args.output_dir}...")
 
-    for prefix in prefixes:
+    for pfx in prefixes:
         group = (
-            df.filter(pl.col("prefix") == prefix)
+            df.filter(pl.col("prefix") == pfx)
             .drop("prefix")
             .sort(["form", "doc_id", "byte_offset"])
         )
-        prefix_dir = os.path.join(args.output_dir, prefix)
+        prefix_dir = os.path.join(args.output_dir, pfx)
         os.makedirs(prefix_dir, exist_ok=True)
         out_path = os.path.join(prefix_dir, "occurrences.parquet")
         group.write_parquet(out_path)
-        print(f"  {prefix}: {len(group)} rows → {out_path}")
+        print(f"  {pfx}: {len(group)} rows → {out_path}")
 
     print("Done.")
 
