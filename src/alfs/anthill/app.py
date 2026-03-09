@@ -24,7 +24,7 @@ def _task_to_dict(task: Task, est_duration: float | None = None) -> dict:
         "log_count": len(task.log_lines),
         "est_duration": est_duration,
         "log_file": str(task.log_file) if task.log_file else None,
-        "use_claude": task.use_claude,
+        "use_cc": task.use_cc,
     }
 
 
@@ -51,9 +51,9 @@ def create_task():
     assert _queue is not None
     body = request.get_json(silent=True) or {}
     task_type = body.get("type", "")
-    use_claude = bool(body.get("claude", False))
+    use_cc = bool(body.get("cc", False))
     try:
-        task = _queue.enqueue(task_type, use_claude=use_claude)
+        task = _queue.enqueue(task_type, use_cc=use_cc)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify(_task_to_dict(task, _queue.average_duration(task.type))), 201

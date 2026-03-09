@@ -11,6 +11,7 @@ Usage:
 
 import argparse
 from datetime import datetime
+import os
 from pathlib import Path
 import random
 import uuid
@@ -47,7 +48,14 @@ def main() -> None:
     )
     parser.add_argument("--n", type=int, default=50, help="Number of forms to evaluate")
     parser.add_argument("--model", default="qwen2.5:32b")
+    parser.add_argument(
+        "--cc-tasks-dir",
+        default=None,
+        help="Path to CC tasks directory (writes task file instead of calling LLM)",
+    )
     args = parser.parse_args()
+
+    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
 
     store = SenseStore(Path(args.senses_db))
     occ_store = OccurrenceStore(Path(args.labeled_db))
@@ -61,6 +69,44 @@ def main() -> None:
         if not a.redirect and len(a.senses) >= 2
     ]
     selected = random.sample(eligible, min(args.n, len(eligible)))
+
+    if cc_tasks_dir:
+        from alfs.cc.models import CCTrimSenseTask, SenseInfo
+
+        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir.mkdir(parents=True, exist_ok=True)
+        for form, alf in selected:
+            examples = [
+                fetch_instances(
+                    form,
+                    alf.senses[i].id,
+                    labeled_df,
+                    docs_df,
+                    min_rating=2,
+                    context_chars=100,
+                    max_instances=3,
+                )
+                for i in range(len(alf.senses))
+            ]
+            task = CCTrimSenseTask(
+                id=str(uuid.uuid4()),
+                form=form,
+                senses=[
+                    SenseInfo(
+                        id=s.id,
+                        definition=s.definition,
+                        subsenses=list(s.subsenses) if s.subsenses else None,
+                        pos=s.pos.value if s.pos else None,
+                    )
+                    for s in alf.senses
+                ],
+                examples=examples,
+            )
+            task_path = pending_dir / f"{task.id}.json"
+            task_path.write_text(task.model_dump_json())
+            print(f"  wrote CC task for {form!r}")
+        print("Done.")
+        return
 
     for form, alf in selected:
         examples = [

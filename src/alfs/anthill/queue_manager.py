@@ -12,7 +12,7 @@ import uuid
 
 from alfs.actions import ACTIONS_BY_NAME
 
-CLAUDE_MODEL = "claude-sonnet-4-6"
+CC_TASKS_DIR_ENV = "CC_TASKS_DIR"
 
 
 class TaskStatus(str, Enum):
@@ -36,7 +36,7 @@ class Task:
     log_lines: list[str] = field(default_factory=list)
     returncode: int | None = None
     log_file: Path | None = None
-    use_claude: bool = False
+    use_cc: bool = False
 
 
 class QueueManager:
@@ -56,7 +56,7 @@ class QueueManager:
         t = threading.Thread(target=self._dispatch_loop, daemon=True)
         t.start()
 
-    def enqueue(self, task_type: str, use_claude: bool = False) -> Task:
+    def enqueue(self, task_type: str, use_cc: bool = False) -> Task:
         if task_type not in ACTIONS_BY_NAME:
             raise ValueError(f"Unsupported task type: {task_type!r}")
         task = Task(
@@ -64,7 +64,7 @@ class QueueManager:
             type=task_type,
             status=TaskStatus.pending,
             created_at=datetime.now(UTC),
-            use_claude=use_claude,
+            use_cc=use_cc,
         )
         with self._lock:
             self.tasks.append(task)
@@ -129,11 +129,11 @@ class QueueManager:
                     task.log_file = log_path
 
             env = None
-            if task.use_claude:
+            if task.use_cc:
+                cc_dir = os.environ.get(CC_TASKS_DIR_ENV, "../cc_tasks")
                 env = {
                     **os.environ,
-                    "SENSE_UPDATE_MODEL": CLAUDE_MODEL,
-                    "LABEL_MODEL": CLAUDE_MODEL,
+                    CC_TASKS_DIR_ENV: cc_dir,
                 }
             proc = subprocess.Popen(
                 cmd,

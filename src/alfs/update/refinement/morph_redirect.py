@@ -9,6 +9,7 @@ Usage:
 
 import argparse
 from datetime import datetime
+import os
 from pathlib import Path
 import random
 import uuid
@@ -86,7 +87,14 @@ def main() -> None:
     )
     parser.add_argument("--model", default="qwen2.5:32b")
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--cc-tasks-dir",
+        default=None,
+        help="Path to CC tasks directory (writes task file instead of calling LLM)",
+    )
     args = parser.parse_args()
+
+    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
 
     sense_store = SenseStore(Path(args.senses_db))
     queue_dir = Path(args.queue_dir)
@@ -110,6 +118,39 @@ def main() -> None:
         sample_forms[i : i + args.batch_size]
         for i in range(0, len(sample_forms), args.batch_size)
     ]
+
+    if cc_tasks_dir:
+        from alfs.cc.models import CCMorphRedirectTask, FormInfo, SenseInfo
+
+        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir.mkdir(parents=True, exist_ok=True)
+        inventory_forms = list(eligible_set)
+        for batch in batches:
+            forms_info = [
+                FormInfo(
+                    form=f,
+                    senses=[
+                        SenseInfo(
+                            id=s.id,
+                            definition=s.definition,
+                            subsenses=list(s.subsenses) if s.subsenses else None,
+                            pos=s.pos.value if s.pos else None,
+                        )
+                        for s in eligible[f].senses
+                    ],
+                )
+                for f in batch
+            ]
+            task = CCMorphRedirectTask(
+                id=str(uuid.uuid4()),
+                forms=forms_info,
+                inventory_forms=inventory_forms,
+            )
+            task_path = pending_dir / f"{task.id}.json"
+            task_path.write_text(task.model_dump_json())
+            print(f"  wrote CC task for batch of {len(batch)} forms")
+        print("Done.")
+        return
 
     total_queued = 0
 

@@ -78,6 +78,12 @@ ACTIONS: list[Action] = [
         ["make", "clerk"],
         description="Process queued sense mutations",
     ),
+    Action(
+        "cc_apply",
+        "CC Apply",
+        ["make", "cc_apply"],
+        description="Apply CC skill outputs as clerk requests",
+    ),
 ]
 
 ACTIONS_BY_NAME: dict[str, Action] = {a.name: a for a in ACTIONS}
