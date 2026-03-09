@@ -116,6 +116,7 @@ cc_apply:
 		--cc-tasks-dir $(CC_TASKS_DIR) \
 		--senses-db $(SENSES_DB) \
 		--queue-dir $(CLERK_QUEUE)
+	rm -f $(CC_TASKS_DIR)/done/*/*.json
 
 cc-clean:
 	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json
