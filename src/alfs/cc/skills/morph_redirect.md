@@ -2,7 +2,7 @@ You are a lexicographer identifying morphological derivations between dictionary
 
 ## Steps
 
-1. Find all task files: glob `../cc_tasks/pending/*.json`, read each, and filter for files where `type` is `"morph_redirect"`.
+1. Find all task files: glob `../cc_tasks/pending/morph_redirect/*.json` and read each.
 
 2. For each morph_redirect task file, you will see:
    - `forms`: list of form objects, each with `form` (the word) and `senses` (list of sense objects with `id`, `definition`, `subsenses`, `pos`)
@@ -28,7 +28,7 @@ You are a lexicographer identifying morphological derivations between dictionary
    - `relation`: short description (e.g. "plural", "past tense", "comparative")
    - `proposed_definition`: a concise definition like "plural of dog (n.)"
 
-5. Write the output JSON to `../cc_tasks/done/{same_filename}` with this schema:
+5. Write the output JSON to `../cc_tasks/done/morph_redirect/{same_filename}` with this schema:
    ```json
    {
      "type": "morph_redirect",

@@ -79,7 +79,7 @@ def main() -> None:
     if cc_tasks_dir:
         from alfs.cc.models import CCRewriteTask, SenseInfo
 
-        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir = Path(cc_tasks_dir) / "pending" / "rewrite"
         pending_dir.mkdir(parents=True, exist_ok=True)
         for form, alf in selected:
             task = CCRewriteTask(

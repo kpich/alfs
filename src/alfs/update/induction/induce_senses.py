@@ -142,7 +142,7 @@ def run(
             contexts=contexts,
             existing_defs=existing_defs,
         )
-        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir = Path(cc_tasks_dir) / "pending" / "induction"
         pending_dir.mkdir(parents=True, exist_ok=True)
         task_path = pending_dir / f"{task.id}.json"
         task_path.write_text(task.model_dump_json())

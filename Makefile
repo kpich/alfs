@@ -118,7 +118,7 @@ cc_apply:
 		--queue-dir $(CLERK_QUEUE)
 
 cc-clean:
-	rm -f $(CC_TASKS_DIR)/pending/*.json $(CC_TASKS_DIR)/done/*.json
+	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json
 
 clerk-watch:
 	uv run --no-sync python -m alfs.clerk.worker \

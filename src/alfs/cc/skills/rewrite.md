@@ -2,7 +2,7 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
 
 ## Steps
 
-1. Find all task files: glob `../cc_tasks/pending/*.json`, read each, and filter for files where `type` is `"rewrite"`.
+1. Find all task files: glob `../cc_tasks/pending/rewrite/*.json` and read each.
 
 2. For each rewrite task file, you will see:
    - `form`: the word being defined
@@ -15,7 +15,7 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
    - Don't be too terse (keep definitions informative) or too verbose (avoid unnecessary hedging).
    - You may also improve subsenses if present.
 
-4. Write the output JSON to `../cc_tasks/done/{same_filename}` with this schema:
+4. Write the output JSON to `../cc_tasks/done/rewrite/{same_filename}` with this schema:
    ```json
    {
      "type": "rewrite",

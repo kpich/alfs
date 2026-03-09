@@ -227,7 +227,7 @@ def run(
     sense_store = SenseStore(Path(senses_db))
     queue_path = Path(queue_dir)
 
-    files = sorted(done_dir.glob("*.json"))
+    files = sorted(done_dir.glob("*/*.json"))
     if not files:
         print("No output files in done/.")
         return

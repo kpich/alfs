@@ -18,8 +18,9 @@ from alfs.data_models.sense_store import SenseStore
 
 def _setup(tmp_path: Path) -> tuple[Path, Path, Path]:
     cc_dir = tmp_path / "cc_tasks"
-    (cc_dir / "pending").mkdir(parents=True)
-    (cc_dir / "done").mkdir(parents=True)
+    for type_name in ("induction", "rewrite", "trim_sense", "morph_redirect"):
+        (cc_dir / "pending" / type_name).mkdir(parents=True)
+        (cc_dir / "done" / type_name).mkdir(parents=True)
     senses_db = tmp_path / "senses.db"
     queue_dir = tmp_path / "queue"
     queue_dir.mkdir()
@@ -37,12 +38,12 @@ def test_apply_induction(tmp_path: Path):
         form="cat",
         senses=[InductionSense(definition="a small domesticated feline", pos="noun")],
     )
-    (cc_dir / "done" / "test1.json").write_text(output.model_dump_json())
+    (cc_dir / "done" / "induction" / "test1.json").write_text(output.model_dump_json())
 
     run(cc_dir, senses_db, queue_dir)
 
     # Output file should be deleted
-    assert not (cc_dir / "done" / "test1.json").exists()
+    assert not (cc_dir / "done" / "induction" / "test1.json").exists()
     # Clerk request should be enqueued
     pending_files = list((queue_dir / "pending").glob("*.json"))
     assert len(pending_files) == 1
@@ -68,11 +69,11 @@ def test_apply_rewrite(tmp_path: Path):
         form="run",
         senses=[RewrittenSense(definition="to move swiftly on foot")],
     )
-    (cc_dir / "done" / "test2.json").write_text(output.model_dump_json())
+    (cc_dir / "done" / "rewrite" / "test2.json").write_text(output.model_dump_json())
 
     run(cc_dir, senses_db, queue_dir)
 
-    assert not (cc_dir / "done" / "test2.json").exists()
+    assert not (cc_dir / "done" / "rewrite" / "test2.json").exists()
     pending_files = list((queue_dir / "pending").glob("*.json"))
     assert len(pending_files) == 1
     req = json.loads(pending_files[0].read_text())
@@ -101,12 +102,12 @@ def test_apply_rewrite_sense_count_mismatch(tmp_path: Path):
         form="run",
         senses=[RewrittenSense(definition="to move swiftly on foot")],
     )
-    (cc_dir / "done" / "test3.json").write_text(output.model_dump_json())
+    (cc_dir / "done" / "rewrite" / "test3.json").write_text(output.model_dump_json())
 
     run(cc_dir, senses_db, queue_dir)
 
     # File should NOT be deleted (error case)
-    assert (cc_dir / "done" / "test3.json").exists()
+    assert (cc_dir / "done" / "rewrite" / "test3.json").exists()
     # No clerk request
     assert not list((queue_dir / "pending").glob("*.json"))
 
@@ -127,11 +128,11 @@ def test_apply_trim_sense(tmp_path: Path):
     )
 
     output = CCTrimSenseOutput(id="test4", form="bank", sense_num=2, reason="redundant")
-    (cc_dir / "done" / "test4.json").write_text(output.model_dump_json())
+    (cc_dir / "done" / "trim_sense" / "test4.json").write_text(output.model_dump_json())
 
     run(cc_dir, senses_db, queue_dir)
 
-    assert not (cc_dir / "done" / "test4.json").exists()
+    assert not (cc_dir / "done" / "trim_sense" / "test4.json").exists()
     pending_files = list((queue_dir / "pending").glob("*.json"))
     assert len(pending_files) == 1
     req = json.loads(pending_files[0].read_text())
@@ -145,12 +146,12 @@ def test_apply_trim_sense_null(tmp_path: Path):
     output = CCTrimSenseOutput(
         id="test5", form="bank", sense_num=None, reason="all distinct"
     )
-    (cc_dir / "done" / "test5.json").write_text(output.model_dump_json())
+    (cc_dir / "done" / "trim_sense" / "test5.json").write_text(output.model_dump_json())
 
     run(cc_dir, senses_db, queue_dir)
 
     # File deleted (no-op but ok)
-    assert not (cc_dir / "done" / "test5.json").exists()
+    assert not (cc_dir / "done" / "trim_sense" / "test5.json").exists()
     # No clerk request
     assert not list((queue_dir / "pending").glob("*.json"))
 

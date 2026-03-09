@@ -122,7 +122,7 @@ def main() -> None:
     if cc_tasks_dir:
         from alfs.cc.models import CCMorphRedirectTask, FormInfo, SenseInfo
 
-        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir = Path(cc_tasks_dir) / "pending" / "morph_redirect"
         pending_dir.mkdir(parents=True, exist_ok=True)
         inventory_forms = list(eligible_set)
         for batch in batches:

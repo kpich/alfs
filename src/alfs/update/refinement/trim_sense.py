@@ -73,7 +73,7 @@ def main() -> None:
     if cc_tasks_dir:
         from alfs.cc.models import CCTrimSenseTask, SenseInfo
 
-        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir = Path(cc_tasks_dir) / "pending" / "trim_sense"
         pending_dir.mkdir(parents=True, exist_ok=True)
         for form, alf in selected:
             examples = [

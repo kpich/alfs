@@ -2,7 +2,7 @@ You are a lexicographer performing sense induction for English words. Process al
 
 ## Steps
 
-1. Find all task files: glob `../cc_tasks/pending/*.json`, read each, and filter for files where `type` is `"induction"`.
+1. Find all task files: glob `../cc_tasks/pending/induction/*.json` and read each.
 
 2. For each induction task file, you will see:
    - `form`: the word to define
@@ -18,7 +18,7 @@ You are a lexicographer performing sense induction for English words. Process al
    - Do NOT propose senses that are nearly identical to existing definitions.
    - For each sense, write a concise one-sentence definition and assign a part of speech from: noun, verb, adjective, adverb, preposition, conjunction, pronoun, determiner, interjection, proper_noun, other.
 
-4. Write the output JSON to `../cc_tasks/done/{same_filename}` with this schema:
+4. Write the output JSON to `../cc_tasks/done/induction/{same_filename}` with this schema:
    ```json
    {
      "type": "induction",
