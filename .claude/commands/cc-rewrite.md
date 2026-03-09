@@ -2,7 +2,7 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
 
 ## Steps
 
-1. Find all task files: glob `../cc_tasks/pending/rewrite/*.json` and read each.
+1. Find all task files: use Glob with path `../cc_tasks/pending/rewrite` and pattern `*.json`, then read each.
 
 2. For each rewrite task file, you will see:
    - `form`: the word being defined
