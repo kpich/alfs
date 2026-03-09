@@ -9,6 +9,7 @@ Usage:
 
 import argparse
 from datetime import datetime
+import os
 from pathlib import Path
 import random
 import uuid
@@ -58,7 +59,14 @@ def main() -> None:
     )
     parser.add_argument("--n", type=int, default=5, help="Number of forms to rewrite")
     parser.add_argument("--model", default="qwen2.5:32b")
+    parser.add_argument(
+        "--cc-tasks-dir",
+        default=None,
+        help="Path to CC tasks directory (writes task file instead of calling LLM)",
+    )
     args = parser.parse_args()
+
+    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
 
     store = SenseStore(Path(args.senses_db))
     queue_dir = Path(args.queue_dir)
@@ -67,6 +75,31 @@ def main() -> None:
         (f, a) for f, a in store.all_entries().items() if not a.redirect and a.senses
     ]
     selected = random.sample(eligible, min(args.n, len(eligible)))
+
+    if cc_tasks_dir:
+        from alfs.cc.models import CCRewriteTask, SenseInfo
+
+        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir.mkdir(parents=True, exist_ok=True)
+        for form, alf in selected:
+            task = CCRewriteTask(
+                id=str(uuid.uuid4()),
+                form=form,
+                senses=[
+                    SenseInfo(
+                        id=s.id,
+                        definition=s.definition,
+                        subsenses=list(s.subsenses) if s.subsenses else None,
+                        pos=s.pos.value if s.pos else None,
+                    )
+                    for s in alf.senses
+                ],
+            )
+            task_path = pending_dir / f"{task.id}.json"
+            task_path.write_text(task.model_dump_json())
+            print(f"  wrote CC task for {form!r}")
+        print("Done.")
+        return
 
     for form, alf in selected:
         data = llm.chat_json(

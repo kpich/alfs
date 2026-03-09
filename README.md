@@ -48,6 +48,15 @@ make clerk-watch # apply queued sense mutations from clerk_queue/
 | `make morph_redirect` | Queue morphological redirect proposals (e.g. plural, past tense) |
 | `make trim_senses` | LLM-identify redundant senses in 50 random multi-sense words → enqueue |
 
+### Claude Code (CC) mode
+
+When the "CC" toggle is active in the conductor, pipeline tasks write JSON task files to `cc_tasks/pending/` instead of calling a local LLM. You then run CC skills (`/cc-induction`, `/cc-rewrite`, `/cc-trim`, `/cc-morph`) in Claude Code to process them, and apply the results via `make cc_apply`.
+
+| Target | What it does |
+|---|---|
+| `make cc_apply` | Convert CC skill outputs in `cc_tasks/done/` into clerk requests |
+| `make cc-clean` | Remove all pending and done CC task files |
+
 ### Viewer
 
 | Target | What it does |

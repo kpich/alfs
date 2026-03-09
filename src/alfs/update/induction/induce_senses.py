@@ -4,12 +4,14 @@ Usage:
     python -m alfs.update.induction.induce_senses \\
         --target target.json --seg-data-dir by_prefix/ --docs docs.parquet \\
         --output senses.json --model qwen2.5:32b --context-chars 150 --max-samples 20 \\
-        [--senses-db senses.db] [--labeled-db labeled.db]
+        [--senses-db senses.db] [--labeled-db labeled.db] [--cc-tasks-dir DIR]
 """
 
 import argparse
+import os
 from pathlib import Path
 import random
+import uuid
 
 import polars as pl
 
@@ -69,6 +71,7 @@ def run(
     max_samples: int = 20,
     senses_db: str | Path | None = None,
     labeled_db: str | Path | None = None,
+    cc_tasks_dir: str | Path | None = None,
 ) -> None:
     target = UpdateTarget.model_validate_json(Path(target_file).read_text())
     form = target.form
@@ -130,6 +133,25 @@ def run(
         print(f"No contexts found for '{form}'; skipping.")
         return
 
+    if cc_tasks_dir:
+        from alfs.cc.models import CCInductionTask
+
+        task = CCInductionTask(
+            id=str(uuid.uuid4()),
+            form=form,
+            contexts=contexts,
+            existing_defs=existing_defs,
+        )
+        pending_dir = Path(cc_tasks_dir) / "pending"
+        pending_dir.mkdir(parents=True, exist_ok=True)
+        task_path = pending_dir / f"{task.id}.json"
+        task_path.write_text(task.model_dump_json())
+        # Write empty output so downstream pipeline doesn't fail
+        alf = Alf(form=form, senses=[])
+        Path(output).write_text(alf.model_dump_json())
+        print(f"Wrote CC task for '{form}' to {task_path}")
+        return
+
     prompt = prompts.induction_prompt(form, contexts, existing_defs)
     data = llm.chat_json(model, prompt, format=_SENSE_SCHEMA)
 
@@ -189,7 +211,14 @@ def main() -> None:
     parser.add_argument(
         "--labeled-db", default=None, help="Path to labeled.db (optional)"
     )
+    parser.add_argument(
+        "--cc-tasks-dir",
+        default=None,
+        help="Path to CC tasks directory (writes task file instead of calling LLM)",
+    )
     args = parser.parse_args()
+
+    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
 
     run(
         args.target,
@@ -201,6 +230,7 @@ def main() -> None:
         args.max_samples,
         args.senses_db,
         args.labeled_db,
+        cc_tasks_dir,
     )
 
 

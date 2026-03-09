@@ -48,16 +48,16 @@
   button.yolo { border-color: #555; color: #888; }
   button.yolo.active { border-color: #fa0; color: #fa0; background: #2a2000; }
   button.yolo.active:hover { background: #3a2f00; }
-  button.claude { border-color: #555; color: #888; }
-  button.claude.active { border-color: #a78; color: #c9a; background: #1a0a18; }
-  button.claude.active:hover { background: #251030; }
+  button.cc { border-color: #555; color: #888; }
+  button.cc.active { border-color: #4af; color: #4af; background: #0a1a2a; }
+  button.cc.active:hover { background: #102030; }
 </style>
 </head>
 <body>
 <div class="top-bar">
   <h1>Anthill Conductor</h1>
   <button class="yolo" id="yolo-btn" onclick="toggleYolo()" title="When idle, auto-queue a random action">YOLO</button>
-  <button class="claude" id="claude-btn" onclick="toggleClaude()" title="Use Claude instead of local Ollama">Claude</button>
+  <button class="cc" id="cc-btn" onclick="toggleCC()" title="Generate CC task files instead of calling LLM">CC</button>
 </div>
 
 <div class="actions" id="action-buttons"></div>
@@ -83,7 +83,7 @@ const logOffsets = {};
 const logPollers = {};
 
 let yoloMode = false;
-let claudeMode = false;
+let ccMode = false;
 let loadedActions = [];
 
 const YOLO_WEIGHTS = { update: 10, morph_redirect: 2 };
@@ -94,9 +94,9 @@ function toggleYolo() {
   btn.classList.toggle('active', yoloMode);
 }
 
-function toggleClaude() {
-  claudeMode = !claudeMode;
-  document.getElementById('claude-btn').classList.toggle('active', claudeMode);
+function toggleCC() {
+  ccMode = !ccMode;
+  document.getElementById('cc-btn').classList.toggle('active', ccMode);
 }
 
 function fmtTime(iso) {
@@ -146,7 +146,7 @@ function renderTasks(tasks) {
       ? `<button onclick="event.stopPropagation(); removeTask('${t.id}')" style="padding:2px 7px; font-size:0.8rem;" title="Remove from queue">×</button>`
       : '';
     html += `<tr class="task-row" onclick="toggleExpand('${t.id}')" data-id="${t.id}">
-      <td>${t.type}${t.use_claude ? ' <span style="color:#c9a;font-size:0.8em">[C]</span>' : ''}</td>
+      <td>${t.type}${t.use_cc ? ' <span style="color:#4af;font-size:0.8em">[CC]</span>' : ''}</td>
       <td class="${statusClass(t.status)}">${t.status}</td>
       <td>${fmtTime(t.created_at)}</td>
       <td>${fmtDuration(t)}</td>
@@ -259,7 +259,7 @@ async function queueTask(type) {
     await fetch('/api/tasks', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({type, claude: claudeMode}),
+      body: JSON.stringify({type, cc: ccMode}),
     });
     refreshTasks();
   } catch (e) {
