@@ -11,11 +11,18 @@ class Action:
     label: str
     cmd: list[str]
     description: str = ""
+    cc_ready: bool = (
+        False  # True if this action works in CC mode (has CC branch or no LLM)
+    )
 
 
 ACTIONS: list[Action] = [
     Action(
-        "update", "Update", ["make", "update"], description="Run ETL update pipeline"
+        "update",
+        "Update",
+        ["make", "update"],
+        description="Run ETL update pipeline",
+        cc_ready=True,
     ),
     Action(
         "relabel",
@@ -35,12 +42,14 @@ ACTIONS: list[Action] = [
         "Cleanup",
         ["make", "cleanup"],
         description="Clean up sense inventory",
+        cc_ready=True,
     ),
     Action(
         "rewrite",
         "Rewrite",
         ["make", "rewrite"],
         description="Rewrite sense definitions",
+        cc_ready=True,
     ),
     Action(
         "retag",
@@ -53,12 +62,14 @@ ACTIONS: list[Action] = [
         "Prune",
         ["make", "prune"],
         description="Prune low-quality senses",
+        cc_ready=True,
     ),
     Action(
         "morph_redirect",
         "Morph Redirect",
         ["make", "morph_redirect"],
         description="Propose morphological derivation links",
+        cc_ready=True,
     ),
     Action(
         "undo_morph",
@@ -71,18 +82,21 @@ ACTIONS: list[Action] = [
         "Trim Senses",
         ["make", "trim_senses"],
         description="Trim redundant senses",
+        cc_ready=True,
     ),
     Action(
         "clerk",
         "Clerk",
         ["make", "clerk"],
         description="Process queued sense mutations",
+        cc_ready=True,
     ),
     Action(
         "cc_apply",
         "CC Apply",
         ["make", "cc_apply"],
         description="Apply CC skill outputs as clerk requests",
+        cc_ready=True,
     ),
 ]
 

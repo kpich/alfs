@@ -97,6 +97,7 @@ function toggleYolo() {
 function toggleCC() {
   ccMode = !ccMode;
   document.getElementById('cc-btn').classList.toggle('active', ccMode);
+  updateActionButtons();
 }
 
 function fmtTime(iso) {
@@ -189,13 +190,15 @@ function maybeYolo(tasks) {
   const busy = tasks.some(t => t.status === 'pending' || t.status === 'running');
   if (busy) return;
   if (loadedActions.length === 0) return;
-  const weights = loadedActions.map(a => YOLO_WEIGHTS[a.name] ?? 1);
+  const eligible = ccMode ? loadedActions.filter(a => a.cc_ready) : loadedActions;
+  if (eligible.length === 0) return;
+  const weights = eligible.map(a => YOLO_WEIGHTS[a.name] ?? 1);
   const total = weights.reduce((s, w) => s + w, 0);
   let r = Math.random() * total;
-  let pick = loadedActions[loadedActions.length - 1];
-  for (let i = 0; i < loadedActions.length; i++) {
+  let pick = eligible[eligible.length - 1];
+  for (let i = 0; i < eligible.length; i++) {
     r -= weights[i];
-    if (r <= 0) { pick = loadedActions[i]; break; }
+    if (r <= 0) { pick = eligible[i]; break; }
   }
   console.log('[YOLO] queue idle — auto-queuing', pick.name);
   queueTask(pick.name);
@@ -267,6 +270,14 @@ async function queueTask(type) {
   }
 }
 
+function updateActionButtons() {
+  const container = document.getElementById('action-buttons');
+  for (const btn of container.querySelectorAll('button')) {
+    const ccReady = btn.dataset.ccReady === 'true';
+    btn.disabled = ccMode && !ccReady;
+  }
+}
+
 async function loadActions() {
   try {
     const r = await fetch('/api/actions');
@@ -276,6 +287,7 @@ async function loadActions() {
     for (const a of actions) {
       const btn = document.createElement('button');
       btn.className = 'primary';
+      btn.dataset.ccReady = String(a.cc_ready);
       btn.onclick = () => queueTask(a.name);
       btn.textContent = 'Queue ' + a.label;
       container.appendChild(btn);
