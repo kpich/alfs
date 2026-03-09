@@ -15,6 +15,7 @@ Usage:
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -53,6 +54,7 @@ def main() -> None:
     senses_db = Path(args.senses_db)
     labeled_db = Path(args.labeled_db)
     queue_dir = Path(args.queue_dir)
+    cc_tasks_dir = os.environ.get("CC_TASKS_DIR")
 
     had_error = False
 
@@ -89,6 +91,7 @@ def main() -> None:
                     args.max_samples,
                     senses_db if senses_db.exists() else None,
                     labeled_db if labeled_db.exists() else None,
+                    cc_tasks_dir,
                 ): tf
                 for tf in target_files
             }
@@ -101,51 +104,55 @@ def main() -> None:
                     print(f"  ERROR inducing senses for {tf.name}:")
                     traceback.print_exc()
 
-        # Phase 3: update inventory (enqueue)
-        print("=== Phase 3: Update inventory ===")
-        for sf in senses_dir.glob("*.json"):
-            try:
-                update_inventory.run(sf, senses_db, queue_dir)
-            except Exception:
-                had_error = True
-                print(f"  ERROR updating inventory for {sf.name}:")
-                traceback.print_exc()
-
-        # Phase 4: drain clerk (sync point — ensures senses.db is up to date)
-        print("=== Phase 4: Drain clerk queue ===")
-        drain(
-            queue_dir,
-            SenseStore(senses_db),
-            OccurrenceStore(labeled_db) if labeled_db.exists() else None,
-            workers=args.workers,
-        )
-        print("Clerk queue drained.")
-
-        # Phase 5: parallel labeling
-        print("=== Phase 5: Label occurrences ===")
-        with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            futures_label = {
-                pool.submit(
-                    label_occurrences.run,
-                    tf,
-                    args.seg_data_dir,
-                    args.docs,
-                    senses_db,
-                    labeled_db,
-                    args.model,
-                    args.context_chars,
-                    args.max_occurrences,
-                ): tf
-                for tf in target_files
-            }
-            for future in as_completed(futures_label):
-                tf = futures_label[future]
+        # In CC mode, induction wrote task files — skip inventory/clerk/labeling
+        if cc_tasks_dir:
+            print("CC mode: skipping inventory update, clerk drain, and labeling.")
+        else:
+            # Phase 3: update inventory (enqueue)
+            print("=== Phase 3: Update inventory ===")
+            for sf in senses_dir.glob("*.json"):
                 try:
-                    future.result()
+                    update_inventory.run(sf, senses_db, queue_dir)
                 except Exception:
                     had_error = True
-                    print(f"  ERROR labeling {tf.name}:")
+                    print(f"  ERROR updating inventory for {sf.name}:")
                     traceback.print_exc()
+
+            # Phase 4: drain clerk (sync point — ensures senses.db is up to date)
+            print("=== Phase 4: Drain clerk queue ===")
+            drain(
+                queue_dir,
+                SenseStore(senses_db),
+                OccurrenceStore(labeled_db) if labeled_db.exists() else None,
+                workers=args.workers,
+            )
+            print("Clerk queue drained.")
+
+            # Phase 5: parallel labeling
+            print("=== Phase 5: Label occurrences ===")
+            with ThreadPoolExecutor(max_workers=args.workers) as pool:
+                futures_label = {
+                    pool.submit(
+                        label_occurrences.run,
+                        tf,
+                        args.seg_data_dir,
+                        args.docs,
+                        senses_db,
+                        labeled_db,
+                        args.model,
+                        args.context_chars,
+                        args.max_occurrences,
+                    ): tf
+                    for tf in target_files
+                }
+                for future in as_completed(futures_label):
+                    tf = futures_label[future]
+                    try:
+                        future.result()
+                    except Exception:
+                        had_error = True
+                        print(f"  ERROR labeling {tf.name}:")
+                        traceback.print_exc()
 
     if had_error:
         print("=== Update pipeline finished with errors ===")
