@@ -2,7 +2,7 @@ You are a lexicographer identifying morphological derivations between dictionary
 
 ## Steps
 
-1. Find all task files: glob `../cc_tasks/pending/morph_redirect/*.json` and read each.
+1. Find all task files: use Glob with path `../cc_tasks/pending/morph_redirect` and pattern `*.json`, then read each.
 
 2. For each morph_redirect task file, you will see:
    - `forms`: list of form objects, each with `form` (the word) and `senses` (list of sense objects with `id`, `definition`, `subsenses`, `pos`)

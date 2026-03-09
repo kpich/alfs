@@ -2,17 +2,18 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
 
 ## Steps
 
-1. Find all task files: glob `../cc_tasks/pending/trim_sense/*.json` and read each.
+1. Find all task files: use Glob with path `../cc_tasks/pending/trim_sense` and pattern `*.json`, then read each.
 
 2. For each trim_sense task file, you will see:
    - `form`: the word being reviewed
    - `senses`: list of sense objects, each with `id`, `definition`, `subsenses`, and `pos`
-   - `examples`: list of lists of example sentences, one list per sense (showing how each sense is used in context)
+   - `examples`: list of lists of example sentences, one list per sense (showing how each sense is used in context). Note: some senses may have no examples — this just means the corpus didn't surface good instances; it is NOT grounds for deletion on its own.
 
 3. Decide whether any sense should be deleted. Delete a sense if:
    - Two senses cover the same concept and one is weaker/redundant.
    - The form is a parsing artifact rather than a real word or expression.
    - The form is a foreign word that would not appear in an English dictionary (occurring almost entirely in non-English text, not as a loanword or expression commonly used in English).
+   - Do NOT delete a sense merely because its examples list is empty.
    - If all senses are worth keeping, set `sense_num` to null.
 
 4. Write the output JSON to `../cc_tasks/done/trim_sense/{same_filename}` with this schema:
