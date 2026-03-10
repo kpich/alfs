@@ -77,9 +77,9 @@ def compile_entries(
             .drop("canonical")
         )
 
-    # Numerator: rating==3 occurrences per (form, sense_key, year)
+    # Numerator: rating>=2 occurrences per (form, sense_key, year)
     joined = apply_redirect(
-        labeled.filter(pl.col("rating") == 3).join(
+        labeled.filter(pl.col("rating") >= 2).join(
             docs_with_year, on="doc_id", how="inner"
         )
     )
@@ -91,6 +91,16 @@ def compile_entries(
     global_year_totals: dict[int, int] = {}
     for row in year_totals_df.iter_rows(named=True):
         global_year_totals[row["year"]] = row["total"]
+
+    # sense_counts per form for senses_bar: {form: {sense_key: count}}
+    sense_counts_df = (
+        labeled.filter(pl.col("rating") >= 2)
+        .group_by(["form", "sense_key"])
+        .agg(pl.len().alias("count"))
+    )
+    sense_counts_per_form: dict[str, dict[str, int]] = defaultdict(dict)
+    for row in sense_counts_df.iter_rows(named=True):
+        sense_counts_per_form[row["form"]][row["sense_key"]] = row["count"]
 
     # sense_year_counts per form: {sense_key: {year: count}}
     sense_year_counts_per_form: dict[str, dict[str, dict[int, int]]] = defaultdict(
@@ -126,12 +136,29 @@ def compile_entries(
                 sense_key(top_idx),
                 labeled,
                 docs,
-                min_rating=3,
+                min_rating=2,
                 context_chars=60,
                 max_instances=3,
                 bold_form=True,
             )
             senses.append(sense_entry)
+
+        form_sense_counts = sense_counts_per_form.get(form, {})
+        total_positive = sum(form_sense_counts.values())
+        senses_bar = (
+            [
+                {
+                    "key": sense_key(top_idx),
+                    "pos": sense.pos.value if sense.pos else None,
+                    "proportion": form_sense_counts.get(sense_key(top_idx), 0)
+                    / total_positive,
+                }
+                for top_idx, sense in enumerate(alf.senses)
+                if form_sense_counts.get(sense_key(top_idx), 0) > 0
+            ]
+            if total_positive > 0
+            else []
+        )
 
         by_year_kde = compute_year_kde(
             sense_year_counts_per_form.get(form, {}),
@@ -139,6 +166,7 @@ def compile_entries(
         )
         entries[form] = {
             "senses": senses,
+            "senses_bar": senses_bar,
             "by_year_kde": dict(by_year_kde),
             "updated_at": (timestamps or {}).get(form),
         }

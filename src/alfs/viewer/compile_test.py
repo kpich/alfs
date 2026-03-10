@@ -127,7 +127,7 @@ def test_uuid_sense_keys_translated_to_positional():
     assert "1" in result["run"]["by_year_kde"]
 
 
-def test_instances_empty_when_no_rating3():
+def test_instances_included_for_rating2():
     alfs = _alfs(
         Alf(form="walk", senses=[Sense(definition="to move on foot")]),
     )
@@ -136,4 +136,60 @@ def test_instances_empty_when_no_rating3():
 
     result = compile_entries(alfs, labeled, docs, {})
 
+    assert len(result["walk"]["senses"][0]["instances"]) == 1
+
+
+def test_instances_excluded_for_rating1():
+    alfs = _alfs(
+        Alf(form="walk", senses=[Sense(definition="to move on foot")]),
+    )
+    labeled = _labeled([("walk", "doc1", 0, "1", 1)])
+    docs = _docs([("doc1", 2020, "walk slowly")])
+
+    result = compile_entries(alfs, labeled, docs, {})
+
     assert result["walk"]["senses"][0]["instances"] == []
+
+
+def test_senses_bar_populated():
+    sense_a = Sense(definition="to move quickly")
+    sense_b = Sense(definition="to operate")
+    alfs = _alfs(Alf(form="run", senses=[sense_a, sense_b]))
+    labeled = _labeled(
+        [
+            ("run", "doc1", 0, "1", 2),
+            ("run", "doc2", 0, "1", 3),
+            ("run", "doc3", 0, "2", 2),
+        ]
+    )
+    docs = _docs([("doc1", 2020, ""), ("doc2", 2020, ""), ("doc3", 2020, "")])
+
+    result = compile_entries(alfs, labeled, docs, {})
+
+    senses_bar = result["run"]["senses_bar"]
+    assert len(senses_bar) == 2
+    assert abs(sum(sb["proportion"] for sb in senses_bar) - 1.0) < 1e-9
+
+
+def test_senses_bar_empty_when_no_positive():
+    alfs = _alfs(Alf(form="run", senses=[Sense(definition="to move quickly")]))
+    labeled = _labeled([("run", "doc1", 0, "1", 1)])
+    docs = _docs([("doc1", 2020, "")])
+
+    result = compile_entries(alfs, labeled, docs, {})
+
+    assert result["run"]["senses_bar"] == []
+
+
+def test_senses_bar_omits_zero_count_senses():
+    sense_a = Sense(definition="to move quickly")
+    sense_b = Sense(definition="to operate")
+    alfs = _alfs(Alf(form="run", senses=[sense_a, sense_b]))
+    labeled = _labeled([("run", "doc1", 0, "1", 2)])
+    docs = _docs([("doc1", 2020, "")])
+
+    result = compile_entries(alfs, labeled, docs, {})
+
+    senses_bar = result["run"]["senses_bar"]
+    assert len(senses_bar) == 1
+    assert senses_bar[0]["key"] == "1"

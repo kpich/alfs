@@ -97,12 +97,40 @@ def word(form: str):
             },
         }
 
+    senses_bar = entry.get("senses_bar", [])
+    has_bar_chart = len(senses_bar) >= 2
+    bar_chart_data: dict = {}
+    if has_bar_chart:
+        bar_traces = []
+        for sb in senses_bar:
+            bar_traces.append(
+                {
+                    "type": "bar",
+                    "name": sb["key"],
+                    "x": [sb["pos"] or "untagged"],
+                    "y": [sb["proportion"]],
+                }
+            )
+        bar_chart_data = {
+            "traces": bar_traces,
+            "layout": {
+                "barmode": "stack",
+                "xaxis": {"title": "Part of speech"},
+                "yaxis": {"title": "share of instances", "tickformat": ".0%"},
+                "width": 500,
+                "height": 300,
+                "autosize": False,
+            },
+        }
+
     return render_template(
         "word.html",
         form=form,
         senses=senses,
         has_chart=has_chart,
         chart_data=json.dumps(chart_data),
+        has_bar_chart=has_bar_chart,
+        bar_chart_data=json.dumps(bar_chart_data),
         percentile=percentile,
         is_recent=is_recent,
     )

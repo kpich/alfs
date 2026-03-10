@@ -34,14 +34,25 @@
 {% endfor %}
 </ol>
 
-{% if has_chart %}
-<h2 class="mt-4">Usage by Year</h2>
-<div id="chart"></div>
+{% if has_chart or has_bar_chart %}
+<h2 class="mt-4">{% if has_chart %}Usage by Year{% else %}Sense Distribution{% endif %}</h2>
+<div class="d-flex gap-4 align-items-start">
+  {% if has_chart %}<div id="chart"></div>{% endif %}
+  {% if has_bar_chart %}<div id="bar-chart"></div>{% endif %}
+</div>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% if has_chart %}
 <script>
 var d = {{ chart_data | safe }};
 Plotly.newPlot('chart', d.traces, d.layout, {displayModeBar: false, responsive: false});
 </script>
+{% endif %}
+{% if has_bar_chart %}
+<script>
+var bd = {{ bar_chart_data | safe }};
+Plotly.newPlot('bar-chart', bd.traces, bd.layout, {displayModeBar: false, responsive: false});
+</script>
+{% endif %}
 {% endif %}
 
 <p class="mt-4"><a href="/">← Back to word list</a></p>
