@@ -88,6 +88,11 @@ class OccurrenceStore:
             )
             con.commit()
 
+    def delete_by_form(self, form: str) -> None:
+        with self._connect() as con:
+            con.execute("DELETE FROM labeled WHERE form = ?", (form,))
+            con.commit()
+
     def count_by_form(self) -> pl.DataFrame:
         with self._connect() as con:
             rows = con.execute(

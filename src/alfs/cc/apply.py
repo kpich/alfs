@@ -18,6 +18,7 @@ import uuid
 from pydantic import TypeAdapter
 
 from alfs.cc.models import (
+    CCDeleteEntryOutput,
     CCInductionOutput,
     CCMorphRedirectOutput,
     CCOutput,
@@ -27,6 +28,7 @@ from alfs.cc.models import (
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import (
     AddSensesRequest,
+    DeleteEntryRequest,
     MorphRedirectRequest,
     RewriteRequest,
     TrimSenseRequest,
@@ -214,6 +216,16 @@ def _apply_morph_redirect(
     return True
 
 
+def _apply_delete_entry(output: CCDeleteEntryOutput, queue_dir: Path) -> bool:
+    if not output.should_delete:
+        print(f"  skipped delete for {output.form!r}: judged worth keeping")
+        return True
+    request = DeleteEntryRequest(form=output.form, reason=output.reason)
+    enqueue(request, queue_dir)
+    print(f"  queued delete for {output.form!r}")
+    return True
+
+
 def run(
     cc_tasks_dir: str | Path,
     senses_db: str | Path,
@@ -248,6 +260,8 @@ def run(
             ok = _apply_trim_sense(output, sense_store, queue_path)
         elif isinstance(output, CCMorphRedirectOutput):
             ok = _apply_morph_redirect(output, sense_store, queue_path)
+        elif isinstance(output, CCDeleteEntryOutput):
+            ok = _apply_delete_entry(output, queue_path)
         else:
             print(f"  unknown output type in {f.name}")
             ok = False

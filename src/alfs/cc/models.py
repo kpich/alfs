@@ -52,8 +52,20 @@ class CCMorphRedirectTask(BaseModel):
     inventory_forms: list[str]
 
 
+class CCDeleteEntryTask(BaseModel):
+    type: Literal["delete_entry"] = "delete_entry"
+    id: str
+    form: str
+    senses: list[SenseInfo]
+    examples: list[list[str]]
+
+
 CCTask = Annotated[
-    CCInductionTask | CCRewriteTask | CCTrimSenseTask | CCMorphRedirectTask,
+    CCInductionTask
+    | CCRewriteTask
+    | CCTrimSenseTask
+    | CCMorphRedirectTask
+    | CCDeleteEntryTask,
     Field(discriminator="type"),
 ]
 
@@ -108,7 +120,19 @@ class CCMorphRedirectOutput(BaseModel):
     relations: list[MorphRelation]
 
 
+class CCDeleteEntryOutput(BaseModel):
+    type: Literal["delete_entry"] = "delete_entry"
+    id: str
+    form: str
+    should_delete: bool
+    reason: str
+
+
 CCOutput = Annotated[
-    CCInductionOutput | CCRewriteOutput | CCTrimSenseOutput | CCMorphRedirectOutput,
+    CCInductionOutput
+    | CCRewriteOutput
+    | CCTrimSenseOutput
+    | CCMorphRedirectOutput
+    | CCDeleteEntryOutput,
     Field(discriminator="type"),
 ]

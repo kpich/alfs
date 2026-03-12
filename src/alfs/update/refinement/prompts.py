@@ -322,6 +322,74 @@ def undo_morph_critic_prompt(
     )
 
 
+def delete_entry_prompt(
+    form: str,
+    senses: list[Sense],
+    examples: list[list[str]],
+) -> str:
+    lines = [
+        "You are a lexicographer auditing a dictionary for invalid entries.",
+        "",
+        f'Word: "{form}"',
+        "",
+        "Senses:",
+    ]
+    for i, (s, exs) in enumerate(zip(senses, examples, strict=False), 1):
+        pos_tag = f" [{s.pos.value}]" if s.pos else ""
+        lines.append(f"  {i}.{pos_tag} {s.definition}")
+        for sub in s.subsenses or []:
+            lines.append(f"     \u2022 {sub}")
+        for ex in exs:
+            lines.append(f"     \u2014 {ex}")
+    lines += [
+        "",
+        "Should this entire entry be deleted? Delete if:",
+        "  - The form is a tokenization artifact (punctuation stuck to a word, etc.)",
+        "  - The form is not a real English word or expression",
+        "  - The form is a foreign word that would not appear in an English dictionary"
+        " (occurring almost entirely in non-English text, not as a loanword)",
+        "  - Do NOT delete proper nouns — they are valid entries.",
+        "",
+        'Respond with ONLY valid JSON: {"should_delete": true, "reason": "..."}',
+    ]
+    return "\n".join(lines)
+
+
+def delete_entry_critic_prompt(
+    form: str,
+    senses: list[Sense],
+    examples: list[list[str]],
+    reason: str,
+) -> str:
+    lines = [
+        "You are a senior lexicographer reviewing a proposed dictionary entry "
+        "deletion.",
+        "",
+        f'Word: "{form}"',
+        "",
+        "Senses:",
+    ]
+    for i, (s, exs) in enumerate(zip(senses, examples, strict=False), 1):
+        pos_tag = f" [{s.pos.value}]" if s.pos else ""
+        lines.append(f"  {i}.{pos_tag} {s.definition}")
+        for sub in s.subsenses or []:
+            lines.append(f"     \u2022 {sub}")
+        for ex in exs:
+            lines.append(f"     \u2014 {ex}")
+    lines += [
+        "",
+        "Proposed action: DELETE this entry.",
+        f"Reason given: {reason}",
+        "",
+        "Approve if the form is genuinely invalid (artifact, non-English, not a real"
+        " word or expression). Reject if the form is a legitimate word, expression,"
+        " proper noun, or loanword that belongs in an English dictionary.",
+        "",
+        'Respond with ONLY valid JSON: {"is_valid": true, "reason": "..."}',
+    ]
+    return "\n".join(lines)
+
+
 def dedup_prompt(
     form: str,
     form_defs: list[str],

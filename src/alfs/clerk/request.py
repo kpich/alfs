@@ -172,6 +172,17 @@ class SetRedirectRequest(BaseModel):
         sense_store.update(self.form, set_redirect)
 
 
+class DeleteEntryRequest(BaseModel):
+    type: Literal["delete_entry"] = "delete_entry"
+    form: str
+    reason: str
+
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        if occ_store is not None:
+            occ_store.delete_by_form(self.form)
+        sense_store.delete(self.form)
+
+
 ChangeRequest = Annotated[
     AddSensesRequest
     | RewriteRequest
@@ -180,6 +191,7 @@ ChangeRequest = Annotated[
     | PruneRequest
     | TrimSenseRequest
     | MorphRedirectRequest
-    | SetRedirectRequest,
+    | SetRedirectRequest
+    | DeleteEntryRequest,
     Field(discriminator="type"),
 ]

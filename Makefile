@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses validate compile viewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata
+.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses delete_entry validate compile viewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -103,6 +103,14 @@ trim_senses:
 		--docs $(DOCS) \
 		--queue-dir $(CLERK_QUEUE) \
 		--n 50 \
+		--model $(SENSE_UPDATE_MODEL)
+
+delete_entry:
+	uv run --no-sync python -m alfs.update.refinement.delete_entry \
+		--senses-db $(SENSES_DB) \
+		--labeled-db $(LABELED_DB) \
+		--docs $(DOCS) \
+		--queue-dir $(CLERK_QUEUE) \
 		--model $(SENSE_UPDATE_MODEL)
 
 clerk:

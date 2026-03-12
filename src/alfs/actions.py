@@ -85,6 +85,13 @@ ACTIONS: list[Action] = [
         cc_ready=True,
     ),
     Action(
+        "delete_entry",
+        "Delete Entry",
+        ["make", "delete_entry"],
+        description="Remove mistokenized/artifact word entries",
+        cc_ready=True,
+    ),
+    Action(
         "clerk",
         "Clerk",
         ["make", "clerk"],
