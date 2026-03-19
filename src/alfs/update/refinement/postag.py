@@ -124,6 +124,7 @@ def main() -> None:
             form=form,
             before=list(existing.senses),
             after=list(updated.senses),
+            requesting_model=args.model,
         )
         enqueue(request, queue_dir)
 

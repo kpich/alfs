@@ -145,6 +145,7 @@ def main() -> None:
             form=form,
             before=list(alf.senses),
             after=after,
+            requesting_model=args.model,
         )
         enqueue(request, queue_dir)
         print(f"  queued rewrite for: {form!r}")

@@ -168,7 +168,9 @@ def main() -> None:
             )
             continue
 
-        request = DeleteEntryRequest(form=form, reason=reason)
+        request = DeleteEntryRequest(
+            form=form, reason=reason, requesting_model=args.model
+        )
         enqueue(request, queue_dir)
         print(f"  queued delete for {form!r} — {reason}")
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
@@ -10,6 +11,9 @@ from pydantic import BaseModel, Field
 from alfs.data_models.alf import Alf, Sense
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
+from alfs.llm_ordering import can_overwrite
+
+_log = logging.getLogger(__name__)
 
 
 class AddSensesRequest(BaseModel):
@@ -48,8 +52,19 @@ class RewriteRequest(BaseModel):
     form: str
     before: list[Sense]
     after: list[Sense]
+    requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        for sense in self.before:
+            if not can_overwrite(self.requesting_model, sense.updated_by_model):
+                _log.warning(
+                    "Skipping %s for %r: %r cannot overwrite %r",
+                    self.type,
+                    self.form,
+                    self.requesting_model,
+                    sense.updated_by_model,
+                )
+                return
         after = self.after
         sense_store.update(
             self.form,
@@ -64,8 +79,19 @@ class PosTagRequest(BaseModel):
     form: str
     before: list[Sense]
     after: list[Sense]
+    requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        for sense in self.before:
+            if not can_overwrite(self.requesting_model, sense.updated_by_model):
+                _log.warning(
+                    "Skipping %s for %r: %r cannot overwrite %r",
+                    self.type,
+                    self.form,
+                    self.requesting_model,
+                    sense.updated_by_model,
+                )
+                return
         after = self.after
         sense_store.update(
             self.form,
@@ -80,8 +106,19 @@ class UpdatePosRequest(BaseModel):
     form: str
     before: list[Sense]
     after: list[Sense]
+    requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        for sense in self.before:
+            if not can_overwrite(self.requesting_model, sense.updated_by_model):
+                _log.warning(
+                    "Skipping %s for %r: %r cannot overwrite %r",
+                    self.type,
+                    self.form,
+                    self.requesting_model,
+                    sense.updated_by_model,
+                )
+                return
         after = self.after
         sense_store.update(
             self.form,
@@ -97,8 +134,22 @@ class PruneRequest(BaseModel):
     before: list[Sense]
     after: list[Sense]
     removed_ids: list[str]
+    requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        removed_set = set(self.removed_ids)
+        for sense in self.before:
+            if sense.id in removed_set and not can_overwrite(
+                self.requesting_model, sense.updated_by_model
+            ):
+                _log.warning(
+                    "Skipping %s for %r: %r cannot overwrite %r",
+                    self.type,
+                    self.form,
+                    self.requesting_model,
+                    sense.updated_by_model,
+                )
+                return
         after = self.after
         sense_store.update(
             self.form,
@@ -118,8 +169,21 @@ class TrimSenseRequest(BaseModel):
     after: list[Sense]
     sense_id: str
     reason: str
+    requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        for sense in self.before:
+            if sense.id == self.sense_id:
+                if not can_overwrite(self.requesting_model, sense.updated_by_model):
+                    _log.warning(
+                        "Skipping %s for %r: %r cannot overwrite %r",
+                        self.type,
+                        self.form,
+                        self.requesting_model,
+                        sense.updated_by_model,
+                    )
+                    return
+                break
         after = self.after
         sense_store.update(
             self.form,
@@ -191,8 +255,20 @@ class DeleteEntryRequest(BaseModel):
     type: Literal["delete_entry"] = "delete_entry"
     form: str
     reason: str
+    requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        existing = sense_store.read(self.form)
+        if existing is not None:
+            for sense in existing.senses:
+                if not can_overwrite(self.requesting_model, sense.updated_by_model):
+                    _log.warning(
+                        "Skipping delete_entry for %r: %r cannot overwrite %r",
+                        self.form,
+                        self.requesting_model,
+                        sense.updated_by_model,
+                    )
+                    return
         if occ_store is not None:
             occ_store.delete_by_form(self.form)
         sense_store.delete(self.form)

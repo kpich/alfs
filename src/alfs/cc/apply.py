@@ -113,6 +113,7 @@ def _apply_rewrite(
         form=output.form,
         before=list(entry.senses),
         after=after,
+        requesting_model="claude-code",
     )
     enqueue(request, queue_dir)
     print(f"  queued rewrite for {output.form!r}")
@@ -151,6 +152,7 @@ def _apply_trim_sense(
         after=remaining,
         sense_id=deleted_sense.id,
         reason=output.reason,
+        requesting_model="claude-code",
     )
     enqueue(request, queue_dir)
     print(f"  queued trim for {output.form!r}: sense {output.sense_num}")
@@ -253,7 +255,9 @@ def _apply_delete_entry(output: CCDeleteEntryOutput, queue_dir: Path) -> bool:
     if not output.should_delete:
         print(f"  skipped delete for {output.form!r}: judged worth keeping")
         return True
-    request = DeleteEntryRequest(form=output.form, reason=output.reason)
+    request = DeleteEntryRequest(
+        form=output.form, reason=output.reason, requesting_model="claude-code"
+    )
     enqueue(request, queue_dir)
     print(f"  queued delete for {output.form!r}")
     return True

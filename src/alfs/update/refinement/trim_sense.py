@@ -163,6 +163,7 @@ def main() -> None:
             after=remaining,
             sense_id=deleted_sense.id,
             reason=reason,
+            requesting_model=args.model,
         )
         enqueue(request, queue_dir)
         print(f"  queued trim for {form!r}: sense {sense_num} — {reason}")
