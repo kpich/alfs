@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}ALFS Word List{% endblock %}
+{% block content %}
+<h1 class="mb-4">ALFS Word List <small class="text-muted fs-5">{{ total }} words</small></h1>
+<table class="table table-hover">
+  <thead><tr><th>Word</th><th>Frequency</th></tr></thead>
+  <tbody>
+  {% for form, entry in entries %}
+    <tr{% if form in recent_forms %} class="table-warning"{% endif %}>
+      <td><a href="/word/{{ form }}">{{ form }}</a> <span class="text-muted small">({{ entry.senses | length }} {{ "sense" if entry.senses | length == 1 else "senses" }})</span></td>
+      <td>
+        <span class="badge {% if entry.percentile <= 1 %}bg-success{% elif entry.percentile <= 25 %}bg-primary{% else %}bg-secondary{% endif %}">
+          {{ entry.percentile }}%
+        </span>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<nav>
+  <ul class="pagination">
+    {% if page > 1 %}
+    <li class="page-item"><a class="page-link" href="/list?page={{ page - 1 }}">Previous</a></li>
+    {% endif %}
+    <li class="page-item disabled">
+      <span class="page-link">{{ page }} / {{ total_pages }} &nbsp;·&nbsp; {{ total }} words</span>
+    </li>
+    {% if page < total_pages %}
+    <li class="page-item"><a class="page-link" href="/list?page={{ page + 1 }}">Next</a></li>
+    {% endif %}
+  </ul>
+</nav>
+<p><a href="/">← Back to search</a></p>
+{% endblock %}

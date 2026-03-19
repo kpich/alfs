@@ -39,6 +39,31 @@ def get_data() -> dict:
 @app.route("/")
 def index():
     data = get_data()
+    total = len(data["entries"])
+    return render_template("index.html", total=total, query=None, results=None)
+
+
+@app.route("/search")
+def search():
+    data = get_data()
+    q = request.args.get("q", "").strip()
+    total = len(data["entries"])
+    results = None
+    if q:
+        results = sorted(
+            [
+                (form, entry)
+                for form, entry in data["entries"].items()
+                if q.lower() in form.lower()
+            ],
+            key=lambda x: x[0].lower(),
+        )
+    return render_template("index.html", total=total, query=q, results=results)
+
+
+@app.route("/list")
+def listing():
+    data = get_data()
     page = request.args.get("page", 1, type=int)
     recent = _recent_forms(data)
     sorted_entries = sorted(data["entries"].items(), key=lambda x: x[0].lower())
@@ -47,7 +72,7 @@ def index():
     page = max(1, min(page, total_pages))
     start = (page - 1) * PAGE_SIZE
     return render_template(
-        "index.html",
+        "list.html",
         entries=sorted_entries[start : start + PAGE_SIZE],
         recent_forms=recent,
         page=page,
