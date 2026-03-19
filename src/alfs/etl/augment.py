@@ -14,14 +14,30 @@ printed to signal that the dump has been fully consumed.
 """
 
 import argparse
+from collections.abc import Iterator
 import json
 from pathlib import Path
 
 from alfs.etl.corpus import append_docs, get_doc_ids
 from alfs.etl.ngram_cache import NgramCache
 from alfs.etl.parse_dump import parse_page
-from alfs.etl.sources import SOURCES
+from alfs.etl.sources import SOURCES, Source
 from alfs.etl.stream_dump import stream_pages
+
+
+def get_streamer(source: Source, dump_path: Path) -> Iterator[dict]:
+    if source.type == "mediawiki":
+        return stream_pages(dump_path, source.name)
+    elif source.type == "gutenberg":
+        from alfs.etl.stream_gutenberg import stream_gutenberg
+
+        return stream_gutenberg(dump_path)
+    elif source.type == "hf":
+        from alfs.etl.stream_hf import stream_hf
+
+        return stream_hf(source.hf_dataset)
+    else:
+        raise ValueError(f"Unknown source type: {source.type!r}")
 
 
 def main() -> None:
@@ -48,7 +64,8 @@ def main() -> None:
 
     source = SOURCES[source_name]
     dump_path = cache_dir / source.dump_filename
-    if not dump_path.exists():
+
+    if source.type != "hf" and not dump_path.exists():
         raise FileNotFoundError(
             f"Dump not found: {dump_path}. Run: python -m alfs.etl.download "
             f"--source {source_name} --cache-dir {cache_dir}"
@@ -87,7 +104,7 @@ def main() -> None:
     exact_dupes = 0
     ngram_dupes = 0
 
-    for page in stream_pages(dump_path, source_name):
+    for page in get_streamer(source, dump_path):
         if pages_skipped < pages_consumed:
             pages_skipped += 1
             continue

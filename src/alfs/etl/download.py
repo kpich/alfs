@@ -1,4 +1,4 @@
-"""Download and cache a MediaWiki XML dump for a given source.
+"""Download and cache a corpus dump for a given source.
 
 Usage:
     python -m alfs.etl.download --source wikibooks --cache-dir ../text_data/cache
@@ -11,9 +11,18 @@ import urllib.request
 from alfs.etl.sources import SOURCES
 
 
-def download(source_name: str, cache_dir: Path) -> Path:
-    """Download dump if not already cached; return path to local file."""
+def download(source_name: str, cache_dir: Path) -> Path | None:
+    """Download dump if not already cached; return path to local file, or None for HF
+    sources."""
     source = SOURCES[source_name]
+
+    if source.type == "hf":
+        print(
+            f"No download needed for HuggingFace source '{source_name}' — "
+            f"data streams on demand."
+        )
+        return None
+
     cache_dir.mkdir(parents=True, exist_ok=True)
     dump_path = cache_dir / source.dump_filename
 
@@ -34,7 +43,7 @@ def download(source_name: str, cache_dir: Path) -> Path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Download a MediaWiki dump")
+    parser = argparse.ArgumentParser(description="Download a corpus dump")
     parser.add_argument(
         "--source", required=True, choices=list(SOURCES), help="Source name"
     )
