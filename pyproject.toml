@@ -12,6 +12,7 @@ dependencies = [
     "mwparserfromhell>=0.6",
     "numpy>=1",
     "anthropic>=0.40",
+    "datasets>=2.0",
     "ollama>=0.4",
     "polars>=1",
     "pyarrow>=14",

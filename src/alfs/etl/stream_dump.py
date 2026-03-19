@@ -80,10 +80,12 @@ def stream_pages(dump_path: Path, source: str) -> Iterator[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Stream MediaWiki XML dump to JSONL")
     parser.add_argument("--dump", required=True, help="Path to .xml.bz2 dump file")
+    from alfs.etl.sources import SOURCES
+
     parser.add_argument(
         "--source",
         required=True,
-        choices=["wikibooks", "wikisource"],
+        choices=[name for name, s in SOURCES.items() if s.type == "mediawiki"],
         help="Source corpus name",
     )
     parser.add_argument("--output", required=True, help="Output JSONL file path")

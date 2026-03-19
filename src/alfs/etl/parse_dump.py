@@ -25,11 +25,11 @@ BASE_URLS = {name: s.base_url for name, s in SOURCES.items()}
 
 def parse_page(page: dict, source: str) -> Doc:
     """Convert a raw page dict to a Doc (strips wikitext, computes doc_id)."""
-    base_url = BASE_URLS[source]
+    base_url = BASE_URLS.get(source, "")
     text = mwparserfromhell.parse(page["wikitext"]).strip_code().strip()
     doc_id = hashlib.sha256(text.encode()).hexdigest()[:8]
     title = page["title"]
-    source_url = f"{base_url}{quote(title.replace(' ', '_'))}"
+    source_url = page.get("source_url") or f"{base_url}{quote(title.replace(' ', '_'))}"
     return Doc(
         doc_id=doc_id,
         title=title,
