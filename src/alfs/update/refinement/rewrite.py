@@ -8,7 +8,7 @@ Usage:
 """
 
 import argparse
-from datetime import datetime
+from datetime import UTC, datetime
 import os
 from pathlib import Path
 import random
@@ -129,7 +129,7 @@ def run(
 
         request = RewriteRequest(
             id=str(uuid.uuid4()),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
             form=form,
             before=list(alf.senses),
             after=after,

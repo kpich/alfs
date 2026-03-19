@@ -7,7 +7,7 @@ Usage:
 """
 
 import argparse
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 import uuid
 
@@ -39,7 +39,7 @@ def run(senses_file: str | Path, senses_db: str | Path, queue_dir: str | Path) -
 
     request = AddSensesRequest(
         id=str(uuid.uuid4()),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form=alf.form,
         new_senses=list(alf.senses),
     )
