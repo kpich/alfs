@@ -1,3 +1,7 @@
+# Python
+
+- Always run Python via `uv run` (e.g. `uv run python -m alfs.foo`), not `python3` directly.
+
 # Testing
 
 - Test files: `[module]_test.py`, co-located with the module (not in a separate `tests/` dir)
