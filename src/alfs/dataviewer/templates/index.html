@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}ETL Data Viewer{% endblock %}
+{% block content %}
+
+<h4 class="mb-3">ETL Data Viewer &mdash; {{ total_docs }} docs total</h4>
+
+<div class="row mb-3 g-3">
+  <div class="col-auto">
+    <table class="table table-sm table-bordered mb-0">
+      <thead><tr><th>Source</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for s in sources %}
+        <tr><td>{{ s.source }}</td><td>{{ s.count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="col-auto">
+    <table class="table table-sm table-bordered mb-0">
+      <thead><tr><th>Field</th><th>Nulls</th><th>% null</th></tr></thead>
+      <tbody>
+        {% for field, count in null_counts.items() %}
+        <tr>
+          <td>{{ field }}</td>
+          <td>{{ count }}</td>
+          <td>{{ "%.1f"|format(100 * count / total_docs) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<form class="row g-2 mb-3" method="get" action="/">
+  <div class="col-auto">
+    <select class="form-select form-select-sm" name="source">
+      <option value="">All sources</option>
+      {% for s in all_sources %}
+      <option value="{{ s }}" {% if s == source_filter %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-sm btn-primary" type="submit">Filter</button>
+    {% if source_filter %}<a class="btn btn-sm btn-outline-secondary ms-1" href="/">Clear</a>{% endif %}
+  </div>
+  <div class="col-auto align-self-center text-muted small">{{ total }} docs{% if source_filter %} in <strong>{{ source_filter }}</strong>{% endif %}</div>
+</form>
+
+<div class="table-responsive">
+  <table class="table table-sm table-hover table-bordered">
+    <thead>
+      <tr>
+        <th>doc_id</th>
+        <th>source</th>
+        <th>year</th>
+        <th>title</th>
+        <th>author</th>
+        <th>source_url</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><a href="/doc/{{ row.doc_id }}">{{ row.doc_id }}</a></td>
+        <td>{{ row.source or '' }}</td>
+        <td>{{ row.year or '' }}</td>
+        <td>{{ (row.title or '')[:80] }}{% if row.title and row.title|length > 80 %}&hellip;{% endif %}</td>
+        <td>{{ row.author or '' }}</td>
+        <td>
+          {% if row.source_url %}
+          <a href="{{ row.source_url }}" target="_blank" rel="noopener">link</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total_pages > 1 %}
+<nav>
+  <ul class="pagination pagination-sm">
+    {% if page > 1 %}
+    <li class="page-item"><a class="page-link" href="/?page={{ page - 1 }}&source={{ source_filter }}">Previous</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">Page {{ page }} of {{ total_pages }}</span></li>
+    {% if page < total_pages %}
+    <li class="page-item"><a class="page-link" href="/?page={{ page + 1 }}&source={{ source_filter }}">Next</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+{% endblock %}

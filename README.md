@@ -62,7 +62,8 @@ When the "CC" toggle is active in the conductor, pipeline tasks write JSON task 
 | Target | What it does |
 |---|---|
 | `make compile` | Compile → `viewer_data/data.json` |
-| `make viewer` | Start viewer at http://localhost:5001 |
+| `make viewer` | Start dictionary viewer at http://localhost:5001 |
+| `make dataviewer` | Start ETL corpus viewer at http://localhost:5003 |
 
 ### Backup
 

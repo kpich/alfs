@@ -1,4 +1,4 @@
-.PHONY: download etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses delete_entry validate compile viewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata
+.PHONY: download etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses delete_entry validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -156,6 +156,9 @@ compile:
 
 viewer:
 	bash scripts/viewer.sh
+
+dataviewer:
+	bash scripts/dataviewer.sh --docs $(DOCS)
 
 backup:
 	uv run --no-sync python -m alfs.backup \

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Doc {{ row.doc_id }}{% endblock %}
+{% block content %}
+
+<a href="/" class="btn btn-sm btn-outline-secondary mb-3">&larr; Back</a>
+
+<h5 class="mb-3">Doc: <code>{{ row.doc_id }}</code></h5>
+
+<table class="table table-sm table-bordered w-auto mb-4">
+  <tbody>
+    <tr><th>source</th><td>{{ row.source or '<null>' }}</td></tr>
+    <tr><th>year</th><td>{{ row.year or '<null>' }}</td></tr>
+    <tr><th>title</th><td>{{ row.title or '<null>' }}</td></tr>
+    <tr><th>author</th><td>{{ row.author or '<null>' }}</td></tr>
+    <tr><th>source_url</th><td>
+      {% if row.source_url %}
+      <a href="{{ row.source_url }}" target="_blank" rel="noopener">{{ row.source_url }}</a>
+      {% else %}<null>{% endif %}
+    </td></tr>
+    <tr><th>text length</th><td>{{ row.text | length }} chars</td></tr>
+  </tbody>
+</table>
+
+<h6>Full text</h6>
+<pre class="bg-light p-3 border rounded">{{ row.text }}</pre>
+
+{% endblock %}
