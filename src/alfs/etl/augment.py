@@ -55,6 +55,12 @@ def main() -> None:
     parser.add_argument(
         "--n-docs", type=int, default=10000, help="Target number of new docs to add"
     )
+    parser.add_argument(
+        "--min-text-len",
+        type=int,
+        default=200,
+        help="Skip docs with fewer than this many chars of text (filters stubs)",
+    )
     args = parser.parse_args()
 
     source_name = args.source
@@ -112,6 +118,9 @@ def main() -> None:
         pages_processed += 1
 
         doc = parse_page(page, source_name)
+
+        if len(doc.text) < args.min_text_len:
+            continue
 
         # exact dedup
         if doc.doc_id in existing_ids:
