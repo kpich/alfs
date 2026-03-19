@@ -1,4 +1,4 @@
-.PHONY: etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses delete_entry validate compile viewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata
+.PHONY: download etl seg update relabel label_new dedupe postag cleanup rewrite retag prune morph_redirect undo_morph trim_senses delete_entry validate compile viewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -17,6 +17,10 @@ LABEL_MODEL        ?= gemma2:9b
 CC_TASKS_DIR       ?= ../cc_tasks
 SOURCE             ?= wikibooks
 N_DOCS             ?= 10000
+
+download:
+	uv run --no-sync python -m alfs.etl.download \
+		--source $(SOURCE) --cache-dir $(CACHE_DIR)
 
 etl:
 	uv run --no-sync python -m alfs.etl.augment \
