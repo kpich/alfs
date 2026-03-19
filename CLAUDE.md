@@ -15,3 +15,4 @@
 - `/cc-rewrite` — Rewrite sense definitions from CC task files in `../cc_tasks/pending/`
 - `/cc-trim` — Trim redundant senses from CC task files in `../cc_tasks/pending/`
 - `/cc-morph` — Identify morphological redirects from CC task files in `../cc_tasks/pending/`
+- `/cc-spelling-variant` — Confirm spelling variant pairs from CC task files in `../cc_tasks/pending/`

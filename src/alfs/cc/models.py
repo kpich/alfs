@@ -60,12 +60,24 @@ class CCDeleteEntryTask(BaseModel):
     examples: list[list[str]]
 
 
+class SpellingVariantPair(BaseModel):
+    variant_form: str
+    preferred_form: str
+
+
+class CCSpellingVariantTask(BaseModel):
+    type: Literal["spelling_variant"] = "spelling_variant"
+    id: str
+    candidates: list[SpellingVariantPair]
+
+
 CCTask = Annotated[
     CCInductionTask
     | CCRewriteTask
     | CCTrimSenseTask
     | CCMorphRedirectTask
-    | CCDeleteEntryTask,
+    | CCDeleteEntryTask
+    | CCSpellingVariantTask,
     Field(discriminator="type"),
 ]
 
@@ -128,11 +140,18 @@ class CCDeleteEntryOutput(BaseModel):
     reason: str
 
 
+class CCSpellingVariantOutput(BaseModel):
+    type: Literal["spelling_variant"] = "spelling_variant"
+    id: str
+    confirmed: list[SpellingVariantPair]
+
+
 CCOutput = Annotated[
     CCInductionOutput
     | CCRewriteOutput
     | CCTrimSenseOutput
     | CCMorphRedirectOutput
-    | CCDeleteEntryOutput,
+    | CCDeleteEntryOutput
+    | CCSpellingVariantOutput,
     Field(discriminator="type"),
 ]

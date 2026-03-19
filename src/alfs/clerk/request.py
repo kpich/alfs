@@ -172,6 +172,21 @@ class SetRedirectRequest(BaseModel):
         sense_store.update(self.form, set_redirect)
 
 
+class SetSpellingVariantRequest(BaseModel):
+    type: Literal["set_spelling_variant"] = "set_spelling_variant"
+    id: str
+    created_at: datetime
+    form: str
+    preferred_form: str
+
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        preferred = self.preferred_form
+        sense_store.update(
+            self.form,
+            lambda e: e.model_copy(update={"spelling_variant_of": preferred}),  # type: ignore[union-attr]
+        )
+
+
 class DeleteEntryRequest(BaseModel):
     type: Literal["delete_entry"] = "delete_entry"
     form: str
@@ -192,6 +207,7 @@ ChangeRequest = Annotated[
     | TrimSenseRequest
     | MorphRedirectRequest
     | SetRedirectRequest
+    | SetSpellingVariantRequest
     | DeleteEntryRequest,
     Field(discriminator="type"),
 ]

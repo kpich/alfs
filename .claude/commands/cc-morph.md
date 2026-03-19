@@ -20,6 +20,8 @@ You are a lexicographer identifying morphological derivations between dictionary
 
    The base form must exist in `inventory_forms`. Do not propose a base that is not in the inventory.
 
+   **Retained senses**: A form may have some senses that are morph links and other senses that are not. Only list the senses that qualify as morph links — unlisted senses are left untouched. Do not redirect a sense just because the form also has other morph-linked senses.
+
 4. For each valid relation found, provide:
    - `derived_form`: the inflected form
    - `derived_sense_idx`: 0-based index into that form's senses

@@ -23,6 +23,7 @@ from alfs.cc.models import (
     CCMorphRedirectOutput,
     CCOutput,
     CCRewriteOutput,
+    CCSpellingVariantOutput,
     CCTrimSenseOutput,
 )
 from alfs.clerk.queue import enqueue
@@ -31,6 +32,7 @@ from alfs.clerk.request import (
     DeleteEntryRequest,
     MorphRedirectRequest,
     RewriteRequest,
+    SetSpellingVariantRequest,
     TrimSenseRequest,
 )
 from alfs.data_models.alf import Sense
@@ -216,6 +218,37 @@ def _apply_morph_redirect(
     return True
 
 
+def _apply_spelling_variant(
+    output: CCSpellingVariantOutput,
+    sense_store: SenseStore,
+    queue_dir: Path,
+) -> bool:
+    queued = 0
+    for pair in output.confirmed:
+        variant_entry = sense_store.read(pair.variant_form)
+        preferred_entry = sense_store.read(pair.preferred_form)
+
+        if not variant_entry:
+            print(f"  skipped spelling variant: {pair.variant_form!r} not in store")
+            continue
+        if not preferred_entry:
+            print(f"  skipped spelling variant: {pair.preferred_form!r} not in store")
+            continue
+
+        request = SetSpellingVariantRequest(
+            id=str(uuid.uuid4()),
+            created_at=datetime.now(UTC),
+            form=pair.variant_form,
+            preferred_form=pair.preferred_form,
+        )
+        enqueue(request, queue_dir)
+        queued += 1
+
+    if queued:
+        print(f"  queued {queued} spelling variant link(s)")
+    return True
+
+
 def _apply_delete_entry(output: CCDeleteEntryOutput, queue_dir: Path) -> bool:
     if not output.should_delete:
         print(f"  skipped delete for {output.form!r}: judged worth keeping")
@@ -260,6 +293,8 @@ def run(
             ok = _apply_trim_sense(output, sense_store, queue_path)
         elif isinstance(output, CCMorphRedirectOutput):
             ok = _apply_morph_redirect(output, sense_store, queue_path)
+        elif isinstance(output, CCSpellingVariantOutput):
+            ok = _apply_spelling_variant(output, sense_store, queue_path)
         elif isinstance(output, CCDeleteEntryOutput):
             ok = _apply_delete_entry(output, queue_path)
         else:

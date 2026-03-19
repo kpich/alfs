@@ -65,6 +65,13 @@ ACTIONS: list[Action] = [
         cc_ready=True,
     ),
     Action(
+        "spelling_variant",
+        "Spelling Variant",
+        ["make", "spelling_variant"],
+        description="Find British/American spelling variant pairs",
+        cc_ready=True,
+    ),
+    Action(
         "morph_redirect",
         "Morph Redirect",
         ["make", "morph_redirect"],

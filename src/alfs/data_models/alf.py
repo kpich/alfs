@@ -30,6 +30,9 @@ class Alf(BaseModel):
     form: str
     senses: list[Sense] = []
     redirect: str | None = None  # if set, this form is a case-variant/alias of redirect
+    spelling_variant_of: str | None = (
+        None  # preferred (American) spelling, if this is a variant
+    )
 
     def get_sense(self, key: str) -> str:
         """Return the definition for a sense key like '2' or '3b'."""
