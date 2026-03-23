@@ -124,6 +124,7 @@ class MorphRelation(BaseModel):
     base_sense_idx: int
     relation: str
     proposed_definition: str
+    promote_to_parent: bool = True
 
 
 class CCMorphRedirectOutput(BaseModel):

@@ -146,15 +146,19 @@ def morph_analyze_prompt(
         '    (e.g. "plural form of dog (n.)")\n'
         "\n"
         "When a morph link is applied, the derived sense's CURRENT definition will be\n"
-        "promoted to the base form's entry (added as a new sense if not already\n"
-        "present). The proposed_definition will replace it on the derived form as a\n"
-        "brief reference. Only list senses that are genuine inflections; independent\n"
-        "meanings of the derived form should not be listed — they will remain on the\n"
-        "derived form untouched.\n"
+        "promoted to the base form's entry (added as a new sense there), and the\n"
+        "proposed_definition will replace it on the derived form as a brief\n"
+        "reference.\n"
+        "Only list senses that are genuine inflections; independent meanings of the\n"
+        "derived form should not be listed — they will remain on the derived form.\n"
+        "Set promote_to_parent to false if the base form already has a sense with\n"
+        "equivalent meaning to the derived sense's current definition; true if the\n"
+        "content is novel and should be added to the base form.\n"
         "\n"
         'Respond with ONLY valid JSON: {"relations": [{"derived_sense_idx": 0,\n'
         '"base_sense_idx": 1, "relation": "plural",\n'
-        '"proposed_definition": "plural form of dog (n.)"}]}\n'
+        '"proposed_definition": "plural form of dog (n.)",\n'
+        '"promote_to_parent": true}]}\n'
         "If no derivational links exist, return an empty relations list."
     )
 

@@ -300,7 +300,27 @@ def test_morph_redirect_promotes_before_sense_to_parent(tmp_path: Path) -> None:
     assert any(s.definition == "canine animal" for s in dog.senses)
 
 
-def test_morph_redirect_deduplicates_when_promoting(tmp_path: Path) -> None:
+def test_morph_redirect_promotes_when_flagged(tmp_path: Path) -> None:
+    store = _sense_store(tmp_path)
+    before = Sense(definition="canine animal")
+    after = before.model_copy(
+        update={
+            "definition": "plural of dog (n.)",
+            "morph_base": "dog",
+            "morph_relation": "plural",
+        }
+    )
+    store.write(Alf(form="dogs", senses=[before]))
+    store.write(Alf(form="dog", senses=[]))
+
+    _make_morph_request("dogs", 0, "dog", before, after).apply(store, None)
+
+    dog = store.read("dog")
+    assert dog is not None
+    assert any(s.definition == "canine animal" for s in dog.senses)
+
+
+def test_morph_redirect_skips_promotion_when_not_flagged(tmp_path: Path) -> None:
     store = _sense_store(tmp_path)
     existing_parent_sense = Sense(definition="canine animal")
     before = Sense(definition="canine animal")
@@ -314,7 +334,19 @@ def test_morph_redirect_deduplicates_when_promoting(tmp_path: Path) -> None:
     store.write(Alf(form="dogs", senses=[before]))
     store.write(Alf(form="dog", senses=[existing_parent_sense]))
 
-    _make_morph_request("dogs", 0, "dog", before, after).apply(store, None)
+    request = MorphRedirectRequest(
+        id=_make_request_id(),
+        created_at=datetime.now(UTC),
+        form="dogs",
+        derived_sense_idx=0,
+        base_form="dog",
+        base_sense_idx=0,
+        relation="plural",
+        before=before,
+        after=after,
+        promote_to_parent=False,
+    )
+    request.apply(store, None)
 
     dog = store.read("dog")
     assert dog is not None

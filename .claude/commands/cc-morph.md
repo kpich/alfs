@@ -28,7 +28,8 @@ You are a lexicographer identifying morphological derivations between dictionary
    - `base_form`: the base word
    - `base_sense_idx`: 0-based index into the base form's senses (you may need to look at other forms in the batch to find the base's senses, or use 0 if the base is not in the batch)
    - `relation`: short description (e.g. "plural", "past tense", "comparative")
-   - `proposed_definition`: a concise reference like "plural of dog (n.)". Note: when this link is applied, the derived sense's current definition will be promoted to the base form's entry (added as a new sense there if not already present), and this proposed_definition will replace it on the derived form. Only list senses that are genuine inflections; unlisted senses remain in the derived form as independent meanings.
+   - `proposed_definition`: a concise reference like "plural of dog (n.)". Note: when this link is applied, the derived sense's current definition will be promoted to the base form's entry (added as a new sense there), and this proposed_definition will replace it on the derived form. Only list senses that are genuine inflections; unlisted senses remain in the derived form as independent meanings.
+   - `promote_to_parent`: `true` if the derived sense's current definition represents content not already present in the base form's senses; `false` if the base already has an equivalent meaning (to avoid duplicating it).
 
 5. Write the output JSON to `../cc_tasks/done/morph_redirect/{same_filename}` with this schema:
    ```json
@@ -42,7 +43,8 @@ You are a lexicographer identifying morphological derivations between dictionary
          "base_form": "dog",
          "base_sense_idx": 0,
          "relation": "plural",
-         "proposed_definition": "plural of dog (n.)"
+         "proposed_definition": "plural of dog (n.)",
+         "promote_to_parent": true
        }
      ]
    }
