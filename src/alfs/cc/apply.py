@@ -211,6 +211,7 @@ def _apply_morph_redirect(
             relation=rel.relation,
             before=derived_sense,
             after=after_sense,
+            promote_to_parent=rel.promote_to_parent,
         )
         enqueue(request, queue_dir)
         queued += 1

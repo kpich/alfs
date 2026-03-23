@@ -59,12 +59,14 @@ _ANALYZE_SCHEMA = {
                     "base_sense_idx": {"type": "integer"},
                     "relation": {"type": "string"},
                     "proposed_definition": {"type": "string"},
+                    "promote_to_parent": {"type": "boolean"},
                 },
                 "required": [
                     "derived_sense_idx",
                     "base_sense_idx",
                     "relation",
                     "proposed_definition",
+                    "promote_to_parent",
                 ],
             },
         }
@@ -235,6 +237,7 @@ def main() -> None:
                     relation=relation,
                     before=derived_sense,
                     after=after_sense,
+                    promote_to_parent=rel.get("promote_to_parent", True),
                 )
                 enqueue(request, queue_dir)
                 total_queued += 1
