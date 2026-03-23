@@ -257,7 +257,11 @@ def _apply_delete_entry(output: CCDeleteEntryOutput, queue_dir: Path) -> bool:
         print(f"  skipped delete for {output.form!r}: judged worth keeping")
         return True
     request = DeleteEntryRequest(
-        form=output.form, reason=output.reason, requesting_model="claude-code"
+        id=str(uuid.uuid4()),
+        created_at=datetime.now(UTC),
+        form=output.form,
+        reason=output.reason,
+        requesting_model="claude-code",
     )
     enqueue(request, queue_dir)
     print(f"  queued delete for {output.form!r}")

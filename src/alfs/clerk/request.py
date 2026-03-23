@@ -273,8 +273,20 @@ class SetSpellingVariantRequest(BaseModel):
         )
 
 
+class ClearRedirectSensesRequest(BaseModel):
+    type: Literal["clear_redirect_senses"] = "clear_redirect_senses"
+    id: str
+    created_at: datetime
+    form: str
+
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+        sense_store.update(self.form, lambda e: e.model_copy(update={"senses": []}))  # type: ignore[union-attr]
+
+
 class DeleteEntryRequest(BaseModel):
     type: Literal["delete_entry"] = "delete_entry"
+    id: str
+    created_at: datetime
     form: str
     reason: str
     requesting_model: str | None = None
@@ -306,6 +318,7 @@ ChangeRequest = Annotated[
     | MorphRedirectRequest
     | SetRedirectRequest
     | SetSpellingVariantRequest
+    | ClearRedirectSensesRequest
     | DeleteEntryRequest,
     Field(discriminator="type"),
 ]

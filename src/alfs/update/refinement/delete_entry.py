@@ -9,6 +9,7 @@ Usage:
 """
 
 import argparse
+from datetime import UTC, datetime
 import os
 from pathlib import Path
 import uuid
@@ -169,7 +170,11 @@ def main() -> None:
             continue
 
         request = DeleteEntryRequest(
-            form=form, reason=reason, requesting_model=args.model
+            id=str(uuid.uuid4()),
+            created_at=datetime.now(UTC),
+            form=form,
+            reason=reason,
+            requesting_model=args.model,
         )
         enqueue(request, queue_dir)
         print(f"  queued delete for {form!r} — {reason}")

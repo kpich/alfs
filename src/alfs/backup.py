@@ -2,16 +2,81 @@
 
 Usage:
     python -m alfs.backup \\
-        --senses-db ../alfs_data/senses.db --senses-repo ../alfs_senses
+        --senses-db ../alfs_data/senses.db --senses-repo ../alfs_senses \\
+        [--queue-dir ../clerk_queue]
 """
 
 import argparse
+from collections import defaultdict
+from datetime import UTC, datetime
+import json
 from pathlib import Path
 import subprocess
 
+from pydantic import TypeAdapter
 import yaml
 
+from alfs.clerk.request import ChangeRequest
 from alfs.data_models.sense_store import SenseStore
+
+_adapter: TypeAdapter[ChangeRequest] = TypeAdapter(ChangeRequest)
+
+
+def write_mutation_log(queue_dir: Path, senses_repo: Path) -> None:
+    """Append new clerk mutations from done/ to monthly JSONL files in senses repo."""
+    done_dir = queue_dir / "done"
+    if not done_dir.exists():
+        return
+
+    # Load IDs already committed to the log
+    mutations_dir = senses_repo / "mutations"
+    logged_ids: set[str] = set()
+    if mutations_dir.exists():
+        for jsonl_file in mutations_dir.glob("*.jsonl"):
+            for line in jsonl_file.read_text().splitlines():
+                line = line.strip()
+                if line:
+                    try:
+                        data = json.loads(line)
+                        if "id" in data:
+                            logged_ids.add(data["id"])
+                    except json.JSONDecodeError:
+                        pass
+
+    # Collect new entries from done/
+    new_entries: list[ChangeRequest] = []
+    for json_file in sorted(done_dir.glob("*.json")):
+        try:
+            request = _adapter.validate_json(json_file.read_bytes())
+            req_id = getattr(request, "id", None)
+            if req_id is None or req_id not in logged_ids:
+                new_entries.append(request)
+        except Exception:
+            pass
+
+    if not new_entries:
+        print("  No new mutations to log.")
+        return
+
+    # Group by YYYY-MM based on created_at
+    groups: dict[str, list[ChangeRequest]] = defaultdict(list)
+    for req in new_entries:
+        created_at = getattr(req, "created_at", None)
+        if isinstance(created_at, datetime):
+            month_key = created_at.strftime("%Y-%m")
+        else:
+            month_key = "unknown"
+        groups[month_key].append(req)
+
+    mutations_dir.mkdir(exist_ok=True)
+    _epoch = datetime(1970, 1, 1, tzinfo=UTC)
+    for month_key, entries in sorted(groups.items()):
+        entries.sort(key=lambda r: getattr(r, "created_at", _epoch) or _epoch)
+        out_path = mutations_dir / f"{month_key}.jsonl"
+        with out_path.open("a") as f:
+            for entry in entries:
+                f.write(_adapter.dump_json(entry).decode() + "\n")
+        print(f"  Appended {len(entries)} mutations → mutations/{month_key}.jsonl")
 
 
 def main() -> None:
@@ -19,6 +84,9 @@ def main() -> None:
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument(
         "--senses-repo", required=True, help="Path to sibling senses git repo"
+    )
+    parser.add_argument(
+        "--queue-dir", help="Path to clerk queue dir (enables mutation log)"
     )
     args = parser.parse_args()
 
@@ -54,6 +122,9 @@ def main() -> None:
             out_path = out_dir / f"{file_key}.yaml"
         out_path.write_text(yaml.dump(alfs_list, allow_unicode=True, sort_keys=False))
         print(f"  Wrote {len(alfs_list)} entries → {out_path}")
+
+    if args.queue_dir:
+        write_mutation_log(Path(args.queue_dir), repo)
 
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     result = subprocess.run(

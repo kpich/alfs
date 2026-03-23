@@ -74,7 +74,8 @@ postag:
 
 cleanup:
 	uv run --no-sync python -m alfs.update.refinement.cleanup \
-		--senses-db $(SENSES_DB)
+		--senses-db $(SENSES_DB) \
+		--queue-dir $(CLERK_QUEUE)
 
 rewrite:
 	uv run --no-sync python -m alfs.update.refinement.rewrite \
@@ -167,7 +168,8 @@ dataviewer:
 
 backup:
 	uv run --no-sync python -m alfs.backup \
-		--senses-db $(SENSES_DB) --senses-repo $(SENSES_REPO)
+		--senses-db $(SENSES_DB) --senses-repo $(SENSES_REPO) \
+		--queue-dir $(CLERK_QUEUE)
 
 backup-gdrive:
 	rclone sync ../text_data $(GDRIVE_REMOTE):$(GDRIVE_DEST)/text_data \
