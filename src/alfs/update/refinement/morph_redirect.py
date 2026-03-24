@@ -8,7 +8,7 @@ Usage:
 """
 
 import argparse
-from datetime import datetime
+from datetime import UTC, datetime
 import os
 from pathlib import Path
 import random
@@ -229,7 +229,7 @@ def main() -> None:
 
                 request = MorphRedirectRequest(
                     id=str(uuid.uuid4()),
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(UTC),
                     form=derived_form,
                     derived_sense_idx=derived_idx,
                     base_form=base_form,

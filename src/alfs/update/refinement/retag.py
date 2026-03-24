@@ -10,7 +10,7 @@ Usage:
 """
 
 import argparse
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 import random
 import uuid
@@ -115,7 +115,7 @@ def main() -> None:
         if changed_descriptions:
             request = PosTagRequest(
                 id=str(uuid.uuid4()),
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
                 form=form,
                 before=list(alf.senses),
                 after=new_senses,

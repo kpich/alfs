@@ -70,8 +70,13 @@ def write_mutation_log(queue_dir: Path, senses_repo: Path) -> None:
 
     mutations_dir.mkdir(exist_ok=True)
     _epoch = datetime(1970, 1, 1, tzinfo=UTC)
+
+    def _sort_key(r: ChangeRequest) -> datetime:
+        dt = getattr(r, "created_at", _epoch) or _epoch
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
     for month_key, entries in sorted(groups.items()):
-        entries.sort(key=lambda r: getattr(r, "created_at", _epoch) or _epoch)
+        entries.sort(key=_sort_key)
         out_path = mutations_dir / f"{month_key}.jsonl"
         with out_path.open("a") as f:
             for entry in entries:

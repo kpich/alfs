@@ -11,7 +11,7 @@ Usage:
 
 import argparse
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 import uuid
 
@@ -120,7 +120,7 @@ def main() -> None:
             continue
         request = UpdatePosRequest(
             id=str(uuid.uuid4()),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
             form=form,
             before=list(existing.senses),
             after=list(updated.senses),
