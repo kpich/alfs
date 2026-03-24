@@ -122,9 +122,9 @@ class UpdatePosRequest(BaseModel):
         before_id = self.before.id
         sense_store.update(
             self.form,
-            lambda e: e.model_copy(
-                update={"senses": [after if s.id == before_id else s for s in e.senses]}
-            ),  # type: ignore[union-attr]
+            lambda e: e.model_copy(  # type: ignore[union-attr]
+                update={"senses": [after if s.id == before_id else s for s in e.senses]}  # type: ignore[union-attr]
+            ),
         )
 
 
