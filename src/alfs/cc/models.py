@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 class SenseInfo(BaseModel):
     id: str
     definition: str
-    subsenses: list[str] | None = None
     pos: str | None = None
 
 
@@ -100,7 +99,6 @@ class CCInductionOutput(BaseModel):
 class RewrittenSense(BaseModel):
     sense_num: int
     definition: str
-    subsenses: list[str] | None = None
 
 
 class CCRewriteOutput(BaseModel):

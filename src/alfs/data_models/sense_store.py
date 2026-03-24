@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from collections.abc import Callable
-import json
 from pathlib import Path
 import sqlite3
 
@@ -36,12 +35,16 @@ class SenseStore:
                 "pos TEXT, "
                 "morph_base TEXT, "
                 "morph_relation TEXT, "
-                "subsenses TEXT, "
                 "updated_by_model TEXT, "
                 "updated_at TEXT, "
                 "UNIQUE (form, position)"
                 ")"
             )
+            existing_sense_cols = {
+                row[1] for row in con.execute("PRAGMA table_info(senses)").fetchall()
+            }
+            if "subsenses" in existing_sense_cols:
+                con.execute("ALTER TABLE senses DROP COLUMN subsenses")
             con.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -57,7 +60,7 @@ class SenseStore:
         if wf is None:
             return None
         rows = con.execute(
-            "SELECT id, definition, pos, morph_base, morph_relation, subsenses,"
+            "SELECT id, definition, pos, morph_base, morph_relation,"
             " updated_by_model, updated_at"
             " FROM senses WHERE form = ? ORDER BY position",
             (form,),
@@ -69,9 +72,8 @@ class SenseStore:
                 pos=PartOfSpeech(r[2]) if r[2] else None,
                 morph_base=r[3],
                 morph_relation=r[4],
-                subsenses=json.loads(r[5]) if r[5] else None,
-                updated_by_model=r[6],
-                updated_at=r[7],
+                updated_by_model=r[5],
+                updated_at=r[6],
             )
             for r in rows
         ]
@@ -92,7 +94,7 @@ class SenseStore:
             r[0]: r[1:]
             for r in con.execute(
                 "SELECT id, definition, pos, morph_base, morph_relation,"
-                " subsenses, updated_by_model, updated_at FROM senses WHERE form = ?",
+                " updated_by_model, updated_at FROM senses WHERE form = ?",
                 (entry.form,),
             ).fetchall()
         }
@@ -105,21 +107,19 @@ class SenseStore:
                 "DELETE FROM senses WHERE id = ?", [(sid,) for sid in removed]
             )
         for pos_idx, sense in enumerate(entry.senses):
-            subsenses_json = json.dumps(sense.subsenses) if sense.subsenses else None
             pos_val = sense.pos.value if sense.pos else None
             if sense.id in existing:
                 old = existing[sense.id]
-                content_changed = (old[0], old[1], old[2], old[3], old[4], old[5]) != (
+                content_changed = (old[0], old[1], old[2], old[3], old[4]) != (
                     sense.definition,
                     pos_val,
                     sense.morph_base,
                     sense.morph_relation,
-                    subsenses_json,
                     sense.updated_by_model,
                 )
                 con.execute(
                     "UPDATE senses SET form=?, position=?, definition=?, pos=?, "
-                    "morph_base=?, morph_relation=?, subsenses=?, updated_by_model=?"
+                    "morph_base=?, morph_relation=?, updated_by_model=?"
                     + (", updated_at=CURRENT_TIMESTAMP" if content_changed else "")
                     + " WHERE id=?",
                     (
@@ -129,7 +129,6 @@ class SenseStore:
                         pos_val,
                         sense.morph_base,
                         sense.morph_relation,
-                        subsenses_json,
                         sense.updated_by_model,
                         sense.id,
                     ),
@@ -137,9 +136,8 @@ class SenseStore:
             else:
                 con.execute(
                     "INSERT INTO senses (id, form, position, definition, pos, "
-                    "morph_base, morph_relation, subsenses, updated_by_model,"
-                    " updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    "morph_base, morph_relation, updated_by_model, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
                     (
                         sense.id,
                         entry.form,
@@ -148,7 +146,6 @@ class SenseStore:
                         pos_val,
                         sense.morph_base,
                         sense.morph_relation,
-                        subsenses_json,
                         sense.updated_by_model,
                     ),
                 )
@@ -189,7 +186,7 @@ class SenseStore:
             ).fetchall()
             sense_rows = con.execute(
                 "SELECT form, id, definition, pos, morph_base,"
-                " morph_relation, subsenses, updated_by_model, updated_at"
+                " morph_relation, updated_by_model, updated_at"
                 " FROM senses ORDER BY form, position"
             ).fetchall()
         senses_by_form: dict[str, list[Sense]] = defaultdict(list)
@@ -201,7 +198,6 @@ class SenseStore:
                 pos,
                 morph_base,
                 morph_relation,
-                subsenses,
                 updated_by_model,
                 updated_at,
             ) = row
@@ -212,7 +208,6 @@ class SenseStore:
                     pos=PartOfSpeech(pos) if pos else None,
                     morph_base=morph_base,
                     morph_relation=morph_relation,
-                    subsenses=json.loads(subsenses) if subsenses else None,
                     updated_by_model=updated_by_model,
                     updated_at=updated_at,
                 )

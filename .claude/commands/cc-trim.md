@@ -6,7 +6,7 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
 
 2. For each trim_sense task file, you will see:
    - `form`: the word being reviewed
-   - `senses`: list of sense objects, each with `id`, `definition`, `subsenses`, and `pos`
+   - `senses`: list of sense objects, each with `id`, `definition`, and `pos`
    - `examples`: list of lists of example sentences, one list per sense (showing how each sense is used in context). Note: some senses may have no examples — this just means the corpus didn't surface good instances; it is NOT grounds for deletion on its own.
 
 3. Decide whether any sense should be deleted. Delete a sense if:

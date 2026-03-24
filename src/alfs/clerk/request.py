@@ -233,7 +233,6 @@ class MorphRedirectRequest(BaseModel):
             promoted = Sense(
                 definition=before_sense.definition,
                 pos=before_sense.pos,
-                subsenses=before_sense.subsenses,
             )
 
             def add_to_parent(parent: Alf | None) -> Alf:

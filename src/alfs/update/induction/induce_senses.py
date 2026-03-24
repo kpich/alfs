@@ -181,7 +181,6 @@ def run(
             pos = None
         sense = Sense(
             definition=item["definition"],
-            subsenses=item.get("subsenses") or None,
             pos=pos,
             updated_by_model=model,
         )

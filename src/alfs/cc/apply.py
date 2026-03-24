@@ -105,7 +105,6 @@ def _apply_rewrite(
         revised = Sense(
             id=orig.id,
             definition=s.definition,
-            subsenses=s.subsenses or None,
             pos=orig.pos,
             updated_by_model="claude-code",
         )

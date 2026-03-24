@@ -40,9 +40,8 @@ _REWRITE_SCHEMA = {
                 "properties": {
                     "sense_num": {"type": "integer"},
                     "definition": {"type": "string"},
-                    "subsenses": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["sense_num", "definition", "subsenses"],
+                "required": ["sense_num", "definition"],
             },
         }
     },
@@ -78,7 +77,6 @@ def run(
                     SenseInfo(
                         id=s.id,
                         definition=s.definition,
-                        subsenses=list(s.subsenses) if s.subsenses else None,
                         pos=s.pos.value if s.pos else None,
                     )
                     for s in alf.senses
@@ -117,7 +115,6 @@ def run(
             revised = Sense(
                 id=orig.id,
                 definition=item["definition"],
-                subsenses=item.get("subsenses") or None,
                 pos=orig.pos,
                 updated_by_model=model,
             )

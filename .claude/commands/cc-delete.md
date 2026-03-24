@@ -6,7 +6,7 @@ You are a lexicographer auditing dictionary entries for invalid or artifact word
 
 2. For each delete_entry task file, you will see:
    - `form`: the word form being reviewed
-   - `senses`: list of sense objects, each with `id`, `definition`, `subsenses`, and `pos`
+   - `senses`: list of sense objects, each with `id`, `definition`, and `pos`
    - `examples`: list of lists of example sentences, one list per sense (showing how each sense is used in context)
 
 3. Decide whether the entire entry should be deleted. Delete if:

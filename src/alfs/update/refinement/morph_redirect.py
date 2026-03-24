@@ -135,7 +135,6 @@ def main() -> None:
                         SenseInfo(
                             id=s.id,
                             definition=s.definition,
-                            subsenses=list(s.subsenses) if s.subsenses else None,
                             pos=s.pos.value if s.pos else None,
                         )
                         for s in eligible[f].senses

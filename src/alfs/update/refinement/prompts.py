@@ -23,8 +23,6 @@ def rewrite_prompt(
     for i, s in enumerate(senses, 1):
         pos_tag = f" [{s.pos.value}]" if s.pos else ""
         lines.append(f"  {i}.{pos_tag} {s.definition}")
-        for sub in s.subsenses or []:
-            lines.append(f"     \u2022 {sub}")
     if base_senses:
         header = (
             f"Base form '{base_name}' (context only):"
@@ -39,7 +37,7 @@ def rewrite_prompt(
         "",
         "Respond with ONLY valid JSON: "
         '{"rewrites": [{"sense_num": 1, "definition": "...",'
-        ' "subsenses": [...]}, ...]}',
+        "...}, ...]}",
         "Use an empty list if no definitions need improvement.",
     ]
     return "\n".join(lines)
@@ -184,8 +182,6 @@ def trim_sense_prompt(
     ]
     for i, (s, exs) in enumerate(zip(senses, examples, strict=False), 1):
         lines.append(f"  {i}. {s.definition}")
-        for sub in s.subsenses or []:
-            lines.append(f"     \u2022 {sub}")
         for ex in exs:
             lines.append(f"     \u2014 {ex}")
     if base_senses:
@@ -228,16 +224,10 @@ def critic_prompt(
     for i, s in enumerate(senses, 1):
         pos_tag = f" [{s.pos.value}]" if s.pos else ""
         lines.append(f"  {i}.{pos_tag} {s.definition}")
-        for sub in s.subsenses or []:
-            lines.append(f"     \u2022 {sub}")
     lines += ["", "Proposed changes:"]
     for before, after in changes:
         lines.append(f"  Before: {before.definition}")
-        for sub in before.subsenses or []:
-            lines.append(f"    \u2022 {sub}")
         lines.append(f"  After:  {after.definition}")
-        for sub in after.subsenses or []:
-            lines.append(f"    \u2022 {sub}")
         lines.append("")
     lines += [
         "Are the proposed changes improvements over the originals?",
@@ -357,8 +347,6 @@ def delete_entry_prompt(
     for i, (s, exs) in enumerate(zip(senses, examples, strict=False), 1):
         pos_tag = f" [{s.pos.value}]" if s.pos else ""
         lines.append(f"  {i}.{pos_tag} {s.definition}")
-        for sub in s.subsenses or []:
-            lines.append(f"     \u2022 {sub}")
         for ex in exs:
             lines.append(f"     \u2014 {ex}")
     lines += [
@@ -392,8 +380,6 @@ def delete_entry_critic_prompt(
     for i, (s, exs) in enumerate(zip(senses, examples, strict=False), 1):
         pos_tag = f" [{s.pos.value}]" if s.pos else ""
         lines.append(f"  {i}.{pos_tag} {s.definition}")
-        for sub in s.subsenses or []:
-            lines.append(f"     \u2022 {sub}")
         for ex in exs:
             lines.append(f"     \u2014 {ex}")
     lines += [

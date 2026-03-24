@@ -26,7 +26,6 @@ def test_rewrite_pipeline_updates_sense_definition(tmp_path: Path, monkeypatch) 
                     {
                         "sense_num": 1,
                         "definition": "new improved definition",
-                        "subsenses": [],
                     }
                 ]
             },
@@ -59,11 +58,7 @@ def test_rewrite_pipeline_critic_rejection_leaves_definition_unchanged(
 
     fake = FakeLLM(
         [
-            {
-                "rewrites": [
-                    {"sense_num": 1, "definition": "worse rewrite", "subsenses": []}
-                ]
-            },
+            {"rewrites": [{"sense_num": 1, "definition": "worse rewrite"}]},
             {"is_improvement": False, "reason": "not better"},
         ]
     )

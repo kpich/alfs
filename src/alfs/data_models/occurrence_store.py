@@ -80,12 +80,11 @@ class OccurrenceStore:
         return pl.DataFrame(rows, schema=_SCHEMA, orient="row")
 
     def delete_by_sense_id(self, form: str, sense_id: str) -> None:
-        """Delete all occurrences for a sense (top-level and subsenses)."""
+        """Delete all occurrences for a sense."""
         with self._connect() as con:
             con.execute(
-                "DELETE FROM labeled "
-                "WHERE form = ? AND (sense_key = ? OR sense_key LIKE ?)",
-                (form, sense_id, f"{sense_id}%"),
+                "DELETE FROM labeled WHERE form = ? AND sense_key = ?",
+                (form, sense_id),
             )
             con.commit()
 

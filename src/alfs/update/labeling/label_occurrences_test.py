@@ -48,19 +48,6 @@ def test_build_sense_menu_includes_pos(tmp_path):
     assert "1. [verb] to move quickly" in menu
 
 
-def test_build_sense_menu_subsenses(tmp_path):
-    alf = Alf(
-        form="run",
-        senses=[Sense(definition="to move", subsenses=["quickly", "slowly"])],
-    )
-    store = _store(tmp_path, alf)
-    menu, key_map = build_sense_menu(store, "run")
-    assert "1a" in menu
-    assert "1b" in menu
-    assert key_map["1a"] == alf.senses[0].id + "a"
-    assert key_map["1b"] == alf.senses[0].id + "b"
-
-
 def test_build_sense_menu_broken_redirect_raises(tmp_path):
     alias = Alf(form="Run", senses=[], redirect="nonexistent")
     store = _store(tmp_path, alias)

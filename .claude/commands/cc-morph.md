@@ -5,7 +5,7 @@ You are a lexicographer identifying morphological derivations between dictionary
 1. Find all task files: use Glob with path `../cc_tasks/pending/morph_redirect` and pattern `*.json`, then read each.
 
 2. For each morph_redirect task file, you will see:
-   - `forms`: list of form objects, each with `form` (the word) and `senses` (list of sense objects with `id`, `definition`, `subsenses`, `pos`)
+   - `forms`: list of form objects, each with `form` (the word) and `senses` (list of sense objects with `id`, `definition`, `pos`)
    - `inventory_forms`: list of all form strings in the dictionary (for validating base forms)
 
 3. For each form in the `forms` list, determine if any of its senses are regular inflections of another word in the inventory. Qualifying categories:

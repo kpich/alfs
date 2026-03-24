@@ -35,8 +35,6 @@ def compile_entries(
             continue
         for i, sense in enumerate(alf.senses):
             uuid_to_pos[sense.id] = sense_key(i)
-            for j in range(len(sense.subsenses or [])):
-                uuid_to_pos[sense.id + chr(ord("a") + j)] = sense_key(i, j)
 
     if uuid_to_pos:
         trans = pl.DataFrame(
@@ -122,11 +120,6 @@ def compile_entries(
                 "definition": sense.definition,
                 "pos": sense.pos.value if sense.pos else None,
             }
-            if sense.subsenses:
-                sense_entry["subsenses"] = [
-                    {"key": sense_key(top_idx, sub_idx), "definition": defn}
-                    for sub_idx, defn in enumerate(sense.subsenses)
-                ]
             if sense.morph_base is not None:
                 sense_entry["morph_base"] = sense.morph_base
             if sense.morph_relation is not None:

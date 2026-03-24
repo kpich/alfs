@@ -102,23 +102,6 @@ def test_delete_by_sense_id_removes_top_level(store: OccurrenceStore) -> None:
     assert df["sense_key"][0] == uid_b
 
 
-def test_delete_by_sense_id_removes_subsenses(store: OccurrenceStore) -> None:
-    """Deleting by UUID also removes subsense rows (UUID+letter)."""
-    uid = "aaaaaaaa-0000-0000-0000-000000000001"
-    store.upsert_many(
-        [
-            ("run", "doc1", 0, uid, 3),
-            ("run", "doc1", 10, uid + "a", 2),
-            ("run", "doc1", 20, uid + "b", 1),
-            ("run", "doc1", 30, "bbbbbbbb-0000-0000-0000-000000000002", 3),
-        ]
-    )
-    store.delete_by_sense_id("run", uid)
-    df = store.query_form("run")
-    assert len(df) == 1
-    assert df["sense_key"][0] == "bbbbbbbb-0000-0000-0000-000000000002"
-
-
 def test_delete_by_sense_id_other_forms_unaffected(store: OccurrenceStore) -> None:
     """Deleting by UUID for one form does not affect another form."""
     uid = "aaaaaaaa-0000-0000-0000-000000000001"

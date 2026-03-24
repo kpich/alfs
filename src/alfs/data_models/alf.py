@@ -14,7 +14,6 @@ class Sense(BaseModel):
 
     id: str = Field(default_factory=_new_sense_id)
     definition: str = Field(min_length=1)
-    subsenses: list[str] | None = None  # up to one level of sub-definitions
     pos: PartOfSpeech | None = None
     morph_base: str | None = None
     morph_relation: str | None = None
@@ -35,12 +34,8 @@ class Alf(BaseModel):
     )
 
     def get_sense(self, key: str) -> str:
-        """Return the definition for a sense key like '2' or '3b'."""
-        top_idx, sub_idx = parse_sense_key(key)
-        sense = self.senses[top_idx]
-        if sub_idx is None:
-            return sense.definition
-        return (sense.subsenses or [])[sub_idx]
+        """Return the definition for a sense key like '1' or '2'."""
+        return self.senses[parse_sense_key(key)].definition
 
 
 class Alfs(BaseModel):
@@ -54,18 +49,13 @@ class Alfs(BaseModel):
 # --- Sense key utilities ---
 
 
-def sense_key(idx: int, sub_idx: int | None = None) -> str:
-    """Build a sense key from 0-based indices.
+def sense_key(idx: int) -> str:
+    """Build a sense key from a 0-based index.
 
-    sense_key(0)     -> "1"
-    sense_key(2)     -> "3"
-    sense_key(2, 0)  -> "3a"
-    sense_key(2, 1)  -> "3b"
+    sense_key(0)  -> "1"
+    sense_key(2)  -> "3"
     """
-    key = str(idx + 1)
-    if sub_idx is not None:
-        key += chr(ord("a") + sub_idx)
-    return key
+    return str(idx + 1)
 
 
 def morph_base_form(alf: Alf) -> str | None:
@@ -79,21 +69,16 @@ def morph_base_form(alf: Alf) -> str | None:
     return None
 
 
-def parse_sense_key(key: str) -> tuple[int, int | None]:
-    """Parse a sense key to 0-based (top_idx, sub_idx).
+def parse_sense_key(key: str) -> int:
+    """Parse a sense key to a 0-based index.
 
-    parse_sense_key("1")   -> (0, None)
-    parse_sense_key("3b")  -> (2, 1)
+    parse_sense_key("1")  -> 0
+    parse_sense_key("3")  -> 2
     """
     key = key.strip()
     if not key:
         raise ValueError("Empty sense key")
-    if key[-1].isalpha():
-        top_part, sub_char = key[:-1], key[-1].lower()
-        sub_idx: int | None = ord(sub_char) - ord("a")
-    else:
-        top_part, sub_idx = key, None
-    top_idx = int(top_part) - 1  # 1-indexed -> 0-based
-    if top_idx < 0 or (sub_idx is not None and sub_idx < 0):
+    top_idx = int(key) - 1  # 1-indexed -> 0-based
+    if top_idx < 0:
         raise ValueError(f"Sense key out of range: {key!r}")
-    return top_idx, sub_idx
+    return top_idx

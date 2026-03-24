@@ -12,7 +12,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alfs.data_models.alf import Alf, morph_base_form, sense_key
+from alfs.data_models.alf import Alf, morph_base_form
 from alfs.data_models.annotated_occurrence import AnnotatedOccurrence, OccurrenceRating
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
@@ -64,10 +64,6 @@ def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]
         key_map[display] = sense.id
         pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
         lines.append(f"{i + 1}.{pos_tag} {sense.definition}")
-        for j, sub in enumerate(sense.subsenses or []):
-            sub_key = sense_key(i, j)
-            key_map[sub_key] = sense.id + chr(ord("a") + j)
-            lines.append(f"   {sub_key}. {sub}")
     base_name = morph_base_form(target_alf)
     if base_name is not None:
         base_alf = store.read(base_name)

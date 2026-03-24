@@ -15,11 +15,6 @@
 <ol>
 {% for sense in senses %}
   <li{% if is_recent %} class="mb-1 ps-2 border-start border-warning border-3"{% endif %}>{% if sense.pos %}<em class="text-muted small">{{ sense.pos }}</em> {% endif %}{{ sense.definition }}
-    {% if sense.subsenses %}
-    <ol type="a">
-      {% for sub in sense.subsenses %}<li>{{ sub.definition }}</li>{% endfor %}
-    </ol>
-    {% endif %}
     {% if sense.instances %}
     <ul class="list-unstyled mt-1 ms-2">
       {% for inst in sense.instances %}

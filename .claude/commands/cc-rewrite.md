@@ -6,15 +6,13 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
 
 2. For each rewrite task file, you will see:
    - `form`: the word being defined
-   - `senses`: list of current sense objects, each with `id`, `definition`, `subsenses`, and `pos`
+   - `senses`: list of current sense objects, each with `id`, `definition`, and `pos`
 
 3. Improve any definitions that could be clearer or more precise. Rules:
    - Only include senses you are actually changing — omit any you are leaving unchanged.
    - Preserve the meaning of each sense; improve only the phrasing.
    - Definitions must not be self-referential (don't use the word itself as the core of the explanation).
    - Don't be too terse (keep definitions informative) or too verbose (avoid unnecessary hedging).
-   - You may also improve subsenses if present.
-
 4. Write the output JSON to `../cc_tasks/done/rewrite/{same_filename}` with this schema:
    ```json
    {
@@ -22,12 +20,12 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
      "id": "<same id from task>",
      "form": "<same form from task>",
      "rewrites": [
-       {"sense_num": 1, "definition": "...", "subsenses": ["...", "..."]},
+       {"sense_num": 1, "definition": "..."},
        ...
      ]
    }
    ```
-   `sense_num` is the 1-based index of the sense being changed. `subsenses` may be null or omitted if there are none. Use an empty list if no definitions need improvement.
+   `sense_num` is the 1-based index of the sense being changed. Use an empty list if no definitions need improvement.
 
 5. Delete the pending file after writing the output.
 
