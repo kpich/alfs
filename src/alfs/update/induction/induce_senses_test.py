@@ -42,7 +42,7 @@ def test_non_ascii_form_uses_other_prefix(tmp_path, monkeypatch):
 
     call_count = {"n": 0}
 
-    def fake_chat_json(model, prompt, format=None):
+    def fake_chat_json(model: str, prompt: str, format: object = None) -> object:
         n = call_count["n"]
         call_count["n"] += 1
         if n == 0:
@@ -96,7 +96,7 @@ def test_redirect_form_sees_canonical_senses_as_existing(tmp_path, monkeypatch):
 
     prompts_seen: list[str] = []
 
-    def fake_chat_json(model, prompt, format=None):
+    def fake_chat_json(model: str, prompt: str, format: object = None) -> object:
         prompts_seen.append(prompt)
         return {"all_covered": True, "senses": []}
 
