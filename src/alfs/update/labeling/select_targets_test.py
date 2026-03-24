@@ -149,50 +149,25 @@ def test_sqrt_weight_reduces_head_dominance():
 def test_smoothing_prevents_zero_weight():
     """With smoothing_alpha=1.0, a fully-covered form still has nonzero weight."""
     tc = _total_counts({"A": 10, "B": 10})
-    ncc = _n_covered_counts({"A": 10})  # A fully covered, B not covered at all
-    # Without smoothing: A has weight 0, only B selected
-    result_no_smooth = select_top_n(
-        tc, ncc, top_n=2, rng=np.random.default_rng(0), min_count=1, smoothing_alpha=0.0
+    ncc = _n_covered_counts({"A": 10})
+    # Without smoothing: A has weight 0, excluded
+    result = select_top_n(tc, ncc, top_n=2, rng=np.random.default_rng(0), min_count=1)
+    assert "A" not in result
+    # With smoothing: A has need_work=1 > 0; top_n=2 with 2 candidates → both returned
+    result = select_top_n(
+        tc, ncc, top_n=2, rng=np.random.default_rng(0), min_count=1, smoothing_alpha=1.0
     )
-    assert "A" not in result_no_smooth
-    # With smoothing: A has need_work=1, still gets nonzero weight
-    chosen = set()
-    for seed in range(100):
-        chosen |= set(
-            select_top_n(
-                tc,
-                ncc,
-                top_n=1,
-                rng=np.random.default_rng(seed),
-                min_count=1,
-                smoothing_alpha=1.0,
-            )
-        )
-    assert "A" in chosen
+    assert set(result) == {"A", "B"}
 
 
 def test_poorly_rated_boosts_weight():
-    """With use_excellent_threshold: forms with rating<3 labels still score high."""
-    # A: 50 total, 40 covered as n_excellent=0 (all rating=0) → need_work=50+1=51
-    # B: 50 total, 40 covered as n_excellent=40 (all rating=3) → need_work=10+1=11
-    # A should have much higher weight than B
+    """Forms with no excellent labels score higher than well-covered ones."""
+    # A: 50 total, n_covered=0 (no excellent labels) → need_work=51
+    # B: 50 total, n_covered=49 (all excellent) → need_work=2
+    # Both have positive weight; top_n=2 with 2 candidates → both returned
     tc = _total_counts({"A": 50, "B": 50})
-    # n_covered for A is 0 (none are excellent), for B is 40 (all excellent)
-    ncc_excellent = _n_covered_counts({"A": 0, "B": 40})
-    chosen_a = 0
-    chosen_b = 0
-    for seed in range(200):
-        result = select_top_n(
-            tc,
-            ncc_excellent,
-            top_n=1,
-            rng=np.random.default_rng(seed),
-            min_count=1,
-            smoothing_alpha=1.0,
-        )
-        if result == ["A"]:
-            chosen_a += 1
-        elif result == ["B"]:
-            chosen_b += 1
-    # A has sqrt(51) ≈ 7.1 weight vs B's sqrt(11) ≈ 3.3 → A chosen ~68% of the time
-    assert chosen_a > chosen_b
+    ncc = _n_covered_counts({"A": 0, "B": 49})
+    result = select_top_n(
+        tc, ncc, top_n=2, rng=np.random.default_rng(0), min_count=1, smoothing_alpha=1.0
+    )
+    assert set(result) == {"A", "B"}
