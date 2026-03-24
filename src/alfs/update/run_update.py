@@ -73,6 +73,8 @@ def main() -> None:
             senses_db=senses_db if senses_db.exists() else None,
             labeled_db=labeled_db if labeled_db.exists() else None,
             min_count=args.min_count,
+            smoothing_alpha=1.0,
+            use_excellent_threshold=True,
         )
         print(f"Selected {len(target_files)} targets.")
 
