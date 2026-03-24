@@ -78,7 +78,7 @@ def test_apply_rewrite(tmp_path: Path):
     assert len(pending_files) == 1
     req = json.loads(pending_files[0].read_text())
     assert req["type"] == "rewrite"
-    assert req["after"][0]["definition"] == "to move swiftly on foot"
+    assert req["after"]["definition"] == "to move swiftly on foot"
 
 
 def test_apply_rewrite_sense_count_mismatch(tmp_path: Path):

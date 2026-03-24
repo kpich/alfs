@@ -112,16 +112,22 @@ def main() -> None:
             else:
                 new_senses.append(sense)
 
-        if changed_descriptions:
-            request = PosTagRequest(
-                id=str(uuid.uuid4()),
-                created_at=datetime.now(UTC),
-                form=form,
-                before=list(alf.senses),
-                after=new_senses,
+        for before_sense, after_sense in zip(alf.senses, new_senses, strict=False):
+            if before_sense == after_sense:
+                continue
+            enqueue(
+                PosTagRequest(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(UTC),
+                    form=form,
+                    before=before_sense,
+                    after=after_sense,
+                    requesting_model=args.model,
+                ),
+                queue_dir,
             )
-            enqueue(request, queue_dir)
-            print(f"  {form!r}: queued pos_tag change")
+        if changed_descriptions:
+            print(f"  {form!r}: queued pos_tag changes")
             for desc in changed_descriptions:
                 print(desc)
             queued += 1

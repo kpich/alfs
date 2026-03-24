@@ -50,25 +50,27 @@ class RewriteRequest(BaseModel):
     id: str
     created_at: datetime
     form: str
-    before: list[Sense]
-    after: list[Sense]
+    before: Sense
+    after: Sense
     requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
-        for sense in self.before:
-            if not can_overwrite(self.requesting_model, sense.updated_by_model):
-                _log.warning(
-                    "Skipping %s for %r: %r cannot overwrite %r",
-                    self.type,
-                    self.form,
-                    self.requesting_model,
-                    sense.updated_by_model,
-                )
-                return
+        if not can_overwrite(self.requesting_model, self.before.updated_by_model):
+            _log.warning(
+                "Skipping %s for %r: %r cannot overwrite %r",
+                self.type,
+                self.form,
+                self.requesting_model,
+                self.before.updated_by_model,
+            )
+            return
         after = self.after
+        before_id = self.before.id
         sense_store.update(
             self.form,
-            lambda e: e.model_copy(update={"senses": after}),  # type: ignore[union-attr]
+            lambda e: e.model_copy(  # type: ignore[union-attr]
+                update={"senses": [after if s.id == before_id else s for s in e.senses]}  # type: ignore[union-attr]
+            ),
         )
 
 
@@ -77,25 +79,27 @@ class PosTagRequest(BaseModel):
     id: str
     created_at: datetime
     form: str
-    before: list[Sense]
-    after: list[Sense]
+    before: Sense
+    after: Sense
     requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
-        for sense in self.before:
-            if not can_overwrite(self.requesting_model, sense.updated_by_model):
-                _log.warning(
-                    "Skipping %s for %r: %r cannot overwrite %r",
-                    self.type,
-                    self.form,
-                    self.requesting_model,
-                    sense.updated_by_model,
-                )
-                return
+        if not can_overwrite(self.requesting_model, self.before.updated_by_model):
+            _log.warning(
+                "Skipping %s for %r: %r cannot overwrite %r",
+                self.type,
+                self.form,
+                self.requesting_model,
+                self.before.updated_by_model,
+            )
+            return
         after = self.after
+        before_id = self.before.id
         sense_store.update(
             self.form,
-            lambda e: e.model_copy(update={"senses": after}),  # type: ignore[union-attr]
+            lambda e: e.model_copy(  # type: ignore[union-attr]
+                update={"senses": [after if s.id == before_id else s for s in e.senses]}  # type: ignore[union-attr]
+            ),
         )
 
 
@@ -104,25 +108,27 @@ class UpdatePosRequest(BaseModel):
     id: str
     created_at: datetime
     form: str
-    before: list[Sense]
-    after: list[Sense]
+    before: Sense
+    after: Sense
     requesting_model: str | None = None
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
-        for sense in self.before:
-            if not can_overwrite(self.requesting_model, sense.updated_by_model):
-                _log.warning(
-                    "Skipping %s for %r: %r cannot overwrite %r",
-                    self.type,
-                    self.form,
-                    self.requesting_model,
-                    sense.updated_by_model,
-                )
-                return
+        if not can_overwrite(self.requesting_model, self.before.updated_by_model):
+            _log.warning(
+                "Skipping %s for %r: %r cannot overwrite %r",
+                self.type,
+                self.form,
+                self.requesting_model,
+                self.before.updated_by_model,
+            )
+            return
         after = self.after
+        before_id = self.before.id
         sense_store.update(
             self.form,
-            lambda e: e.model_copy(update={"senses": after}),  # type: ignore[union-attr]
+            lambda e: e.model_copy(  # type: ignore[union-attr]
+                update={"senses": [after if s.id == before_id else s for s in e.senses]}  # type: ignore[union-attr]
+            ),
         )
 
 

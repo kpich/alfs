@@ -137,8 +137,6 @@ def main() -> None:
             )
             continue
 
-        # Build updated senses list with morph fields cleared
-        before_senses = list(current_alf.senses)
         after_sense = current_sense.model_copy(
             update={
                 "definition": proposed_def,
@@ -146,17 +144,16 @@ def main() -> None:
                 "morph_relation": None,
             }
         )
-        after_senses = list(before_senses)
-        after_senses[sense_idx] = after_sense
-
-        request = RewriteRequest(
-            id=str(uuid.uuid4()),
-            created_at=datetime.now(UTC),
-            form=form,
-            before=before_senses,
-            after=after_senses,
+        enqueue(
+            RewriteRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                before=current_sense,
+                after=after_sense,
+            ),
+            queue_dir,
         )
-        enqueue(request, queue_dir)
         total_queued += 1
         print(
             f"  queued: undo morph link on {form!r} sense {sense_idx}"

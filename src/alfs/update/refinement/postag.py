@@ -116,17 +116,22 @@ def main() -> None:
             continue
         tagger = _make_tagger(form, labeled_df, docs_df, args.model)
         updated = tagger(existing)
-        if list(updated.senses) == list(existing.senses):
-            continue
-        request = UpdatePosRequest(
-            id=str(uuid.uuid4()),
-            created_at=datetime.now(UTC),
-            form=form,
-            before=list(existing.senses),
-            after=list(updated.senses),
-            requesting_model=args.model,
-        )
-        enqueue(request, queue_dir)
+        for before_sense, after_sense in zip(
+            existing.senses, updated.senses, strict=False
+        ):
+            if before_sense == after_sense:
+                continue
+            enqueue(
+                UpdatePosRequest(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(UTC),
+                    form=form,
+                    before=before_sense,
+                    after=after_sense,
+                    requesting_model=args.model,
+                ),
+                queue_dir,
+            )
 
     print("Done tagging POS.")
 

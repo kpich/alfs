@@ -107,15 +107,20 @@ def _apply_rewrite(
         for i, s in enumerate(output.senses)
     ]
 
-    request = RewriteRequest(
-        id=str(uuid.uuid4()),
-        created_at=datetime.now(UTC),
-        form=output.form,
-        before=list(entry.senses),
-        after=after,
-        requesting_model="claude-code",
-    )
-    enqueue(request, queue_dir)
+    for before_sense, after_sense in zip(entry.senses, after, strict=False):
+        if before_sense == after_sense:
+            continue
+        enqueue(
+            RewriteRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=output.form,
+                before=before_sense,
+                after=after_sense,
+                requesting_model="claude-code",
+            ),
+            queue_dir,
+        )
     print(f"  queued rewrite for {output.form!r}")
     return True
 
