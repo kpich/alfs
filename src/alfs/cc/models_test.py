@@ -101,7 +101,11 @@ def test_rewrite_output_roundtrip():
     output = CCRewriteOutput(
         id="def",
         form="run",
-        senses=[RewrittenSense(definition="to move swiftly on foot", subsenses=None)],
+        rewrites=[
+            RewrittenSense(
+                sense_num=1, definition="to move swiftly on foot", subsenses=None
+            )
+        ],
     )
     data = output.model_dump_json()
     parsed = _output_adapter.validate_json(data)

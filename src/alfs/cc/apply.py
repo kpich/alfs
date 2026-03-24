@@ -89,34 +89,35 @@ def _apply_rewrite(
         print(f"  skipped rewrite for {output.form!r}: no entry in store")
         return False
 
-    if len(output.senses) != len(entry.senses):
-        print(
-            f"  skipped rewrite for {output.form!r}: sense count mismatch"
-            f" ({len(output.senses)} vs {len(entry.senses)})"
-        )
-        return False
+    if not output.rewrites:
+        print(f"  skipped rewrite for {output.form!r}: no changes proposed")
+        return True
 
-    after = [
-        Sense(
-            id=entry.senses[i].id,
+    for s in output.rewrites:
+        idx = s.sense_num - 1
+        if idx < 0 or idx >= len(entry.senses):
+            print(
+                f"  skipped rewrite for {output.form!r}:"
+                f" sense_num {s.sense_num} out of range"
+            )
+            return False
+        orig = entry.senses[idx]
+        revised = Sense(
+            id=orig.id,
             definition=s.definition,
             subsenses=s.subsenses or None,
-            pos=entry.senses[i].pos,
+            pos=orig.pos,
             updated_by_model="claude-code",
         )
-        for i, s in enumerate(output.senses)
-    ]
-
-    for before_sense, after_sense in zip(entry.senses, after, strict=False):
-        if before_sense == after_sense:
+        if orig == revised:
             continue
         enqueue(
             RewriteRequest(
                 id=str(uuid.uuid4()),
                 created_at=datetime.now(UTC),
                 form=output.form,
-                before=before_sense,
-                after=after_sense,
+                before=orig,
+                after=revised,
                 requesting_model="claude-code",
             ),
             queue_dir,

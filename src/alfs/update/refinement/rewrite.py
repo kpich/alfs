@@ -33,19 +33,20 @@ _CRITIC_SCHEMA = {
 _REWRITE_SCHEMA = {
     "type": "object",
     "properties": {
-        "senses": {
+        "rewrites": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
+                    "sense_num": {"type": "integer"},
                     "definition": {"type": "string"},
                     "subsenses": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["definition", "subsenses"],
+                "required": ["sense_num", "definition", "subsenses"],
             },
         }
     },
-    "required": ["senses"],
+    "required": ["rewrites"],
 }
 
 
@@ -101,42 +102,49 @@ def run(
             prompts.rewrite_prompt(form, list(alf.senses), base_name, base_senses),
             format=_REWRITE_SCHEMA,
         )
-        returned = data["senses"]
-        if len(returned) != len(alf.senses):
-            print(
-                f"  skipped {form!r}: LLM returned {len(returned)} senses,"
-                f" expected {len(alf.senses)}"
-            )
+        rewrites = data["rewrites"]
+        if not rewrites:
+            print(f"  {form!r}: no changes proposed")
             continue
-        after = [
-            Sense(
-                id=alf.senses[i].id,
-                definition=s["definition"],
-                subsenses=s.get("subsenses") or None,
-                pos=alf.senses[i].pos,
+
+        changed: list[tuple[Sense, Sense]] = []
+        for item in rewrites:
+            idx = item["sense_num"] - 1
+            if idx < 0 or idx >= len(alf.senses):
+                print(f"  skipped {form!r}: sense_num {item['sense_num']} out of range")
+                continue
+            orig = alf.senses[idx]
+            revised = Sense(
+                id=orig.id,
+                definition=item["definition"],
+                subsenses=item.get("subsenses") or None,
+                pos=orig.pos,
                 updated_by_model=model,
             )
-            for i, s in enumerate(returned)
-        ]
+            if orig != revised:
+                changed.append((orig, revised))
+
+        if not changed:
+            print(f"  {form!r}: no effective changes")
+            continue
+
         verdict = llm.chat_json(
             model,
-            prompts.critic_prompt(form, list(alf.senses), after),
+            prompts.critic_prompt(form, list(alf.senses), changed),
             format=_CRITIC_SCHEMA,
         )
         if not verdict.get("is_improvement", True):
             print(f"  skipped {form!r} (critic: {verdict.get('reason', '')})")
             continue
 
-        for before_sense, after_sense in zip(alf.senses, after, strict=False):
-            if before_sense == after_sense:
-                continue
+        for orig, revised in changed:
             enqueue(
                 RewriteRequest(
                     id=str(uuid.uuid4()),
                     created_at=datetime.now(UTC),
                     form=form,
-                    before=before_sense,
-                    after=after_sense,
+                    before=orig,
+                    after=revised,
                     requesting_model=model,
                 ),
                 queue_dir,

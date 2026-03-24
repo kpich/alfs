@@ -8,8 +8,8 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
    - `form`: the word being defined
    - `senses`: list of current sense objects, each with `id`, `definition`, `subsenses`, and `pos`
 
-3. Rewrite the definitions to be clearer and more precise. Rules:
-   - Keep exactly the same number of senses. Do not add or remove senses.
+3. Improve any definitions that could be clearer or more precise. Rules:
+   - Only include senses you are actually changing — omit any you are leaving unchanged.
    - Preserve the meaning of each sense; improve only the phrasing.
    - Definitions must not be self-referential (don't use the word itself as the core of the explanation).
    - Don't be too terse (keep definitions informative) or too verbose (avoid unnecessary hedging).
@@ -21,13 +21,13 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
      "type": "rewrite",
      "id": "<same id from task>",
      "form": "<same form from task>",
-     "senses": [
-       {"definition": "...", "subsenses": ["...", "..."]},
+     "rewrites": [
+       {"sense_num": 1, "definition": "...", "subsenses": ["...", "..."]},
        ...
      ]
    }
    ```
-   Each sense in the output corresponds to the same-indexed sense in the input. `subsenses` may be null or omitted if there are none.
+   `sense_num` is the 1-based index of the sense being changed. `subsenses` may be null or omitted if there are none. Use an empty list if no definitions need improvement.
 
 5. Delete the pending file after writing the output.
 

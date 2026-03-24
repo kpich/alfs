@@ -67,7 +67,7 @@ def test_apply_rewrite(tmp_path: Path):
     output = CCRewriteOutput(
         id="test2",
         form="run",
-        senses=[RewrittenSense(definition="to move swiftly on foot")],
+        rewrites=[RewrittenSense(sense_num=1, definition="to move swiftly on foot")],
     )
     (cc_dir / "done" / "rewrite" / "test2.json").write_text(output.model_dump_json())
 
@@ -81,7 +81,7 @@ def test_apply_rewrite(tmp_path: Path):
     assert req["after"]["definition"] == "to move swiftly on foot"
 
 
-def test_apply_rewrite_sense_count_mismatch(tmp_path: Path):
+def test_apply_rewrite_sense_num_out_of_range(tmp_path: Path):
     cc_dir, senses_db, queue_dir = _setup(tmp_path)
 
     store = SenseStore(senses_db)
@@ -89,18 +89,14 @@ def test_apply_rewrite_sense_count_mismatch(tmp_path: Path):
         "run",
         lambda _: Alf(
             form="run",
-            senses=[
-                Sense(id="s1", definition="to move fast", pos=PartOfSpeech.verb),
-                Sense(id="s2", definition="a jog", pos=PartOfSpeech.noun),
-            ],
+            senses=[Sense(id="s1", definition="to move fast", pos=PartOfSpeech.verb)],
         ),
     )
 
-    # Output has wrong number of senses
     output = CCRewriteOutput(
         id="test3",
         form="run",
-        senses=[RewrittenSense(definition="to move swiftly on foot")],
+        rewrites=[RewrittenSense(sense_num=5, definition="to move swiftly on foot")],
     )
     (cc_dir / "done" / "rewrite" / "test3.json").write_text(output.model_dump_json())
 

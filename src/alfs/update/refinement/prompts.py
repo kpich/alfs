@@ -12,8 +12,11 @@ def rewrite_prompt(
     lines = [
         "You are a lexicographer improving dictionary entries.",
         "",
-        f'Rewrite the sense definitions for "{form}" to be clearer and more precise.',
-        "Keep exactly the same number of senses. Preserve meaning; improve phrasing.",
+        f'Improve the sense definitions for "{form}" that could be clearer'
+        " or more precise.",
+        "Only return definitions you are actually changing"
+        " — omit any you are leaving unchanged.",
+        "Preserve meaning and part of speech; improve phrasing only.",
         "",
         "Current definitions:",
     ]
@@ -35,7 +38,9 @@ def rewrite_prompt(
     lines += [
         "",
         "Respond with ONLY valid JSON: "
-        '{"senses": [{"definition": "...", "subsenses": [...]}, ...]}',
+        '{"rewrites": [{"sense_num": 1, "definition": "...",'
+        ' "subsenses": [...]}, ...]}',
+        "Use an empty list if no definitions need improvement.",
     ]
     return "\n".join(lines)
 
@@ -209,29 +214,33 @@ def trim_sense_prompt(
     return "\n".join(lines)
 
 
-def critic_prompt(form: str, before: list[Sense], after: list[Sense]) -> str:
+def critic_prompt(
+    form: str, senses: list[Sense], changes: list[tuple[Sense, Sense]]
+) -> str:
     lines = [
-        "You are a senior lexicographer reviewing a proposed revision"
+        "You are a senior lexicographer reviewing proposed revisions"
         " to a dictionary entry.",
         "",
         f'Word: "{form}"',
         "",
-        "Original definitions:",
+        "All current definitions (for context):",
     ]
-    for i, s in enumerate(before, 1):
+    for i, s in enumerate(senses, 1):
         pos_tag = f" [{s.pos.value}]" if s.pos else ""
         lines.append(f"  {i}.{pos_tag} {s.definition}")
         for sub in s.subsenses or []:
             lines.append(f"     \u2022 {sub}")
-    lines += ["", "Proposed definitions:"]
-    for i, s in enumerate(after, 1):
-        pos_tag = f" [{s.pos.value}]" if s.pos else ""
-        lines.append(f"  {i}.{pos_tag} {s.definition}")
-        for sub in s.subsenses or []:
-            lines.append(f"     \u2022 {sub}")
+    lines += ["", "Proposed changes:"]
+    for before, after in changes:
+        lines.append(f"  Before: {before.definition}")
+        for sub in before.subsenses or []:
+            lines.append(f"    \u2022 {sub}")
+        lines.append(f"  After:  {after.definition}")
+        for sub in after.subsenses or []:
+            lines.append(f"    \u2022 {sub}")
+        lines.append("")
     lines += [
-        "",
-        "Is the proposed version an improvement over the original?",
+        "Are the proposed changes improvements over the originals?",
         "Reject if any proposed definition:",
         "  - is self-referential (uses the word or a close derivative of it)",
         "  - is too terse (no more informative than the original)",

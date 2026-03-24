@@ -98,6 +98,7 @@ class CCInductionOutput(BaseModel):
 
 
 class RewrittenSense(BaseModel):
+    sense_num: int
     definition: str
     subsenses: list[str] | None = None
 
@@ -106,7 +107,7 @@ class CCRewriteOutput(BaseModel):
     type: Literal["rewrite"] = "rewrite"
     id: str
     form: str
-    senses: list[RewrittenSense]
+    rewrites: list[RewrittenSense]
 
 
 class CCTrimSenseOutput(BaseModel):
