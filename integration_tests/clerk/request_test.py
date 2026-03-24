@@ -189,52 +189,50 @@ def test_prune_surviving_senses_keep_original_ids(tmp_path: Path) -> None:
 # --- RewriteRequest ---
 
 
-def test_rewrite_updates_sense_definitions(tmp_path: Path) -> None:
+def test_rewrite_updates_matching_sense(tmp_path: Path) -> None:
     store = _sense_store(tmp_path)
     sense_a = Sense(definition="old definition A")
     sense_b = Sense(definition="old definition B")
     store.write(Alf(form="word", senses=[sense_a, sense_b]))
 
     new_a = sense_a.model_copy(update={"definition": "new definition A"})
-    new_b = sense_b.model_copy(update={"definition": "new definition B"})
 
     request = RewriteRequest(
         id=_make_request_id(),
         created_at=datetime.now(UTC),
         form="word",
-        before=[sense_a, sense_b],
-        after=[new_a, new_b],
+        before=sense_a,
+        after=new_a,
     )
     request.apply(store, None)
 
     result = store.read("word")
     assert result is not None
     assert result.senses[0].definition == "new definition A"
-    assert result.senses[1].definition == "new definition B"
+    assert result.senses[0].id == sense_a.id
 
 
-def test_rewrite_preserves_sense_ids(tmp_path: Path) -> None:
+def test_rewrite_leaves_other_senses_unchanged(tmp_path: Path) -> None:
     store = _sense_store(tmp_path)
     sense_a = Sense(definition="old definition A")
     sense_b = Sense(definition="old definition B")
     store.write(Alf(form="word", senses=[sense_a, sense_b]))
 
     new_a = sense_a.model_copy(update={"definition": "new definition A"})
-    new_b = sense_b.model_copy(update={"definition": "new definition B"})
 
     request = RewriteRequest(
         id=_make_request_id(),
         created_at=datetime.now(UTC),
         form="word",
-        before=[sense_a, sense_b],
-        after=[new_a, new_b],
+        before=sense_a,
+        after=new_a,
     )
     request.apply(store, None)
 
     result = store.read("word")
     assert result is not None
-    assert result.senses[0].id == sense_a.id
     assert result.senses[1].id == sense_b.id
+    assert result.senses[1].definition == "old definition B"
 
 
 # --- MorphRedirectRequest ---

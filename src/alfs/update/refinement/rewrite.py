@@ -127,15 +127,20 @@ def run(
             print(f"  skipped {form!r} (critic: {verdict.get('reason', '')})")
             continue
 
-        request = RewriteRequest(
-            id=str(uuid.uuid4()),
-            created_at=datetime.now(UTC),
-            form=form,
-            before=list(alf.senses),
-            after=after,
-            requesting_model=model,
-        )
-        enqueue(request, queue_dir)
+        for before_sense, after_sense in zip(alf.senses, after, strict=False):
+            if before_sense == after_sense:
+                continue
+            enqueue(
+                RewriteRequest(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(UTC),
+                    form=form,
+                    before=before_sense,
+                    after=after_sense,
+                    requesting_model=model,
+                ),
+                queue_dir,
+            )
         print(f"  queued rewrite for: {form!r}")
 
     print("Done.")
