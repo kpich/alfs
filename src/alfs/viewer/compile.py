@@ -75,9 +75,9 @@ def compile_entries(
             .drop("canonical")
         )
 
-    # Numerator: rating>=2 occurrences per (form, sense_key, year)
+    # Numerator: rating>=1 occurrences per (form, sense_key, year)
     joined = apply_redirect(
-        labeled.filter(pl.col("rating") >= 2).join(
+        labeled.filter(pl.col("rating") >= 1).join(
             docs_with_year, on="doc_id", how="inner"
         )
     )
@@ -92,7 +92,7 @@ def compile_entries(
 
     # sense_counts per form for senses_bar: {form: {sense_key: count}}
     sense_counts_df = (
-        labeled.filter(pl.col("rating") >= 2)
+        labeled.filter(pl.col("rating") >= 1)
         .group_by(["form", "sense_key"])
         .agg(pl.len().alias("count"))
     )
@@ -129,7 +129,7 @@ def compile_entries(
                 sense_key(top_idx),
                 labeled,
                 docs,
-                min_rating=2,
+                min_rating=1,
                 context_chars=60,
                 max_instances=3,
                 bold_form=True,

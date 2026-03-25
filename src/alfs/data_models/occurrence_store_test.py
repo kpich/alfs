@@ -13,9 +13,9 @@ def store(tmp_path: Path) -> OccurrenceStore:
 
 def test_upsert_and_query_form(store: OccurrenceStore) -> None:
     rows = [
-        ("run", "doc1", 0, "1", 3),
-        ("run", "doc1", 50, "2", 2),
-        ("walk", "doc2", 10, "1", 1),
+        ("run", "doc1", 0, "1", 2),
+        ("run", "doc1", 50, "2", 1),
+        ("walk", "doc2", 10, "1", 0),
     ]
     store.upsert_many(rows)
     df = store.query_form("run")
@@ -25,12 +25,12 @@ def test_upsert_and_query_form(store: OccurrenceStore) -> None:
 
 def test_upsert_deduplication(store: OccurrenceStore) -> None:
     """INSERT OR REPLACE: later upsert with same PK wins."""
-    store.upsert_many([("run", "doc1", 0, "1", 2)])
-    store.upsert_many([("run", "doc1", 0, "2", 3)])
+    store.upsert_many([("run", "doc1", 0, "1", 1)])
+    store.upsert_many([("run", "doc1", 0, "2", 2)])
     df = store.query_form("run")
     assert len(df) == 1
     assert df["sense_key"][0] == "2"
-    assert df["rating"][0] == 3
+    assert df["rating"][0] == 2
 
 
 def test_query_form_missing_returns_empty(store: OccurrenceStore) -> None:
@@ -48,8 +48,8 @@ def test_query_form_missing_returns_empty(store: OccurrenceStore) -> None:
 
 def test_to_polars(store: OccurrenceStore) -> None:
     rows = [
-        ("cat", "doc1", 0, "1", 3),
-        ("dog", "doc2", 5, "1", 2),
+        ("cat", "doc1", 0, "1", 2),
+        ("dog", "doc2", 5, "1", 1),
     ]
     store.upsert_many(rows)
     df = store.to_polars()
@@ -64,10 +64,10 @@ def test_to_polars_empty(store: OccurrenceStore) -> None:
 
 def test_count_by_form(store: OccurrenceStore) -> None:
     rows = [
-        ("run", "doc1", 0, "1", 3),  # good
-        ("run", "doc1", 10, "1", 2),  # good
-        ("run", "doc1", 20, "1", 1),  # bad
-        ("walk", "doc2", 0, "1", 0),  # bad
+        ("run", "doc1", 0, "1", 2),  # excellent → good
+        ("run", "doc1", 10, "1", 1),  # okay → good
+        ("run", "doc1", 20, "1", 0),  # poor → bad
+        ("walk", "doc2", 0, "1", 0),  # poor → bad
     ]
     store.upsert_many(rows)
     df = store.count_by_form().sort("form")
@@ -75,6 +75,7 @@ def test_count_by_form(store: OccurrenceStore) -> None:
     assert run_row["n_total"] == 3
     assert run_row["n_good"] == 2
     assert run_row["n_bad"] == 1
+    assert run_row["n_excellent"] == 1
     walk_row = df.filter(pl.col("form") == "walk").row(0, named=True)
     assert walk_row["n_total"] == 1
     assert walk_row["n_good"] == 0
@@ -92,8 +93,8 @@ def test_delete_by_sense_id_removes_top_level(store: OccurrenceStore) -> None:
     uid_b = "bbbbbbbb-0000-0000-0000-000000000002"
     store.upsert_many(
         [
-            ("run", "doc1", 0, uid_a, 3),
-            ("run", "doc1", 10, uid_b, 2),
+            ("run", "doc1", 0, uid_a, 2),
+            ("run", "doc1", 10, uid_b, 1),
         ]
     )
     store.delete_by_sense_id("run", uid_a)
@@ -107,8 +108,8 @@ def test_delete_by_sense_id_other_forms_unaffected(store: OccurrenceStore) -> No
     uid = "aaaaaaaa-0000-0000-0000-000000000001"
     store.upsert_many(
         [
-            ("run", "doc1", 0, uid, 3),
-            ("walk", "doc1", 0, uid, 2),
+            ("run", "doc1", 0, uid, 2),
+            ("walk", "doc1", 0, uid, 1),
         ]
     )
     store.delete_by_sense_id("run", uid)

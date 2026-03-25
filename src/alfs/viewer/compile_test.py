@@ -104,7 +104,7 @@ def test_instances_included_per_sense():
     alfs = _alfs(
         Alf(form="run", senses=[Sense(definition="to move quickly")]),
     )
-    labeled = _labeled([("run", "doc1", 0, "1", 3)])
+    labeled = _labeled([("run", "doc1", 0, "1", 2)])
     docs = _docs([("doc1", 2020, "run fast through the park")])
 
     result = compile_entries(alfs, labeled, docs, {})
@@ -118,7 +118,7 @@ def test_uuid_sense_keys_translated_to_positional():
     """labeled.db stores UUID sense_keys; compile must translate to positional."""
     sense = Sense(definition="to move quickly")
     alfs = _alfs(Alf(form="run", senses=[sense]))
-    labeled = _labeled([("run", "doc1", 0, sense.id, 3)])
+    labeled = _labeled([("run", "doc1", 0, sense.id, 2)])
     docs = _docs([("doc1", 2020, "")])
 
     result = compile_entries(alfs, labeled, docs, {})
@@ -127,11 +127,11 @@ def test_uuid_sense_keys_translated_to_positional():
     assert "1" in result["run"]["by_year_kde"]
 
 
-def test_instances_included_for_rating2():
+def test_instances_included_for_rating1():
     alfs = _alfs(
         Alf(form="walk", senses=[Sense(definition="to move on foot")]),
     )
-    labeled = _labeled([("walk", "doc1", 0, "1", 2)])
+    labeled = _labeled([("walk", "doc1", 0, "1", 1)])
     docs = _docs([("doc1", 2020, "walk slowly")])
 
     result = compile_entries(alfs, labeled, docs, {})
@@ -139,11 +139,11 @@ def test_instances_included_for_rating2():
     assert len(result["walk"]["senses"][0]["instances"]) == 1
 
 
-def test_instances_excluded_for_rating1():
+def test_instances_excluded_for_rating0():
     alfs = _alfs(
         Alf(form="walk", senses=[Sense(definition="to move on foot")]),
     )
-    labeled = _labeled([("walk", "doc1", 0, "1", 1)])
+    labeled = _labeled([("walk", "doc1", 0, "1", 0)])
     docs = _docs([("doc1", 2020, "walk slowly")])
 
     result = compile_entries(alfs, labeled, docs, {})
@@ -157,9 +157,9 @@ def test_senses_bar_populated():
     alfs = _alfs(Alf(form="run", senses=[sense_a, sense_b]))
     labeled = _labeled(
         [
-            ("run", "doc1", 0, "1", 2),
-            ("run", "doc2", 0, "1", 3),
-            ("run", "doc3", 0, "2", 2),
+            ("run", "doc1", 0, "1", 1),
+            ("run", "doc2", 0, "1", 2),
+            ("run", "doc3", 0, "2", 1),
         ]
     )
     docs = _docs([("doc1", 2020, ""), ("doc2", 2020, ""), ("doc3", 2020, "")])
@@ -173,7 +173,7 @@ def test_senses_bar_populated():
 
 def test_senses_bar_empty_when_no_positive():
     alfs = _alfs(Alf(form="run", senses=[Sense(definition="to move quickly")]))
-    labeled = _labeled([("run", "doc1", 0, "1", 1)])
+    labeled = _labeled([("run", "doc1", 0, "1", 0)])
     docs = _docs([("doc1", 2020, "")])
 
     result = compile_entries(alfs, labeled, docs, {})

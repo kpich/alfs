@@ -36,7 +36,7 @@ def _docs(rows: list[tuple]) -> pl.DataFrame:
 def test_valid_label_not_flagged():
     text = "The quick brown fox jumps"
     byte_offset = len(b"The quick brown ")
-    labeled = _labeled([("fox", "d1", byte_offset, "1", 3)])
+    labeled = _labeled([("fox", "d1", byte_offset, "1", 2)])
     docs = _docs([("d1", text)])
 
     stale = validate(labeled, docs)
@@ -48,7 +48,7 @@ def test_stale_label_flagged():
     # Label says "fox" but text at that offset is "dog"
     text = "The quick brown dog jumps"
     byte_offset = len(b"The quick brown ")
-    labeled = _labeled([("fox", "d1", byte_offset, "1", 3)])
+    labeled = _labeled([("fox", "d1", byte_offset, "1", 2)])
     docs = _docs([("d1", text)])
 
     stale = validate(labeled, docs)
@@ -58,7 +58,7 @@ def test_stale_label_flagged():
 
 
 def test_orphaned_label_not_flagged():
-    labeled = _labeled([("fox", "missing_doc", 0, "1", 3)])
+    labeled = _labeled([("fox", "missing_doc", 0, "1", 2)])
     docs = _docs([])
 
     stale = validate(labeled, docs)
@@ -70,10 +70,10 @@ def test_mixed_returns_only_stale():
     text = "hello world"
     labeled = _labeled(
         [
-            ("hello", "d1", 0, "1", 3),  # valid
-            ("world", "d1", len(b"hello "), "1", 3),  # valid
-            ("goodbye", "d1", 0, "1", 3),  # stale — "hello" != "goodbye"
-            ("fox", "missing", 0, "1", 3),  # orphaned — not flagged
+            ("hello", "d1", 0, "1", 2),  # valid
+            ("world", "d1", len(b"hello "), "1", 2),  # valid
+            ("goodbye", "d1", 0, "1", 2),  # stale — "hello" != "goodbye"
+            ("fox", "missing", 0, "1", 2),  # orphaned — not flagged
         ]
     )
     docs = _docs([("d1", text)])

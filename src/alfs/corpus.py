@@ -30,7 +30,7 @@ def fetch_instances(
     labeled: pl.DataFrame,
     docs: pl.DataFrame,
     *,
-    min_rating: int = 3,
+    min_rating: int = 2,
     context_chars: int = 150,
     max_instances: int = 10,
     bold_form: bool = False,

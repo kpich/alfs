@@ -107,7 +107,7 @@ def run(
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
 
     labeled_pairs: set[tuple[str, int]] = set()
-    existing = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
+    existing = occ_store.query_form(form).filter(pl.col("rating").is_in([1, 2]))
     for row in existing.select(["doc_id", "byte_offset"]).iter_rows():
         labeled_pairs.add((row[0], row[1]))
 

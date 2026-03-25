@@ -36,7 +36,7 @@ class OccurrenceStore:
                 "doc_id      TEXT    NOT NULL, "
                 "byte_offset INTEGER NOT NULL, "
                 "sense_key   TEXT    NOT NULL, "
-                "rating      INTEGER NOT NULL CHECK (rating IN (0, 1, 2, 3)), "
+                "rating      INTEGER NOT NULL CHECK (rating IN (0, 1, 2)), "
                 "updated_at  TEXT, "
                 "PRIMARY KEY (form, doc_id, byte_offset)"
                 ")"
@@ -97,9 +97,9 @@ class OccurrenceStore:
         with self._connect() as con:
             rows = con.execute(
                 "SELECT form, COUNT(*) as n_total, "
-                "SUM(CASE WHEN rating IN (2, 3) THEN 1 ELSE 0 END) as n_good, "
-                "SUM(CASE WHEN rating IN (0, 1) THEN 1 ELSE 0 END) as n_bad, "
-                "SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as n_excellent "
+                "SUM(CASE WHEN rating IN (1, 2) THEN 1 ELSE 0 END) as n_good, "
+                "SUM(CASE WHEN rating = 0 THEN 1 ELSE 0 END) as n_bad, "
+                "SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as n_excellent "
                 "FROM labeled GROUP BY form"
             ).fetchall()
         if not rows:
