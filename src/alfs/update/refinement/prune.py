@@ -47,7 +47,7 @@ def main() -> None:
         .agg(
             [
                 pl.len().alias("total"),
-                (pl.col("rating") < 3).sum().alias("n_lt3"),
+                (pl.col("rating") < 2).sum().alias("n_lt3"),
             ]
         )
         .with_columns((pl.col("n_lt3") / pl.col("total")).alias("pct_lt3"))

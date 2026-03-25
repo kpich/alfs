@@ -181,7 +181,7 @@ def main() -> None:
         "--use-excellent-threshold",
         action="store_true",
         default=False,
-        help="Only count rating=3 occurrences as fully served (for induction)",
+        help="Only count rating=2 (excellent) occurrences as covered (for induction)",
     )
     args = parser.parse_args()
 

@@ -35,7 +35,7 @@ def _docs(rows: list[tuple]) -> pl.DataFrame:
 
 def test_returns_context_snippets():
     text = "The quick brown fox jumps over the lazy dog"
-    labeled = _labeled([("fox", "d1", 10, "1", 3)])
+    labeled = _labeled([("fox", "d1", 10, "1", 2)])
     docs = _docs([("d1", text)])
 
     result = fetch_instances("fox", "1", labeled, docs)
@@ -47,13 +47,13 @@ def test_returns_context_snippets():
 def test_filters_by_min_rating():
     labeled = _labeled(
         [
-            ("run", "d1", 0, "1", 3),
-            ("run", "d2", 0, "1", 2),  # below min_rating
+            ("run", "d1", 0, "1", 2),
+            ("run", "d2", 0, "1", 1),  # below min_rating
         ]
     )
     docs = _docs([("d1", "run fast"), ("d2", "run slow")])
 
-    result = fetch_instances("run", "1", labeled, docs, min_rating=3)
+    result = fetch_instances("run", "1", labeled, docs, min_rating=2)
 
     assert len(result) == 1
     assert "run fast" in result[0]
@@ -62,9 +62,9 @@ def test_filters_by_min_rating():
 def test_filters_by_form_and_sense_key():
     labeled = _labeled(
         [
-            ("run", "d1", 0, "1", 3),
-            ("run", "d2", 0, "2", 3),  # different sense
-            ("walk", "d3", 0, "1", 3),  # different form
+            ("run", "d1", 0, "1", 2),
+            ("run", "d2", 0, "2", 2),  # different sense
+            ("walk", "d3", 0, "1", 2),  # different form
         ]
     )
     docs = _docs([("d1", "run fast"), ("d2", "run slow"), ("d3", "walk away")])
@@ -76,7 +76,7 @@ def test_filters_by_form_and_sense_key():
 
 
 def test_respects_max_instances():
-    labeled = _labeled([("go", f"d{i}", 0, "1", 3) for i in range(20)])
+    labeled = _labeled([("go", f"d{i}", 0, "1", 2) for i in range(20)])
     docs = _docs([(f"d{i}", f"go somewhere {i}") for i in range(20)])
 
     result = fetch_instances("go", "1", labeled, docs, max_instances=5)
@@ -85,7 +85,7 @@ def test_respects_max_instances():
 
 
 def test_skips_missing_docs():
-    labeled = _labeled([("cat", "missing_doc", 0, "1", 3)])
+    labeled = _labeled([("cat", "missing_doc", 0, "1", 2)])
     docs = _docs([])
 
     result = fetch_instances("cat", "1", labeled, docs)
@@ -106,7 +106,7 @@ def test_bold_form_wraps_match_in_strong():
     text = "The quick brown fox jumps"
     # byte_offset for "fox" at char position 16
     byte_offset = len(b"The quick brown ")
-    labeled = _labeled([("fox", "d1", byte_offset, "1", 3)])
+    labeled = _labeled([("fox", "d1", byte_offset, "1", 2)])
     docs = _docs([("d1", text)])
 
     result = fetch_instances("fox", "1", labeled, docs, bold_form=True)

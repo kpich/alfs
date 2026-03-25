@@ -4,10 +4,9 @@ from pydantic import BaseModel, ConfigDict
 
 
 class OccurrenceRating(IntEnum):
-    NONE = 0  # no listed sense applies
-    POOR = 1
-    REASONABLE = 2
-    EXCELLENT = 3
+    POOR = 0  # doesn't fit / inappropriate
+    OKAY = 1  # fits but probably needs a more refined sense
+    EXCELLENT = 2  # great fit
 
 
 class AnnotatedOccurrence(BaseModel):
