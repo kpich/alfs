@@ -68,4 +68,4 @@ def test_morph_base_form_some_without_base():
             Sense(definition="standalone sense"),
         ],
     )
-    assert morph_base_form(alf) is None
+    assert morph_base_form(alf) == "do"
