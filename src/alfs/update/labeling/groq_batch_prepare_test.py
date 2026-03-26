@@ -1,6 +1,34 @@
-"""Unit tests for groq_batch_prepare.allocate_instances."""
+"""Unit tests for groq_batch_prepare.allocate_instances and effective_sense_count."""
 
-from alfs.update.labeling.groq_batch_prepare import allocate_instances
+from alfs.data_models.alf import Alf, Sense
+from alfs.data_models.sense_store import SenseStore
+from alfs.update.labeling.groq_batch_prepare import (
+    allocate_instances,
+    effective_sense_count,
+)
+
+
+def _store(tmp_path, *entries: Alf) -> SenseStore:
+    store = SenseStore(tmp_path / "senses.db")
+    for entry in entries:
+        store.write(entry)
+    return store
+
+
+def test_effective_sense_count_redirect_uses_canonical_senses(tmp_path):
+    canonical = Alf(
+        form="run",
+        senses=[Sense(definition="to move quickly"), Sense(definition="to operate")],
+    )
+    alias = Alf(form="Run", senses=[], redirect="run")
+    store = _store(tmp_path, canonical, alias)
+    assert effective_sense_count(alias, store) == 2
+
+
+def test_effective_sense_count_redirect_missing_target_returns_zero(tmp_path):
+    alias = Alf(form="Run", senses=[], redirect="run")
+    store = _store(tmp_path, alias)
+    assert effective_sense_count(alias, store) == 0
 
 
 def test_allocate_proportional_to_senses() -> None:

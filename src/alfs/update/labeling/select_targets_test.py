@@ -105,18 +105,11 @@ def test_non_letter_forms_filtered():
     assert "ok" in result
 
 
-def test_redirect_forms_excluded():
+def test_redirect_forms_included():
     tc = _total_counts({"The": 100, "the": 90})
     lc = _labeled_counts({})
-    result = select_top_n(
-        tc,
-        lc,
-        top_n=10,
-        rng=np.random.default_rng(0),
-        redirect_forms={"The"},
-        min_count=1,
-    )
-    assert "The" not in result
+    result = select_top_n(tc, lc, top_n=10, rng=np.random.default_rng(0), min_count=1)
+    assert "The" in result
     assert "the" in result
 
 

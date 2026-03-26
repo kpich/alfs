@@ -180,8 +180,6 @@ def run(
     all_entries = sense_store.all_entries()
     eff_senses: dict[str, int] = {}
     for form, alf in all_entries.items():
-        if alf.redirect is not None:
-            continue
         ec = effective_sense_count(alf, sense_store)
         if ec > 0:
             eff_senses[form] = ec

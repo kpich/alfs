@@ -117,8 +117,8 @@ def test_prepare_and_ingest_roundtrip(tmp_path: Path) -> None:
     assert row["rating"] == 2
 
 
-def test_prepare_excludes_redirect_forms(tmp_path: Path) -> None:
-    """Redirect forms are not included in the batch."""
+def test_prepare_includes_redirect_forms(tmp_path: Path) -> None:
+    """Redirect forms are included in the batch using the canonical's sense menu."""
     form = "Bark"  # redirect to "bark"
     canonical = "bark"
     doc_id = "d1"
@@ -147,7 +147,10 @@ def test_prepare_excludes_redirect_forms(tmp_path: Path) -> None:
         min_count=1,
     )
     lines = [ln for ln in batch_path.read_text().splitlines() if ln]
-    assert len(lines) == 0
+    assert len(lines) == 1
+    request = json.loads(lines[0])
+    system_msg = request["body"]["messages"][0]["content"]
+    assert "the sound a dog makes" in system_msg
 
 
 def test_prepare_excludes_form_with_no_senses(tmp_path: Path) -> None:

@@ -3,7 +3,7 @@
 Usage:
     python -m alfs.update.labeling.select_targets \\
         --seg-data-dir by_prefix/ --top-n 10 --output-dir targets/ \\
-        [--senses-db senses.db] [--labeled-db labeled.db] [--seed 42]
+        [--labeled-db labeled.db] [--seed 42]
 """
 
 import argparse
@@ -15,7 +15,6 @@ import numpy as np
 import polars as pl
 
 from alfs.data_models.occurrence_store import OccurrenceStore
-from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
 
 # Only consider forms that contain at least one letter (skip punctuation, whitespace,
@@ -29,7 +28,6 @@ def select_top_n(
     top_n: int,
     rng: np.random.Generator,
     min_count: int,
-    redirect_forms: set[str] | frozenset[str] = frozenset(),
     smoothing_alpha: float = 0.0,
 ) -> list[str]:
     """Return up to top_n forms sampled proportionally to sqrt(estimated need_work).
@@ -70,9 +68,6 @@ def select_top_n(
         )
     )
 
-    if redirect_forms:
-        candidates = candidates.filter(~pl.col("form").is_in(list(redirect_forms)))
-
     forms = candidates["form"].to_list()
     need_work_arr = candidates["need_work"].to_numpy().astype(np.float64)
     weights = np.sqrt(np.maximum(0.0, need_work_arr))
@@ -89,7 +84,6 @@ def run(
     seg_data_dir: str | Path,
     top_n: int,
     output_dir: str | Path,
-    senses_db: str | Path | None = None,
     labeled_db: str | Path | None = None,
     seed: int | None = None,
     min_count: int = 5,
@@ -125,12 +119,6 @@ def run(
             schema={"form": pl.String, "n_labeled": pl.Int64, "n_covered": pl.Int64}
         )
 
-    redirect_forms: set[str] = set()
-    if senses_db and Path(senses_db).exists():
-        store = SenseStore(Path(senses_db))
-        entries = store.all_entries()
-        redirect_forms = {f for f, alf in entries.items() if alf.redirect is not None}
-
     rng = np.random.default_rng(seed)
     forms = select_top_n(
         total_counts,
@@ -138,7 +126,6 @@ def run(
         top_n,
         rng,
         min_count,
-        redirect_forms,
         smoothing_alpha=smoothing_alpha,
     )
 
@@ -165,7 +152,6 @@ def main() -> None:
     )
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--senses-db", default=None, help="Path to senses.db")
     parser.add_argument("--labeled-db", default=None, help="Path to labeled.db")
     parser.add_argument("--seed", type=int, default=None, help="RNG seed")
     parser.add_argument(
@@ -189,7 +175,6 @@ def main() -> None:
         args.seg_data_dir,
         args.top_n,
         args.output_dir,
-        args.senses_db,
         args.labeled_db,
         args.seed,
         min_count=args.min_count,

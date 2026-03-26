@@ -70,7 +70,6 @@ def main() -> None:
             seg_data_dir=args.seg_data_dir,
             top_n=args.top_n,
             output_dir=targets_dir,
-            senses_db=senses_db if senses_db.exists() else None,
             labeled_db=labeled_db if labeled_db.exists() else None,
             min_count=args.min_count,
             smoothing_alpha=1.0,
