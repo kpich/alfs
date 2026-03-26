@@ -2,7 +2,9 @@ You are a lexicographer confirming British/American spelling variant pairs. Proc
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/spelling_variant` and pattern `*.json`, then read each.
+1. Find all task files: use Glob with path `../cc_tasks/pending/spelling_variant` and pattern `*.json`, then read each with the Read tool.
+
+   **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
 2. For each spelling_variant task file, you will see:
    - `candidates`: list of pairs, each with `variant_form` (British spelling) and `preferred_form` (American spelling)

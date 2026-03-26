@@ -2,7 +2,9 @@ You are a lexicographer auditing dictionary entries for invalid or artifact word
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/delete_entry` and pattern `*.json`, then read each.
+1. Find all task files: use Glob with path `../cc_tasks/pending/delete_entry` and pattern `*.json`, then read each with the Read tool.
+
+   **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
 2. For each delete_entry task file, you will see:
    - `form`: the word form being reviewed

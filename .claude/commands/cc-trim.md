@@ -2,7 +2,9 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/trim_sense` and pattern `*.json`, then read each.
+1. Find all task files: use Glob with path `../cc_tasks/pending/trim_sense` and pattern `*.json`, then read each with the Read tool.
+
+   **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
 2. For each trim_sense task file, you will see:
    - `form`: the word being reviewed
