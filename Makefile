@@ -17,6 +17,7 @@ LABEL_MODEL        ?= gemma2:9b
 CC_TASKS_DIR       ?= ../cc_tasks
 GROQ_BATCH_DIR     ?= ../groq_batch
 GROQ_MODEL         ?= llama-3.1-8b-instant
+INSTANCE_LOG       ?= ../alfs_data/instance_log
 SOURCE             ?= wikibooks
 N_DOCS             ?= 10000
 
@@ -49,7 +50,8 @@ relabel:
 		--docs $(DOCS) \
 		--seg-data-dir $(SEG_DATA_DIR) \
 		--nwords $(NWORDS) \
-		--model $(LABEL_MODEL)
+		--model $(LABEL_MODEL) \
+		--log-dir $(INSTANCE_LOG)
 
 label_new:
 	bash scripts/label_new.sh \
@@ -58,7 +60,8 @@ label_new:
 		--docs $(DOCS) \
 		--seg-data-dir $(SEG_DATA_DIR) \
 		--nwords $(NWORDS) \
-		--model $(LABEL_MODEL)
+		--model $(LABEL_MODEL) \
+		--log-dir $(INSTANCE_LOG)
 
 dedupe:
 	uv run --no-sync python -m alfs.update.refinement.dedupe \
@@ -137,7 +140,8 @@ clerk:
 	uv run --no-sync python -m alfs.clerk.worker \
 		--queue-dir $(CLERK_QUEUE) \
 		--senses-db $(SENSES_DB) \
-		--labeled-db $(LABELED_DB)
+		--labeled-db $(LABELED_DB) \
+		--instance-log $(INSTANCE_LOG)
 
 cc_apply:
 	uv run --no-sync python -m alfs.cc.apply \
@@ -153,7 +157,8 @@ clerk-watch:
 		--queue-dir $(CLERK_QUEUE) \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
-		--watch
+		--watch \
+		--instance-log $(INSTANCE_LOG)
 
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
@@ -210,7 +215,8 @@ groq-batch-ingest:
 	uv run --no-sync python -m alfs.update.labeling.groq_batch_ingest \
 		--batch-output $(GROQ_BATCH_DIR)/batch_output.jsonl \
 		--metadata $(GROQ_BATCH_DIR)/batch_metadata.jsonl \
-		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB)
+		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
+		--log-dir $(INSTANCE_LOG)
 
 cleandata:
 	@echo "This will delete: ../alfs_data  ../seg_data  ../update_data  ../viewer_data"

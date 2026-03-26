@@ -89,6 +89,7 @@ def run(
     model: str = "gemma2:9b",
     context_chars: int = 100,
     max_occurrences: int = 100,
+    log_dir: str | Path | None = None,
 ) -> None:
     target = UpdateTarget.model_validate_json(Path(target_file).read_text())
     form = target.form
@@ -170,6 +171,10 @@ def run(
 
     if upsert_rows:
         occ_store.upsert_many(upsert_rows, model=model)
+        if log_dir is not None:
+            from alfs.data_models.instance_log import append_upserts
+
+            append_upserts(Path(log_dir), upsert_rows, model=model)
         print(f"Labeled {len(upsert_rows)} occurrences for '{form}' → labeled.db")
     else:
         print(f"No new occurrences to label for '{form}'")
@@ -189,6 +194,9 @@ def main() -> None:
     parser.add_argument(
         "--max-occurrences", type=int, default=100
     )  # TODO: artificially low for dev
+    parser.add_argument(
+        "--log-dir", default=None, help="Directory for instance-tagging change log"
+    )
     args = parser.parse_args()
 
     run(
@@ -200,6 +208,7 @@ def main() -> None:
         args.model,
         args.context_chars,
         args.max_occurrences,
+        args.log_dir,
     )
 
 

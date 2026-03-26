@@ -42,6 +42,7 @@ def ingest(
     metadata_path: str | Path,
     senses_db: str | Path,
     labeled_db: str | Path,
+    log_dir: str | Path | None = None,
 ) -> int:
     """Parse Groq batch output JSONL and upsert results into labeled.db.
 
@@ -154,6 +155,10 @@ def ingest(
             rows_by_model.setdefault(model_name, []).append(row)
         for model_name, model_rows in rows_by_model.items():
             occ_store.upsert_many(model_rows, model=model_name)
+            if log_dir is not None:
+                from alfs.data_models.instance_log import append_upserts
+
+                append_upserts(Path(log_dir), model_rows, model=model_name)
 
     print(f"Ingested {len(upsert_rows)} rows, skipped {skipped}")
     return len(upsert_rows)
@@ -167,6 +172,9 @@ def main() -> None:
     parser.add_argument("--metadata", required=True)
     parser.add_argument("--senses-db", required=True)
     parser.add_argument("--labeled-db", required=True)
+    parser.add_argument(
+        "--log-dir", default=None, help="Directory for instance-tagging change log"
+    )
     args = parser.parse_args()
 
     ingest(
@@ -174,6 +182,7 @@ def main() -> None:
         metadata_path=args.metadata,
         senses_db=args.senses_db,
         labeled_db=args.labeled_db,
+        log_dir=args.log_dir,
     )
 
 

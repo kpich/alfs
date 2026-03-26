@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import UTC, datetime
 import logging
 from pathlib import Path
 import time
@@ -10,7 +11,16 @@ import traceback
 
 from pydantic import TypeAdapter
 
-from alfs.clerk.request import ChangeRequest
+from alfs.clerk.request import (
+    ChangeRequest,
+    DeleteEntryRequest,
+    PruneRequest,
+    TrimSenseRequest,
+)
+from alfs.data_models.instance_log import (
+    append_delete_by_form,
+    append_delete_by_sense,
+)
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 
@@ -52,11 +62,12 @@ def _process_file(
     failed_dir: Path,
     sense_store: SenseStore,
     occ_store: OccurrenceStore | None,
+    log_dir: Path | None,
 ) -> None:
     """Parse and apply one request file; move to done/ or failed/."""
     try:
         request = _adapter.validate_json(processing_path.read_bytes())
-        request.apply(sense_store, occ_store)  # type: ignore[union-attr]
+        applied = request.apply(sense_store, occ_store)  # type: ignore[union-attr]
         processing_path.rename(done_dir / processing_path.name)
         logger.info(
             "Applied %s %s (form=%r)",
@@ -64,6 +75,17 @@ def _process_file(
             request.id,  # type: ignore[union-attr]
             request.form,  # type: ignore[union-attr]
         )
+        if applied and log_dir is not None:
+            now = datetime.now(UTC)
+            if isinstance(request, TrimSenseRequest):
+                append_delete_by_sense(
+                    log_dir, request.form, request.sense_id, request.id, now
+                )
+            elif isinstance(request, PruneRequest):
+                for sid in request.removed_ids:
+                    append_delete_by_sense(log_dir, request.form, sid, request.id, now)
+            elif isinstance(request, DeleteEntryRequest):
+                append_delete_by_form(log_dir, request.form, request.id, now)
     except Exception:
         tb = traceback.format_exc()
         failed_path = failed_dir / processing_path.name
@@ -77,6 +99,7 @@ def drain(
     sense_store: SenseStore,
     occ_store: OccurrenceStore | None,
     workers: int = 4,
+    log_dir: Path | None = None,
 ) -> None:
     """Process all current pending requests in a thread pool, then return."""
     _ensure_dirs(queue_dir)
@@ -99,7 +122,9 @@ def drain(
     logger.info("Processing %d requests with %d workers", len(claimed), workers)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = [
-            pool.submit(_process_file, cp, done_dir, failed_dir, sense_store, occ_store)
+            pool.submit(
+                _process_file, cp, done_dir, failed_dir, sense_store, occ_store, log_dir
+            )
             for cp in claimed
         ]
         for future in as_completed(futures):
@@ -112,12 +137,13 @@ def watch(
     occ_store: OccurrenceStore | None,
     workers: int = 4,
     poll_interval: float = 1.0,
+    log_dir: Path | None = None,
 ) -> None:
     """Continuously poll pending/ and process new requests until interrupted."""
     logger.info("Watching %s (poll_interval=%.1fs)", queue_dir, poll_interval)
     try:
         while True:
-            drain(queue_dir, sense_store, occ_store, workers=workers)
+            drain(queue_dir, sense_store, occ_store, workers=workers, log_dir=log_dir)
             time.sleep(poll_interval)
     except KeyboardInterrupt:
         logger.info("Interrupted; stopping watcher.")

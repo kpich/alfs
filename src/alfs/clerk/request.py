@@ -23,7 +23,7 @@ class AddSensesRequest(BaseModel):
     form: str
     new_senses: list[Sense]
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         new_senses = self.new_senses
         form = self.form
 
@@ -43,6 +43,7 @@ class AddSensesRequest(BaseModel):
             )
 
         sense_store.update(form, merge)
+        return True
 
 
 class RewriteRequest(BaseModel):
@@ -54,7 +55,7 @@ class RewriteRequest(BaseModel):
     after: Sense
     requesting_model: str | None = None
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         if not can_overwrite(self.requesting_model, self.before.updated_by_model):
             _log.warning(
                 "Skipping %s for %r: %r cannot overwrite %r",
@@ -63,7 +64,7 @@ class RewriteRequest(BaseModel):
                 self.requesting_model,
                 self.before.updated_by_model,
             )
-            return
+            return False
         after = self.after
         before_id = self.before.id
         sense_store.update(
@@ -72,6 +73,7 @@ class RewriteRequest(BaseModel):
                 update={"senses": [after if s.id == before_id else s for s in e.senses]}  # type: ignore[union-attr]
             ),
         )
+        return True
 
 
 class PosTagRequest(BaseModel):
@@ -83,7 +85,7 @@ class PosTagRequest(BaseModel):
     after: Sense
     requesting_model: str | None = None
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         if not can_overwrite(self.requesting_model, self.before.updated_by_model):
             _log.warning(
                 "Skipping %s for %r: %r cannot overwrite %r",
@@ -92,7 +94,7 @@ class PosTagRequest(BaseModel):
                 self.requesting_model,
                 self.before.updated_by_model,
             )
-            return
+            return False
         after = self.after
         before_id = self.before.id
         sense_store.update(
@@ -101,6 +103,7 @@ class PosTagRequest(BaseModel):
                 update={"senses": [after if s.id == before_id else s for s in e.senses]}  # type: ignore[union-attr]
             ),
         )
+        return True
 
 
 class UpdatePosRequest(BaseModel):
@@ -112,7 +115,7 @@ class UpdatePosRequest(BaseModel):
     after: Sense
     requesting_model: str | None = None
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         if not can_overwrite(self.requesting_model, self.before.updated_by_model):
             _log.warning(
                 "Skipping %s for %r: %r cannot overwrite %r",
@@ -121,7 +124,7 @@ class UpdatePosRequest(BaseModel):
                 self.requesting_model,
                 self.before.updated_by_model,
             )
-            return
+            return False
         after = self.after
         before_id = self.before.id
         sense_store.update(
@@ -130,6 +133,7 @@ class UpdatePosRequest(BaseModel):
                 update={"senses": [after if s.id == before_id else s for s in e.senses]}  # type: ignore[union-attr]
             ),
         )
+        return True
 
 
 class PruneRequest(BaseModel):
@@ -142,7 +146,7 @@ class PruneRequest(BaseModel):
     removed_ids: list[str]
     requesting_model: str | None = None
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         removed_set = set(self.removed_ids)
         for sense in self.before:
             if sense.id in removed_set and not can_overwrite(
@@ -155,7 +159,7 @@ class PruneRequest(BaseModel):
                     self.requesting_model,
                     sense.updated_by_model,
                 )
-                return
+                return False
         after = self.after
         sense_store.update(
             self.form,
@@ -164,6 +168,7 @@ class PruneRequest(BaseModel):
         if occ_store is not None:
             for sid in self.removed_ids:
                 occ_store.delete_by_sense_id(self.form, sid)
+        return True
 
 
 class TrimSenseRequest(BaseModel):
@@ -177,7 +182,7 @@ class TrimSenseRequest(BaseModel):
     reason: str
     requesting_model: str | None = None
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         for sense in self.before:
             if sense.id == self.sense_id:
                 if not can_overwrite(self.requesting_model, sense.updated_by_model):
@@ -188,7 +193,7 @@ class TrimSenseRequest(BaseModel):
                         self.requesting_model,
                         sense.updated_by_model,
                     )
-                    return
+                    return False
                 break
         after = self.after
         sense_store.update(
@@ -197,6 +202,7 @@ class TrimSenseRequest(BaseModel):
         )
         if occ_store is not None:
             occ_store.delete_by_sense_id(self.form, self.sense_id)
+        return True
 
 
 class MorphRedirectRequest(BaseModel):
@@ -212,7 +218,7 @@ class MorphRedirectRequest(BaseModel):
     after: Sense
     promote_to_parent: bool = True
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         idx = self.derived_sense_idx
         after_sense = self.after
         before_sense = self.before
@@ -243,6 +249,7 @@ class MorphRedirectRequest(BaseModel):
                 )
 
             sense_store.update(base_form, add_to_parent)
+        return True
 
 
 class SetRedirectRequest(BaseModel):
@@ -252,7 +259,7 @@ class SetRedirectRequest(BaseModel):
     form: str
     redirect_to: str
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         redirect_to = self.redirect_to
         form = self.form
 
@@ -261,6 +268,7 @@ class SetRedirectRequest(BaseModel):
             return base.model_copy(update={"redirect": redirect_to})
 
         sense_store.update(self.form, set_redirect)
+        return True
 
 
 class SetSpellingVariantRequest(BaseModel):
@@ -270,12 +278,13 @@ class SetSpellingVariantRequest(BaseModel):
     form: str
     preferred_form: str
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         preferred = self.preferred_form
         sense_store.update(
             self.form,
             lambda e: e.model_copy(update={"spelling_variant_of": preferred}),  # type: ignore[union-attr]
         )
+        return True
 
 
 class ClearRedirectSensesRequest(BaseModel):
@@ -284,8 +293,9 @@ class ClearRedirectSensesRequest(BaseModel):
     created_at: datetime
     form: str
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         sense_store.update(self.form, lambda e: e.model_copy(update={"senses": []}))  # type: ignore[union-attr]
+        return True
 
 
 class DeleteEntryRequest(BaseModel):
@@ -296,7 +306,7 @@ class DeleteEntryRequest(BaseModel):
     reason: str
     requesting_model: str | None = None
 
-    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
+    def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
         existing = sense_store.read(self.form)
         if existing is not None:
             for sense in existing.senses:
@@ -307,10 +317,11 @@ class DeleteEntryRequest(BaseModel):
                         self.requesting_model,
                         sense.updated_by_model,
                     )
-                    return
+                    return False
         if occ_store is not None:
             occ_store.delete_by_form(self.form)
         sense_store.delete(self.form)
+        return True
 
 
 ChangeRequest = Annotated[

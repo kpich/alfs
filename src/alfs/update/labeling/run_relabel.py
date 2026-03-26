@@ -25,6 +25,9 @@ def main() -> None:
     parser.add_argument("--model", default="gemma2:9b")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-occurrences", type=int, default=20)
+    parser.add_argument(
+        "--log-dir", default=None, help="Directory for instance-tagging change log"
+    )
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -44,6 +47,7 @@ def main() -> None:
                 model=args.model,
                 context_chars=args.context_chars,
                 max_occurrences=args.max_occurrences,
+                log_dir=args.log_dir,
             )
 
 

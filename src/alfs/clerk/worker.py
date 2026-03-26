@@ -5,6 +5,7 @@ Usage:
         --queue-dir ../clerk_queue \\
         --senses-db ../alfs_data/senses.db \\
         [--labeled-db ../alfs_data/labeled.db] \\
+        [--instance-log ../alfs_data/instance_log] \\
         [--watch] [--workers 4] [--poll-interval 1.0]
 """
 
@@ -37,6 +38,11 @@ def main() -> None:
     )
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--poll-interval", type=float, default=1.0)
+    parser.add_argument(
+        "--instance-log",
+        default=None,
+        help="Directory for instance-tagging JSONL change log",
+    )
     args = parser.parse_args()
 
     queue_dir = Path(args.queue_dir)
@@ -54,6 +60,7 @@ def main() -> None:
 
     sense_store = SenseStore(Path(args.senses_db))
     occ_store = OccurrenceStore(Path(args.labeled_db)) if args.labeled_db else None
+    instance_log = Path(args.instance_log) if args.instance_log else None
 
     if args.watch:
         watch(
@@ -62,9 +69,16 @@ def main() -> None:
             occ_store,
             workers=args.workers,
             poll_interval=args.poll_interval,
+            log_dir=instance_log,
         )
     else:
-        drain(queue_dir, sense_store, occ_store, workers=args.workers)
+        drain(
+            queue_dir,
+            sense_store,
+            occ_store,
+            workers=args.workers,
+            log_dir=instance_log,
+        )
 
 
 if __name__ == "__main__":
