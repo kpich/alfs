@@ -4,16 +4,14 @@ import html as _html
 
 import polars as pl
 
+from alfs.encoding import context_window as _context_window
+
 
 def _extract_context(
     text: str, byte_offset: int, form: str, context_chars: int, bold_form: bool = False
 ) -> str:
-    char_offset = len(text.encode()[:byte_offset].decode())
-    start = max(0, char_offset - context_chars)
-    end = char_offset + len(form) + context_chars
-    snippet = text[start:end]
+    snippet, wp = _context_window(text, byte_offset, form, context_chars)
     if bold_form:
-        wp = char_offset - start
         return (
             _html.escape(snippet[:wp])
             + "<strong>"

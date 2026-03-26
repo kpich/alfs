@@ -22,21 +22,15 @@ from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Queue prune changes for low-quality senses via clerk"
-    )
-    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
-    parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
-    parser.add_argument(
-        "--queue-dir", required=True, help="Path to clerk queue directory"
-    )
-    parser.add_argument("--n", type=int, default=5, help="Max senses to prune")
-    args = parser.parse_args()
-
-    sense_store = SenseStore(Path(args.senses_db))
-    occ_store = OccurrenceStore(Path(args.labeled_db))
-    queue_dir = Path(args.queue_dir)
+def run(
+    senses_db: str | Path,
+    labeled_db: str | Path,
+    queue_dir: str | Path,
+    n: int = 5,
+) -> int:
+    sense_store = SenseStore(Path(senses_db))
+    occ_store = OccurrenceStore(Path(labeled_db))
+    queue_dir = Path(queue_dir)
 
     labeled_df = occ_store.to_polars()
     all_entries = sense_store.all_entries()
@@ -53,12 +47,12 @@ def main() -> None:
         .with_columns((pl.col("n_lt3") / pl.col("total")).alias("pct_lt3"))
         .filter(pl.col("pct_lt3") > 0.20)
         .sort("pct_lt3", descending=True)
-        .head(args.n)
+        .head(n)
     )
 
     if stats.is_empty():
         print("No senses qualify for pruning.")
-        return
+        return 0
 
     # Filter to forms present in senses.db, non-redirect, with >1 sense
     eligible_rows = []
@@ -81,7 +75,7 @@ def main() -> None:
 
     if not eligible_rows:
         print("No eligible senses after filtering.")
-        return
+        return 0
 
     # Group by form
     by_form: dict[str, list[dict]] = {}  # type: ignore[type-arg]
@@ -121,6 +115,21 @@ def main() -> None:
         queued += 1
 
     print(f"Queued {queued} prune change{'s' if queued != 1 else ''}.")
+    return queued
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Queue prune changes for low-quality senses via clerk"
+    )
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
+    parser.add_argument("--n", type=int, default=5, help="Max senses to prune")
+    args = parser.parse_args()
+    run(args.senses_db, args.labeled_db, args.queue_dir, args.n)
 
 
 if __name__ == "__main__":

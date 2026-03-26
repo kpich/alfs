@@ -19,6 +19,7 @@ from alfs.data_models.alf import Sense
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
 from alfs.update.refinement import prompts
+from alfs.update.refinement.schemas import CRITIC_SCHEMA as _CRITIC_SCHEMA
 
 _SCREEN_SCHEMA = {
     "type": "object",
@@ -38,33 +39,16 @@ _SCREEN_SCHEMA = {
     "required": ["bad_links"],
 }
 
-_CRITIC_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "is_valid": {"type": "boolean"},
-        "reason": {"type": "string"},
-    },
-    "required": ["is_valid", "reason"],
-}
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Detect and undo incorrect morphological links via clerk queue"
-    )
-    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
-    parser.add_argument(
-        "--queue-dir", required=True, help="Path to clerk queue directory"
-    )
-    parser.add_argument(
-        "--n", type=int, default=10, help="Number of morph-linked senses to sample"
-    )
-    parser.add_argument("--model", default="qwen2.5:32b")
-    parser.add_argument("--seed", type=int, default=None)
-    args = parser.parse_args()
-
-    sense_store = SenseStore(Path(args.senses_db))
-    queue_dir = Path(args.queue_dir)
+def run(
+    senses_db: str | Path,
+    queue_dir: str | Path,
+    n: int = 10,
+    model: str = "qwen2.5:32b",
+    seed: int | None = None,
+) -> int:
+    sense_store = SenseStore(Path(senses_db))
+    queue_dir = Path(queue_dir)
 
     all_entries = sense_store.all_entries()
 
@@ -77,15 +61,15 @@ def main() -> None:
 
     if not morph_triples:
         print("No morph-linked senses found.")
-        return
+        return 0
 
-    rng = random.Random(args.seed)
-    sample = rng.sample(morph_triples, min(args.n, len(morph_triples)))
+    rng = random.Random(seed)
+    sample = rng.sample(morph_triples, min(n, len(morph_triples)))
 
     print(f"Screening {len(sample)} morph-linked senses...")
 
     screen_data = llm.chat_json(
-        args.model,
+        model,
         prompts.undo_morph_screen_prompt(sample),
         format=_SCREEN_SCHEMA,
     )
@@ -119,7 +103,7 @@ def main() -> None:
 
         # Critic call
         verdict = llm.chat_json(
-            args.model,
+            model,
             prompts.undo_morph_critic_prompt(
                 form,
                 sense_idx,
@@ -162,6 +146,24 @@ def main() -> None:
 
     noun = "change" if total_queued == 1 else "changes"
     print(f"Queued {total_queued} undo morph {noun}.")
+    return total_queued
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Detect and undo incorrect morphological links via clerk queue"
+    )
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
+    parser.add_argument(
+        "--n", type=int, default=10, help="Number of morph-linked senses to sample"
+    )
+    parser.add_argument("--model", default="qwen2.5:32b")
+    parser.add_argument("--seed", type=int, default=None)
+    args = parser.parse_args()
+    run(args.senses_db, args.queue_dir, args.n, args.model, args.seed)
 
 
 if __name__ == "__main__":

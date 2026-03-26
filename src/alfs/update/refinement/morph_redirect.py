@@ -19,6 +19,7 @@ from alfs.clerk.request import MorphRedirectRequest
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
 from alfs.update.refinement import prompts
+from alfs.update.refinement.schemas import CRITIC_SCHEMA as _MORPH_CRITIC_SCHEMA
 
 _SCREEN_SCHEMA = {
     "type": "object",
@@ -36,15 +37,6 @@ _SCREEN_SCHEMA = {
         }
     },
     "required": ["candidates"],
-}
-
-_MORPH_CRITIC_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "is_valid": {"type": "boolean"},
-        "reason": {"type": "string"},
-    },
-    "required": ["is_valid", "reason"],
 }
 
 _ANALYZE_SCHEMA = {
@@ -75,31 +67,17 @@ _ANALYZE_SCHEMA = {
 }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Propose morphological redirect links via clerk queue"
-    )
-    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
-    parser.add_argument(
-        "--queue-dir", required=True, help="Path to clerk queue directory"
-    )
-    parser.add_argument("--n", type=int, default=50, help="Number of forms to sample")
-    parser.add_argument(
-        "--batch-size", type=int, default=10, help="Forms per screening batch"
-    )
-    parser.add_argument("--model", default="qwen2.5:32b")
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument(
-        "--cc-tasks-dir",
-        default=None,
-        help="Path to CC tasks directory (writes task file instead of calling LLM)",
-    )
-    args = parser.parse_args()
-
-    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
-
-    sense_store = SenseStore(Path(args.senses_db))
-    queue_dir = Path(args.queue_dir)
+def run(
+    senses_db: str | Path,
+    queue_dir: str | Path,
+    n: int = 50,
+    batch_size: int = 10,
+    model: str = "qwen2.5:32b",
+    seed: int | None = None,
+    cc_tasks_dir: str | Path | None = None,
+) -> int:
+    sense_store = SenseStore(Path(senses_db))
+    queue_dir = Path(queue_dir)
 
     all_entries = sense_store.all_entries()
 
@@ -112,13 +90,13 @@ def main() -> None:
     eligible_set = set(eligible.keys())
 
     # Sample eligible forms
-    rng = random.Random(args.seed)
-    sample_forms = rng.sample(list(eligible.keys()), min(args.n, len(eligible)))
+    rng = random.Random(seed)
+    sample_forms = rng.sample(list(eligible.keys()), min(n, len(eligible)))
 
     # Chunk into batches
     batches = [
-        sample_forms[i : i + args.batch_size]
-        for i in range(0, len(sample_forms), args.batch_size)
+        sample_forms[i : i + batch_size]
+        for i in range(0, len(sample_forms), batch_size)
     ]
 
     if cc_tasks_dir:
@@ -151,14 +129,14 @@ def main() -> None:
             task_path.write_text(task.model_dump_json())
             print(f"  wrote CC task for batch of {len(batch)} forms")
         print("Done.")
-        return
+        return 0
 
     total_queued = 0
 
     for batch in batches:
         # Screen batch for morphological candidates
         screen_data = llm.chat_json(
-            args.model,
+            model,
             prompts.morph_screen_prompt(batch),
             format=_SCREEN_SCHEMA,
         )
@@ -178,7 +156,7 @@ def main() -> None:
             base_alf = eligible[base_form]
 
             analyze_data = llm.chat_json(
-                args.model,
+                model,
                 prompts.morph_analyze_prompt(
                     derived_form, base_form, derived_alf, base_alf
                 ),
@@ -208,12 +186,12 @@ def main() -> None:
                         "definition": proposed_def,
                         "morph_base": base_form,
                         "morph_relation": relation,
-                        "updated_by_model": args.model,
+                        "updated_by_model": model,
                     }
                 )
 
                 verdict = llm.chat_json(
-                    args.model,
+                    model,
                     prompts.morph_critic_prompt(
                         derived_form, base_form, relation, proposed_def
                     ),
@@ -247,6 +225,39 @@ def main() -> None:
 
     noun = "change" if total_queued == 1 else "changes"
     print(f"Queued {total_queued} morph redirect {noun}.")
+    return total_queued
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Propose morphological redirect links via clerk queue"
+    )
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
+    parser.add_argument("--n", type=int, default=50, help="Number of forms to sample")
+    parser.add_argument(
+        "--batch-size", type=int, default=10, help="Forms per screening batch"
+    )
+    parser.add_argument("--model", default="qwen2.5:32b")
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--cc-tasks-dir",
+        default=None,
+        help="Path to CC tasks directory (writes task file instead of calling LLM)",
+    )
+    args = parser.parse_args()
+    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
+    run(
+        args.senses_db,
+        args.queue_dir,
+        args.n,
+        args.batch_size,
+        args.model,
+        args.seed,
+        cc_tasks_dir,
+    )
 
 
 if __name__ == "__main__":

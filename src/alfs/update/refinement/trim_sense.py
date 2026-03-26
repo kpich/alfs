@@ -37,39 +37,27 @@ _TRIM_SCHEMA = {
 }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="LLM-driven redundant-sense deletion via clerk queue"
-    )
-    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
-    parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
-    parser.add_argument("--docs", required=True, help="Path to docs.parquet")
-    parser.add_argument(
-        "--queue-dir", required=True, help="Path to clerk queue directory"
-    )
-    parser.add_argument("--n", type=int, default=50, help="Number of forms to evaluate")
-    parser.add_argument("--model", default="qwen2.5:32b")
-    parser.add_argument(
-        "--cc-tasks-dir",
-        default=None,
-        help="Path to CC tasks directory (writes task file instead of calling LLM)",
-    )
-    args = parser.parse_args()
-
-    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
-
-    store = SenseStore(Path(args.senses_db))
-    occ_store = OccurrenceStore(Path(args.labeled_db))
-    docs_df = pl.read_parquet(args.docs)
+def run(
+    senses_db: str | Path,
+    labeled_db: str | Path,
+    docs: str | Path,
+    queue_dir: str | Path,
+    n: int = 50,
+    model: str = "qwen2.5:32b",
+    cc_tasks_dir: str | Path | None = None,
+) -> None:
+    store = SenseStore(Path(senses_db))
+    occ_store = OccurrenceStore(Path(labeled_db))
+    docs_df = pl.read_parquet(docs)
     labeled_df = occ_store.to_polars()
-    queue_dir = Path(args.queue_dir)
+    queue_dir = Path(queue_dir)
 
     eligible = [
         (f, a)
         for f, a in store.all_entries().items()
         if not a.redirect and len(a.senses) >= 2
     ]
-    selected = random.sample(eligible, min(args.n, len(eligible)))
+    selected = random.sample(eligible, min(n, len(eligible)))
 
     if cc_tasks_dir:
         from alfs.cc.models import CCTrimSenseTask, SenseInfo
@@ -130,7 +118,7 @@ def main() -> None:
                 base_senses = list(base_alf.senses)
 
         data = llm.chat_json(
-            args.model,
+            model,
             prompts.trim_sense_prompt(
                 form, list(alf.senses), examples, base_name, base_senses
             ),
@@ -162,12 +150,42 @@ def main() -> None:
             after=remaining,
             sense_id=deleted_sense.id,
             reason=reason,
-            requesting_model=args.model,
+            requesting_model=model,
         )
         enqueue(request, queue_dir)
         print(f"  queued trim for {form!r}: sense {sense_num} — {reason}")
 
     print("Done.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="LLM-driven redundant-sense deletion via clerk queue"
+    )
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
+    parser.add_argument("--docs", required=True, help="Path to docs.parquet")
+    parser.add_argument(
+        "--queue-dir", required=True, help="Path to clerk queue directory"
+    )
+    parser.add_argument("--n", type=int, default=50, help="Number of forms to evaluate")
+    parser.add_argument("--model", default="qwen2.5:32b")
+    parser.add_argument(
+        "--cc-tasks-dir",
+        default=None,
+        help="Path to CC tasks directory (writes task file instead of calling LLM)",
+    )
+    args = parser.parse_args()
+    cc_tasks_dir = args.cc_tasks_dir or os.environ.get("CC_TASKS_DIR")
+    run(
+        args.senses_db,
+        args.labeled_db,
+        args.docs,
+        args.queue_dir,
+        args.n,
+        args.model,
+        cc_tasks_dir,
+    )
 
 
 if __name__ == "__main__":

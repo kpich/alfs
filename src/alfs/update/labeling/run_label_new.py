@@ -8,11 +8,8 @@ Usage:
 """
 
 import argparse
-from pathlib import Path
-import tempfile
 
-from alfs.update.labeling import label_occurrences
-from alfs.update.labeling.generate_relabel_targets import generate_targets
+from alfs.update.labeling.run_relabel import run
 
 
 def main() -> None:
@@ -29,26 +26,18 @@ def main() -> None:
         "--log-dir", default=None, help="Directory for instance-tagging change log"
     )
     args = parser.parse_args()
-
-    with tempfile.TemporaryDirectory() as tmp:
-        target_files = generate_targets(
-            senses_db=Path(args.senses_db),
-            output_dir=Path(tmp),
-            labeled_db=None,
-            nwords=args.nwords,
-        )
-        for target_file in target_files:
-            label_occurrences.run(
-                target_file=target_file,
-                seg_data_dir=args.seg_data_dir,
-                docs=args.docs,
-                senses_db=args.senses_db,
-                labeled_db=args.labeled_db,
-                model=args.model,
-                context_chars=args.context_chars,
-                max_occurrences=args.max_occurrences,
-                log_dir=args.log_dir,
-            )
+    run(
+        senses_db=args.senses_db,
+        labeled_db=args.labeled_db,
+        new_only=True,  # filter targets to forms not yet in labeled.db
+        docs=args.docs,
+        seg_data_dir=args.seg_data_dir,
+        nwords=args.nwords,
+        model=args.model,
+        context_chars=args.context_chars,
+        max_occurrences=args.max_occurrences,
+        log_dir=args.log_dir,
+    )
 
 
 if __name__ == "__main__":

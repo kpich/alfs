@@ -26,25 +26,8 @@ from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
 from alfs.update.refinement import prompts
-
-_POS_VALUES = [p.value for p in PartOfSpeech]
-
-_POS_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "pos": {"type": "string", "enum": _POS_VALUES},
-    },
-    "required": ["pos"],
-}
-
-_POS_CRITIC_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "is_valid": {"type": "boolean"},
-        "reason": {"type": "string"},
-    },
-    "required": ["is_valid", "reason"],
-}
+from alfs.update.refinement.schemas import CRITIC_SCHEMA as _POS_CRITIC_SCHEMA
+from alfs.update.refinement.schemas import POS_SCHEMA as _POS_SCHEMA
 
 
 def _make_tagger(

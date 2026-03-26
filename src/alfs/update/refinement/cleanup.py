@@ -20,15 +20,9 @@ from alfs.clerk.request import ClearRedirectSensesRequest
 from alfs.data_models.sense_store import SenseStore
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Clear stale senses from redirect entries"
-    )
-    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
-    parser.add_argument("--queue-dir", required=True, help="Path to clerk queue dir")
-    args = parser.parse_args()
-
-    store = SenseStore(Path(args.senses_db))
+def run(senses_db: str | Path, queue_dir: str | Path) -> int:
+    store = SenseStore(Path(senses_db))
+    queue_dir = Path(queue_dir)
     queued = 0
     for form, alf in store.all_entries().items():
         if alf.redirect and alf.senses:
@@ -37,11 +31,21 @@ def main() -> None:
                 created_at=datetime.now(UTC),
                 form=form,
             )
-            enqueue(request, Path(args.queue_dir))
+            enqueue(request, queue_dir)
             print(f"  queued clear for redirect: {form!r} → {alf.redirect!r}")
             queued += 1
-
     print(f"Queued {queued} entries.")
+    return queued
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Clear stale senses from redirect entries"
+    )
+    parser.add_argument("--senses-db", required=True, help="Path to senses.db")
+    parser.add_argument("--queue-dir", required=True, help="Path to clerk queue dir")
+    args = parser.parse_args()
+    run(args.senses_db, args.queue_dir)
 
 
 if __name__ == "__main__":

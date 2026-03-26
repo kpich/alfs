@@ -20,6 +20,7 @@ from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
+from alfs.encoding import context_window as _context_window
 from alfs.seg.aggregate_occurrences import prefix as form_prefix
 from alfs.update import llm
 from alfs.update.induction import prompts
@@ -55,10 +56,8 @@ _CRITIC_SCHEMA = {
 
 
 def extract_context(text: str, byte_offset: int, form: str, context_chars: int) -> str:
-    char_offset = len(text.encode()[:byte_offset].decode())
-    start = max(0, char_offset - context_chars)
-    end = char_offset + len(form) + context_chars
-    return text[start:end]
+    snippet, _ = _context_window(text, byte_offset, form, context_chars)
+    return snippet
 
 
 def run(

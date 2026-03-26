@@ -17,6 +17,7 @@ from alfs.data_models.annotated_occurrence import AnnotatedOccurrence, Occurrenc
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 from alfs.data_models.update_target import UpdateTarget
+from alfs.encoding import context_window as _context_window
 from alfs.seg.aggregate_occurrences import prefix as form_prefix
 from alfs.update import llm
 from alfs.update.labeling import prompts
@@ -33,12 +34,8 @@ _LABEL_SCHEMA = {
 
 
 def extract_context(text: str, byte_offset: int, form: str, context_chars: int) -> str:
-    char_offset = len(text.encode()[:byte_offset].decode())
-    start = max(0, char_offset - context_chars)
-    end = char_offset + len(form) + context_chars
-    before = text[start:char_offset]
-    after = text[char_offset + len(form) : end]
-    return f"{before}**{form}**{after}"
+    snippet, wp = _context_window(text, byte_offset, form, context_chars)
+    return f"{snippet[:wp]}**{form}**{snippet[wp + len(form):]}"
 
 
 def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]:
