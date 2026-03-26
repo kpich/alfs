@@ -59,11 +59,11 @@ def sense_key(idx: int) -> str:
 
 
 def morph_base_form(alf: Alf) -> str | None:
-    """Return the morph base form if all senses share the same non-None base, else
-    None."""
+    """Return the morph base form if all senses with a non-None base share the same
+    base, else None."""
     if not alf.senses:
         return None
-    bases = {s.morph_base for s in alf.senses}
+    bases = {s.morph_base for s in alf.senses if s.morph_base is not None}
     if len(bases) == 1:
         return bases.pop()
     return None
