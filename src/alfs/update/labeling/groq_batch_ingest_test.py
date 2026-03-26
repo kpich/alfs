@@ -5,12 +5,26 @@ from alfs.update.labeling.groq_batch_ingest import parse_response
 
 def test_parse_valid() -> None:
     result = parse_response('{"sense_key": "1", "rating": 2}')
-    assert result == {"sense_key": "1", "rating": 2}
+    assert result == {"sense_key": "1", "rating": 2, "synonyms": None}
 
 
 def test_parse_rating_zero() -> None:
     result = parse_response('{"sense_key": "0", "rating": 0}')
-    assert result == {"sense_key": "0", "rating": 0}
+    assert result == {"sense_key": "0", "rating": 0, "synonyms": None}
+
+
+def test_parse_with_synonyms() -> None:
+    result = parse_response(
+        '{"sense_key": "1", "rating": 2, "synonyms": ["quick", "fast"]}'
+    )
+    assert result is not None
+    assert result["synonyms"] == ["quick", "fast"]
+
+
+def test_parse_empty_synonyms() -> None:
+    result = parse_response('{"sense_key": "1", "rating": 2, "synonyms": []}')
+    assert result is not None
+    assert result["synonyms"] == []
 
 
 def test_parse_malformed_json() -> None:
@@ -36,3 +50,4 @@ def test_parse_extra_fields_ok() -> None:
     assert result is not None
     assert result["sense_key"] == "2"
     assert result["rating"] == 1
+    assert result["synonyms"] is None

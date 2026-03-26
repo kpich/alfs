@@ -18,14 +18,23 @@ from alfs.update.labeling.label_occurrences import build_sense_menu
 
 
 def parse_response(content: str) -> dict[str, object] | None:
-    """Parse LLM response JSON into {sense_key, rating}. Returns None on error."""
+    """Parse LLM response JSON into {sense_key, rating, synonyms}. Returns None on
+    error."""
     try:
         data = json.loads(content)
     except json.JSONDecodeError:
         return None
     if "sense_key" not in data or "rating" not in data:
         return None
-    return data
+    raw_synonyms = data.get("synonyms")
+    synonyms: list[str] | None = (
+        [str(s) for s in raw_synonyms] if isinstance(raw_synonyms, list) else None
+    )
+    return {
+        "sense_key": data["sense_key"],
+        "rating": data["rating"],
+        "synonyms": synonyms,
+    }
 
 
 def ingest(
@@ -48,7 +57,9 @@ def ingest(
     occ_store = OccurrenceStore(Path(labeled_db))
 
     key_map_cache: dict[str, dict[str, str]] = {}
-    upsert_rows: list[tuple[str, tuple[str, str, int, str, int]]] = []  # (model, row)
+    upsert_rows: list[
+        tuple[str, tuple[str, str, int, str, int, list[str] | None]]
+    ] = []  # (model, row)
     skipped = 0
 
     with Path(batch_output).open() as f:
@@ -126,13 +137,19 @@ def ingest(
                     continue
                 uuid_key = key_map[display_key]
 
+            synonyms = parsed.get("synonyms")
             model_name = str(item.get("model", "unknown"))
             upsert_rows.append(
-                (model_name, (form, doc_id, byte_offset, uuid_key, rating.value))
+                (
+                    model_name,
+                    (form, doc_id, byte_offset, uuid_key, rating.value, synonyms),
+                )  # type: ignore[arg-type]
             )
 
     if upsert_rows:
-        rows_by_model: dict[str, list[tuple[str, str, int, str, int]]] = {}
+        rows_by_model: dict[
+            str, list[tuple[str, str, int, str, int, list[str] | None]]
+        ] = {}
         for model_name, row in upsert_rows:
             rows_by_model.setdefault(model_name, []).append(row)
         for model_name, model_rows in rows_by_model.items():

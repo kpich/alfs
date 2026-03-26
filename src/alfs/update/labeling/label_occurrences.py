@@ -26,8 +26,9 @@ _LABEL_SCHEMA = {
     "properties": {
         "sense_key": {"type": "string"},
         "rating": {"type": "integer"},
+        "synonyms": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["sense_key", "rating"],
+    "required": ["sense_key", "rating", "synonyms"],
 }
 
 
@@ -129,7 +130,7 @@ def run(
 
     # TODO: batch occurrences into a single prompt instead of one LLM call
     # per occurrence
-    upsert_rows: list[tuple[str, str, int, str, int]] = []
+    upsert_rows: list[tuple[str, str, int, str, int, list[str] | None]] = []
     for occ in to_process:
         doc_id = occ["doc_id"]
         byte_offset = occ["byte_offset"]
@@ -143,14 +144,26 @@ def run(
         data = llm.chat_json(model, prompt, format=_LABEL_SCHEMA)
         display_key = data["sense_key"]
         uuid_key = key_map.get(display_key, display_key)
+        raw_synonyms = data.get("synonyms")
+        synonyms: list[str] | None = (
+            [str(s) for s in raw_synonyms] if isinstance(raw_synonyms, list) else None
+        )
         ann = AnnotatedOccurrence(
             doc_id=doc_id,
             byte_offset=byte_offset,
             sense_key=uuid_key,
             rating=OccurrenceRating(data["rating"]),
+            synonyms=synonyms,
         )
         upsert_rows.append(
-            (form, ann.doc_id, ann.byte_offset, ann.sense_key, ann.rating.value)
+            (
+                form,
+                ann.doc_id,
+                ann.byte_offset,
+                ann.sense_key,
+                ann.rating.value,
+                ann.synonyms,
+            )
         )
 
     if upsert_rows:
