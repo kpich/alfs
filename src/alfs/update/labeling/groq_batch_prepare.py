@@ -136,7 +136,7 @@ def run(
     output_dir: str | Path,
     n: int = 100_000,
     model: str = "llama-3.1-8b-instant",
-    context_chars: int = 150,
+    context_chars: int = 100,
     seed: int | None = None,
     min_count: int = 5,
 ) -> tuple[Path, Path]:
@@ -352,7 +352,7 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--n", type=int, default=100_000)
     parser.add_argument("--model", default="llama-3.1-8b-instant")
-    parser.add_argument("--context-chars", type=int, default=150)
+    parser.add_argument("--context-chars", type=int, default=100)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--min-count", type=int, default=5)
     args = parser.parse_args()

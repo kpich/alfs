@@ -36,7 +36,9 @@ def extract_context(text: str, byte_offset: int, form: str, context_chars: int) 
     char_offset = len(text.encode()[:byte_offset].decode())
     start = max(0, char_offset - context_chars)
     end = char_offset + len(form) + context_chars
-    return text[start:end]
+    before = text[start:char_offset]
+    after = text[char_offset + len(form) : end]
+    return f"{before}**{form}**{after}"
 
 
 def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]:
@@ -85,7 +87,7 @@ def run(
     senses_db: str | Path,
     labeled_db: str | Path,
     model: str = "gemma2:9b",
-    context_chars: int = 150,
+    context_chars: int = 100,
     max_occurrences: int = 100,
 ) -> None:
     target = UpdateTarget.model_validate_json(Path(target_file).read_text())
@@ -183,7 +185,7 @@ def main() -> None:
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--model", default="gemma2:9b")
-    parser.add_argument("--context-chars", type=int, default=150)
+    parser.add_argument("--context-chars", type=int, default=100)
     parser.add_argument(
         "--max-occurrences", type=int, default=100
     )  # TODO: artificially low for dev
