@@ -1,4 +1,4 @@
-.PHONY: download etl seg update relabel label_new dedupe postag cleanup rewrite retag prune spelling_variant morph_redirect undo_morph trim_senses delete_entry validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata
+.PHONY: download etl seg update relabel label_new dedupe postag cleanup rewrite retag prune spelling_variant morph_redirect undo_morph trim_senses delete_entry validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -15,6 +15,8 @@ NWORDS             ?= 5
 SENSE_UPDATE_MODEL ?= qwen2.5:32b
 LABEL_MODEL        ?= gemma2:9b
 CC_TASKS_DIR       ?= ../cc_tasks
+GROQ_BATCH_DIR     ?= ../groq_batch
+GROQ_MODEL         ?= llama-3.1-8b-instant
 SOURCE             ?= wikibooks
 N_DOCS             ?= 10000
 
@@ -197,6 +199,18 @@ test:
 
 mypy:
 	uv run mypy src/
+
+groq-batch-prepare:
+	uv run --no-sync python -m alfs.update.labeling.groq_batch_prepare \
+		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
+		--seg-data-dir $(SEG_DATA_DIR) --docs $(DOCS) \
+		--output-dir $(GROQ_BATCH_DIR) --model $(GROQ_MODEL)
+
+groq-batch-ingest:
+	uv run --no-sync python -m alfs.update.labeling.groq_batch_ingest \
+		--batch-output $(GROQ_BATCH_DIR)/batch_output.jsonl \
+		--metadata $(GROQ_BATCH_DIR)/batch_metadata.jsonl \
+		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB)
 
 cleandata:
 	@echo "This will delete: ../alfs_data  ../seg_data  ../update_data  ../viewer_data"
