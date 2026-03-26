@@ -197,10 +197,15 @@ def trim_sense_prompt(
     lines += [
         "",
         "Should any sense be deleted? Delete if two senses cover the same concept"
-        " and one is weaker, if the form is a parsing artifact rather than a"
-        " real word or expression, or if the form is a foreign word that would not"
-        " appear in an English dictionary (occurring almost entirely in non-English"
-        " text, not as a loanword or expression commonly used in English).",
+        " and one is weaker or redundant. Do NOT delete a sense merely because it"
+        " is a more specific application of a broader sense — keep it if the"
+        " narrower sense has distinct semantic content (a different domain,"
+        " connotation, or conceptual focus) that would merit its own entry in a"
+        " standard dictionary."
+        " Also delete if the form is a parsing artifact rather than a real word or"
+        " expression, or if the form is a foreign word that would not appear in an"
+        " English dictionary (occurring almost entirely in non-English text, not as"
+        " a loanword or expression commonly used in English).",
         "",
         "If so, give the sense NUMBER (1-based) to delete and a brief reason.",
         "If all senses are worth keeping, set sense_num to null.",
