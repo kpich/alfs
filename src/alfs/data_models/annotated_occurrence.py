@@ -17,3 +17,4 @@ class AnnotatedOccurrence(BaseModel):
     sense_key: str
     rating: OccurrenceRating  # validated enum, serializes as int to parquet
     model: str | None = None
+    synonyms: list[str] | None = None  # None=missing data, []=no substitutes found

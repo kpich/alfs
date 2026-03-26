@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 import contextlib
+import json
 from pathlib import Path
 import sqlite3
 
@@ -15,6 +16,7 @@ _SCHEMA = {
     "rating": pl.Int64,
     "model": pl.String,
     "updated_at": pl.String,
+    "synonyms": pl.String,  # NULL=missing, '[]'=none, '["a","b"]'=list (JSON)
 }
 
 _COUNT_SCHEMA = {
@@ -53,6 +55,8 @@ class OccurrenceStore:
                     "ALTER TABLE labeled ADD COLUMN"
                     " model_id INTEGER REFERENCES models(id)"
                 )
+            with contextlib.suppress(sqlite3.OperationalError):
+                con.execute("ALTER TABLE labeled ADD COLUMN synonyms TEXT")
             con.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -66,15 +70,29 @@ class OccurrenceStore:
         return int(row[0])
 
     def upsert_many(
-        self, rows: Iterable[tuple[str, str, int, str, int]], model: str
+        self,
+        rows: Iterable[tuple[str, str, int, str, int, list[str] | None]],
+        model: str,
     ) -> None:
         with self._connect() as con:
             model_id = self._get_or_create_model_id(con, model)
             con.executemany(
                 "INSERT OR REPLACE INTO labeled "
-                "(form, doc_id, byte_offset, sense_key, rating, model_id, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                ((f, d, b, s, r, model_id) for f, d, b, s, r in rows),
+                "(form, doc_id, byte_offset, sense_key, rating, model_id, updated_at,"
+                " synonyms) "
+                "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)",
+                (
+                    (
+                        f,
+                        d,
+                        b,
+                        s,
+                        r,
+                        model_id,
+                        json.dumps(syns) if syns is not None else None,
+                    )
+                    for f, d, b, s, r, syns in rows
+                ),
             )
             con.commit()
 
@@ -82,7 +100,7 @@ class OccurrenceStore:
         with self._connect() as con:
             rows = con.execute(
                 "SELECT l.form, l.doc_id, l.byte_offset, l.sense_key, l.rating, "
-                "m.name as model, l.updated_at "
+                "m.name as model, l.updated_at, l.synonyms "
                 "FROM labeled l LEFT JOIN models m ON l.model_id = m.id "
                 "WHERE l.form = ?",
                 (form,),
@@ -95,7 +113,7 @@ class OccurrenceStore:
         with self._connect() as con:
             rows = con.execute(
                 "SELECT l.form, l.doc_id, l.byte_offset, l.sense_key, l.rating, "
-                "m.name as model, l.updated_at "
+                "m.name as model, l.updated_at, l.synonyms "
                 "FROM labeled l LEFT JOIN models m ON l.model_id = m.id"
             ).fetchall()
         if not rows:

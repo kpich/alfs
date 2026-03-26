@@ -63,8 +63,8 @@ def test_trim_sense_deletes_labeled_rows_for_removed_sense(tmp_path: Path) -> No
 
     occ.upsert_many(
         [
-            ("word", "doc1", 0, sense_a.id, 2),
-            ("word", "doc1", 100, sense_b.id, 2),
+            ("word", "doc1", 0, sense_a.id, 2, None),
+            ("word", "doc1", 100, sense_b.id, 2, None),
         ],
         model="test-model",
     )
@@ -145,9 +145,9 @@ def test_prune_deletes_labeled_rows_for_removed_senses(tmp_path: Path) -> None:
 
     occ.upsert_many(
         [
-            ("word", "doc1", 0, sense_a.id, 2),
-            ("word", "doc1", 100, sense_b.id, 2),
-            ("word", "doc1", 200, sense_c.id, 1),
+            ("word", "doc1", 0, sense_a.id, 2, None),
+            ("word", "doc1", 100, sense_b.id, 2, None),
+            ("word", "doc1", 200, sense_c.id, 1, None),
         ],
         model="test-model",
     )

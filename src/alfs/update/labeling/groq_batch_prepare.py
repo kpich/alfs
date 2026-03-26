@@ -111,13 +111,16 @@ def build_system_message(form: str, sense_menu: str) -> str:
     return (
         f"You are a word sense tagger for English.\n"
         f"\n"
-        f'Given a sentence containing "{form}", identify which numbered sense applies '
-        f"and rate the fit.\n"
+        f'Given a sentence containing "{form}", identify which numbered sense applies,'
+        f" rate the fit, and list substitute words.\n"
         f"\n"
-        f'Respond with ONLY valid JSON: {{"sense_key": "1", "rating": 2}}\n'
+        f'Respond with ONLY valid JSON: {{"sense_key": "1", "rating": 2,'
+        f' "synonyms": ["word1", "word2"]}}\n'
         f"Rating: 2=excellent, 1=okay (needs a more refined sense), 0=poor/doesn't "
         f"fit.\n"
         f'If rating is 0, set sense_key to "0".\n'
+        f'synonyms: other words that could substitute for "{form}" in this exact'
+        f" context. Use [] if none apply.\n"
         f"\n"
         f'Senses of "{form}":\n'
         f"{sense_menu}"
@@ -302,7 +305,7 @@ def run(
                             {"role": "user", "content": user_msg},
                         ],
                         "response_format": {"type": "json_object"},
-                        "max_tokens": 50,
+                        "max_tokens": 150,
                     },
                 }
             )
