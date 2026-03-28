@@ -205,9 +205,10 @@ def ingest(
                 # files that predate this field.
                 stored = item.get("key_map")
                 if stored is not None:
+                    assert isinstance(stored, dict)
                     key_map: dict[str, str] = {
                         str(k): str(v) for k, v in stored.items()
-                    }  # type: ignore[union-attr]
+                    }
                 else:
                     try:
                         _, key_map = build_sense_menu(sense_store, form)

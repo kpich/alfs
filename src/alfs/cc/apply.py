@@ -4,8 +4,9 @@ Usage:
     python -m alfs.cc.apply \\
         --cc-tasks-dir ../cc_tasks \\
         --senses-db ../alfs_data/senses.db \\
-        --labeled-db ../alfs_data/labeled.db \\
-        --queue-dir ../clerk_queue
+        --queue-dir ../clerk_queue \\
+        [--labeled-db ../alfs_data/labeled.db] \\
+        [--blocklist-file ../alfs_data/blocklist.yaml]
 """
 
 from __future__ import annotations
@@ -17,43 +18,104 @@ import uuid
 
 from pydantic import TypeAdapter
 
-from alfs.cc.models import (
-    CCDeleteEntryOutput,
-    CCInductionOutput,
-    CCMorphRedirectOutput,
-    CCOutput,
-    CCRewriteOutput,
-    CCSpellingVariantOutput,
-    CCTrimSenseOutput,
-)
+from alfs.cc.models import CCInductionOutput, CCOutput
 from alfs.clerk.queue import enqueue
-from alfs.clerk.request import (
-    AddSensesRequest,
-    DeleteEntryRequest,
-    MorphRedirectRequest,
-    RewriteRequest,
-    SetSpellingVariantRequest,
-    TrimSenseRequest,
-)
+from alfs.clerk.request import AddSensesRequest
 from alfs.data_models.alf import Sense
+from alfs.data_models.blocklist import Blocklist
+from alfs.data_models.occurrence import Occurrence
+from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
 
 _output_adapter: TypeAdapter[CCOutput] = TypeAdapter(CCOutput)
+_SKIP_SENSE_KEY = "_skip"
 
 
 def _apply_induction(
     output: CCInductionOutput,
     sense_store: SenseStore,
     queue_dir: Path,
+    occ_store: OccurrenceStore | None,
+    blocklist: Blocklist | None,
+    pending_induction_dir: Path,
 ) -> bool:
+    # Handle blocklist decision
+    if output.add_to_blocklist:
+        if blocklist is not None:
+            blocklist.add(output.form, output.blocklist_reason)
+            print(f"  added {output.form!r} to blocklist: {output.blocklist_reason}")
+        if occ_store is not None:
+            occ_store.delete_by_form(output.form)
+            print(f"  deleted labeled occurrences for {output.form!r}")
+        return True
+
+    # Apply context labels (requires the original task file for occurrence_refs)
+    if output.context_labels and occ_store is not None:
+        task_path = pending_induction_dir / f"{output.id}.json"
+        if task_path.exists():
+            try:
+                from alfs.cc.models import CCInductionTask
+
+                task_adapter: TypeAdapter[CCInductionTask] = TypeAdapter(
+                    CCInductionTask
+                )
+                task = task_adapter.validate_json(task_path.read_bytes())
+                occurrence_refs: list[Occurrence] = task.occurrence_refs
+                rows = []
+                for label in output.context_labels:
+                    idx = label.context_idx
+                    if idx < 0 or idx >= len(occurrence_refs):
+                        continue
+                    occ = occurrence_refs[idx]
+                    if label.sense_idx is None:
+                        # _skip label
+                        rows.append(
+                            (
+                                output.form,
+                                occ.doc_id,
+                                occ.byte_offset,
+                                _SKIP_SENSE_KEY,
+                                0,
+                                None,
+                            )
+                        )
+                    else:
+                        # Sense assignment (1-indexed into new_senses)
+                        sense_key = str(label.sense_idx)
+                        rows.append(
+                            (
+                                output.form,
+                                occ.doc_id,
+                                occ.byte_offset,
+                                sense_key,
+                                2,
+                                None,
+                            )
+                        )
+                if rows:
+                    occ_store.upsert_many(rows, "claude-code")
+                    print(f"  labeled {len(rows)} occurrence(s) for {output.form!r}")
+                task_path.unlink()
+            except Exception as exc:
+                print(
+                    f"  warning: could not apply context labels "
+                    f"for {output.form!r}: {exc}"
+                )
+        else:
+            print(
+                f"  warning: task file not found for {output.form!r} "
+                f"(id={output.id}), skipping context labels"
+            )
+
+    # Enqueue new senses
     entry = sense_store.read(output.form)
     existing_defs = (
         {s.definition.strip().lower() for s in entry.senses} if entry else set()
     )
 
     new_senses: list[Sense] = []
-    for s in output.senses:
+    for s in output.new_senses:
         if s.definition.strip().lower() in existing_defs:
             continue
         try:
@@ -79,212 +141,29 @@ def _apply_induction(
     return True
 
 
-def _apply_rewrite(
-    output: CCRewriteOutput,
-    sense_store: SenseStore,
-    queue_dir: Path,
-) -> bool:
-    entry = sense_store.read(output.form)
-    if not entry or not entry.senses:
-        print(f"  skipped rewrite for {output.form!r}: no entry in store")
-        return False
-
-    if not output.rewrites:
-        print(f"  skipped rewrite for {output.form!r}: no changes proposed")
-        return True
-
-    for s in output.rewrites:
-        idx = s.sense_num - 1
-        if idx < 0 or idx >= len(entry.senses):
-            print(
-                f"  skipped rewrite for {output.form!r}:"
-                f" sense_num {s.sense_num} out of range"
-            )
-            return False
-        orig = entry.senses[idx]
-        revised = Sense(
-            id=orig.id,
-            definition=s.definition,
-            pos=orig.pos,
-            updated_by_model="claude-code",
-        )
-        if orig == revised:
-            continue
-        enqueue(
-            RewriteRequest(
-                id=str(uuid.uuid4()),
-                created_at=datetime.now(UTC),
-                form=output.form,
-                before=orig,
-                after=revised,
-                requesting_model="claude-code",
-            ),
-            queue_dir,
-        )
-    print(f"  queued rewrite for {output.form!r}")
-    return True
-
-
-def _apply_trim_sense(
-    output: CCTrimSenseOutput,
-    sense_store: SenseStore,
-    queue_dir: Path,
-) -> bool:
-    if output.sense_num is None:
-        print(f"  skipped trim for {output.form!r}: all senses distinct")
-        return True
-
-    entry = sense_store.read(output.form)
-    if not entry or not entry.senses:
-        print(f"  skipped trim for {output.form!r}: no entry in store")
-        return False
-
-    if not (1 <= output.sense_num <= len(entry.senses)):
-        print(
-            f"  skipped trim for {output.form!r}: sense_num {output.sense_num}"
-            f" out of range (have {len(entry.senses)})"
-        )
-        return False
-
-    deleted_sense = entry.senses[output.sense_num - 1]
-    remaining = [s for s in entry.senses if s.id != deleted_sense.id]
-
-    request = TrimSenseRequest(
-        id=str(uuid.uuid4()),
-        created_at=datetime.now(UTC),
-        form=output.form,
-        before=list(entry.senses),
-        after=remaining,
-        sense_id=deleted_sense.id,
-        reason=output.reason,
-        requesting_model="claude-code",
-    )
-    enqueue(request, queue_dir)
-    print(f"  queued trim for {output.form!r}: sense {output.sense_num}")
-    return True
-
-
-def _apply_morph_redirect(
-    output: CCMorphRedirectOutput,
-    sense_store: SenseStore,
-    queue_dir: Path,
-) -> bool:
-    queued = 0
-    for rel in output.relations:
-        derived_entry = sense_store.read(rel.derived_form)
-        base_entry = sense_store.read(rel.base_form)
-
-        if not derived_entry or not derived_entry.senses:
-            print(f"  skipped morph: {rel.derived_form!r} not in store")
-            continue
-        if not base_entry or not base_entry.senses:
-            print(f"  skipped morph: {rel.base_form!r} not in store")
-            continue
-
-        if rel.derived_sense_idx < 0 or rel.derived_sense_idx >= len(
-            derived_entry.senses
-        ):
-            print(
-                f"  skipped morph: {rel.derived_form!r} sense {rel.derived_sense_idx}"
-                f" out of range"
-            )
-            continue
-        if rel.base_sense_idx < 0 or rel.base_sense_idx >= len(base_entry.senses):
-            print(
-                f"  skipped morph: {rel.base_form!r} sense {rel.base_sense_idx}"
-                f" out of range"
-            )
-            continue
-
-        derived_sense = derived_entry.senses[rel.derived_sense_idx]
-        after_sense = derived_sense.model_copy(
-            update={
-                "definition": rel.proposed_definition,
-                "morph_base": rel.base_form,
-                "morph_relation": rel.relation,
-                "updated_by_model": "claude-code",
-            }
-        )
-
-        request = MorphRedirectRequest(
-            id=str(uuid.uuid4()),
-            created_at=datetime.now(UTC),
-            form=rel.derived_form,
-            derived_sense_idx=rel.derived_sense_idx,
-            base_form=rel.base_form,
-            base_sense_idx=rel.base_sense_idx,
-            relation=rel.relation,
-            before=derived_sense,
-            after=after_sense,
-            promote_to_parent=rel.promote_to_parent,
-        )
-        enqueue(request, queue_dir)
-        queued += 1
-
-    if queued:
-        print(f"  queued {queued} morph redirect(s)")
-    return True
-
-
-def _apply_spelling_variant(
-    output: CCSpellingVariantOutput,
-    sense_store: SenseStore,
-    queue_dir: Path,
-) -> bool:
-    queued = 0
-    for pair in output.confirmed:
-        variant_entry = sense_store.read(pair.variant_form)
-        preferred_entry = sense_store.read(pair.preferred_form)
-
-        if not variant_entry:
-            print(f"  skipped spelling variant: {pair.variant_form!r} not in store")
-            continue
-        if not preferred_entry:
-            print(f"  skipped spelling variant: {pair.preferred_form!r} not in store")
-            continue
-
-        request = SetSpellingVariantRequest(
-            id=str(uuid.uuid4()),
-            created_at=datetime.now(UTC),
-            form=pair.variant_form,
-            preferred_form=pair.preferred_form,
-        )
-        enqueue(request, queue_dir)
-        queued += 1
-
-    if queued:
-        print(f"  queued {queued} spelling variant link(s)")
-    return True
-
-
-def _apply_delete_entry(output: CCDeleteEntryOutput, queue_dir: Path) -> bool:
-    if not output.should_delete:
-        print(f"  skipped delete for {output.form!r}: judged worth keeping")
-        return True
-    request = DeleteEntryRequest(
-        id=str(uuid.uuid4()),
-        created_at=datetime.now(UTC),
-        form=output.form,
-        reason=output.reason,
-        requesting_model="claude-code",
-    )
-    enqueue(request, queue_dir)
-    print(f"  queued delete for {output.form!r}")
-    return True
-
-
 def run(
     cc_tasks_dir: str | Path,
     senses_db: str | Path,
     queue_dir: str | Path,
+    labeled_db: str | Path | None = None,
+    blocklist_file: str | Path | None = None,
 ) -> None:
     done_dir = Path(cc_tasks_dir) / "done"
+    pending_induction_dir = Path(cc_tasks_dir) / "pending" / "induction"
     if not done_dir.exists():
         print("No done/ directory found.")
         return
 
     sense_store = SenseStore(Path(senses_db))
     queue_path = Path(queue_dir)
+
+    occ_store: OccurrenceStore | None = None
+    if labeled_db:
+        occ_store = OccurrenceStore(Path(labeled_db))
+
+    blocklist: Blocklist | None = None
+    if blocklist_file:
+        blocklist = Blocklist(Path(blocklist_file))
 
     files = sorted(done_dir.glob("*/*.json"))
     if not files:
@@ -300,17 +179,14 @@ def run(
 
         ok: bool
         if isinstance(output, CCInductionOutput):
-            ok = _apply_induction(output, sense_store, queue_path)
-        elif isinstance(output, CCRewriteOutput):
-            ok = _apply_rewrite(output, sense_store, queue_path)
-        elif isinstance(output, CCTrimSenseOutput):
-            ok = _apply_trim_sense(output, sense_store, queue_path)
-        elif isinstance(output, CCMorphRedirectOutput):
-            ok = _apply_morph_redirect(output, sense_store, queue_path)
-        elif isinstance(output, CCSpellingVariantOutput):
-            ok = _apply_spelling_variant(output, sense_store, queue_path)
-        elif isinstance(output, CCDeleteEntryOutput):
-            ok = _apply_delete_entry(output, queue_path)
+            ok = _apply_induction(
+                output,
+                sense_store,
+                queue_path,
+                occ_store,
+                blocklist,
+                pending_induction_dir,
+            )
         else:
             print(f"  unknown output type in {f.name}")
             ok = False
@@ -332,9 +208,21 @@ def main() -> None:
     parser.add_argument(
         "--queue-dir", required=True, help="Path to clerk queue directory"
     )
+    parser.add_argument(
+        "--labeled-db", default=None, help="Path to labeled.db (optional)"
+    )
+    parser.add_argument(
+        "--blocklist-file", default=None, help="Path to blocklist.yaml (optional)"
+    )
     args = parser.parse_args()
 
-    run(args.cc_tasks_dir, args.senses_db, args.queue_dir)
+    run(
+        args.cc_tasks_dir,
+        args.senses_db,
+        args.queue_dir,
+        args.labeled_db,
+        args.blocklist_file,
+    )
 
 
 if __name__ == "__main__":

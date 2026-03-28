@@ -18,84 +18,31 @@ class Action:
 
 ACTIONS: list[Action] = [
     Action(
-        "update",
-        "Update",
-        ["make", "update"],
-        description="Run ETL update pipeline",
+        "enqueue-new-forms",
+        "Enqueue New Forms",
+        ["make", "enqueue_new_forms"],
+        description="Add top-N unseen corpus forms to the induction queue",
         cc_ready=True,
     ),
     Action(
-        "relabel",
-        "Relabel",
-        ["make", "relabel"],
-        description="Re-run labeling pipeline",
-    ),
-    Action(
-        "label_new",
-        "Label New",
-        ["make", "label_new"],
-        description="Label new corpus instances for random forms from inventory",
-    ),
-    Action("dedupe", "Dedupe", ["make", "dedupe"], description="Deduplicate senses"),
-    Action(
-        "cleanup",
-        "Cleanup",
-        ["make", "cleanup"],
-        description="Clean up sense inventory",
+        "enqueue-poor-coverage",
+        "Enqueue Poor Coverage",
+        ["make", "enqueue_poor_coverage"],
+        description="Add forms with poor labeled coverage to the induction queue",
         cc_ready=True,
     ),
     Action(
-        "rewrite",
-        "Rewrite",
-        ["make", "rewrite"],
-        description="Rewrite sense definitions",
-        cc_ready=True,
+        "induce-senses",
+        "Induce Senses",
+        ["make", "induce_senses"],
+        description="Dequeue forms and run local LLM sense induction",
+        cc_ready=False,
     ),
     Action(
-        "retag",
-        "Retag",
-        ["make", "retag"],
-        description="Retag occurrences",
-    ),
-    Action(
-        "prune",
-        "Prune",
-        ["make", "prune"],
-        description="Prune low-quality senses",
-        cc_ready=True,
-    ),
-    Action(
-        "spelling_variant",
-        "Spelling Variant",
-        ["make", "spelling_variant"],
-        description="Find British/American spelling variant pairs",
-        cc_ready=True,
-    ),
-    Action(
-        "morph_redirect",
-        "Morph Redirect",
-        ["make", "morph_redirect"],
-        description="Propose morphological derivation links",
-        cc_ready=True,
-    ),
-    Action(
-        "undo_morph",
-        "Undo Morph",
-        ["make", "undo_morph"],
-        description="Detect and undo incorrect morphological links",
-    ),
-    Action(
-        "trim_senses",
-        "Trim Senses",
-        ["make", "trim_senses"],
-        description="Trim redundant senses",
-        cc_ready=True,
-    ),
-    Action(
-        "delete_entry",
-        "Delete Entry",
-        ["make", "delete_entry"],
-        description="Remove mistokenized/artifact word entries",
+        "cc-induce-senses",
+        "CC Induce Senses",
+        ["make", "cc_induce_senses"],
+        description="Dequeue forms and write CC induction task files",
         cc_ready=True,
     ),
     Action(
@@ -127,7 +74,7 @@ def main() -> None:
 
     if cmd == "list":
         for a in ACTIONS:
-            print(f"{a.name:<10} {a.label:<12}  {a.description}")
+            print(f"{a.name:<20} {a.label:<18}  {a.description}")
 
     elif cmd == "run":
         if len(args) < 2:

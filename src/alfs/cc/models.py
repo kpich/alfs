@@ -6,16 +6,13 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from alfs.data_models.occurrence import Occurrence
+
 
 class SenseInfo(BaseModel):
     id: str
     definition: str
     pos: str | None = None
-
-
-class FormInfo(BaseModel):
-    form: str
-    senses: list[SenseInfo]
 
 
 # --- Task models (written to pending/) ---
@@ -27,58 +24,10 @@ class CCInductionTask(BaseModel):
     form: str
     contexts: list[str]
     existing_defs: list[str]
+    occurrence_refs: list[Occurrence] = []  # parallel to contexts list
 
 
-class CCRewriteTask(BaseModel):
-    type: Literal["rewrite"] = "rewrite"
-    id: str
-    form: str
-    senses: list[SenseInfo]
-
-
-class CCTrimSenseTask(BaseModel):
-    type: Literal["trim_sense"] = "trim_sense"
-    id: str
-    form: str
-    senses: list[SenseInfo]
-    examples: list[list[str]]
-
-
-class CCMorphRedirectTask(BaseModel):
-    type: Literal["morph_redirect"] = "morph_redirect"
-    id: str
-    forms: list[FormInfo]
-    inventory_forms: list[str]
-
-
-class CCDeleteEntryTask(BaseModel):
-    type: Literal["delete_entry"] = "delete_entry"
-    id: str
-    form: str
-    senses: list[SenseInfo]
-    examples: list[list[str]]
-
-
-class SpellingVariantPair(BaseModel):
-    variant_form: str
-    preferred_form: str
-
-
-class CCSpellingVariantTask(BaseModel):
-    type: Literal["spelling_variant"] = "spelling_variant"
-    id: str
-    candidates: list[SpellingVariantPair]
-
-
-CCTask = Annotated[
-    CCInductionTask
-    | CCRewriteTask
-    | CCTrimSenseTask
-    | CCMorphRedirectTask
-    | CCDeleteEntryTask
-    | CCSpellingVariantTask,
-    Field(discriminator="type"),
-]
+CCTask = Annotated[CCInductionTask, Field(discriminator="type")]
 
 
 # --- Output models (written to done/) ---
@@ -89,69 +38,19 @@ class InductionSense(BaseModel):
     pos: str
 
 
+class ContextLabel(BaseModel):
+    context_idx: int
+    sense_idx: int | None  # 1-indexed into new_senses; None = _skip
+
+
 class CCInductionOutput(BaseModel):
     type: Literal["induction"] = "induction"
     id: str
     form: str
-    senses: list[InductionSense]
+    new_senses: list[InductionSense] = []
+    context_labels: list[ContextLabel] = []
+    add_to_blocklist: bool = False
+    blocklist_reason: str | None = None
 
 
-class RewrittenSense(BaseModel):
-    sense_num: int
-    definition: str
-
-
-class CCRewriteOutput(BaseModel):
-    type: Literal["rewrite"] = "rewrite"
-    id: str
-    form: str
-    rewrites: list[RewrittenSense]
-
-
-class CCTrimSenseOutput(BaseModel):
-    type: Literal["trim_sense"] = "trim_sense"
-    id: str
-    form: str
-    sense_num: int | None
-    reason: str
-
-
-class MorphRelation(BaseModel):
-    derived_form: str
-    derived_sense_idx: int
-    base_form: str
-    base_sense_idx: int
-    relation: str
-    proposed_definition: str
-    promote_to_parent: bool = True
-
-
-class CCMorphRedirectOutput(BaseModel):
-    type: Literal["morph_redirect"] = "morph_redirect"
-    id: str
-    relations: list[MorphRelation]
-
-
-class CCDeleteEntryOutput(BaseModel):
-    type: Literal["delete_entry"] = "delete_entry"
-    id: str
-    form: str
-    should_delete: bool
-    reason: str
-
-
-class CCSpellingVariantOutput(BaseModel):
-    type: Literal["spelling_variant"] = "spelling_variant"
-    id: str
-    confirmed: list[SpellingVariantPair]
-
-
-CCOutput = Annotated[
-    CCInductionOutput
-    | CCRewriteOutput
-    | CCTrimSenseOutput
-    | CCMorphRedirectOutput
-    | CCDeleteEntryOutput
-    | CCSpellingVariantOutput,
-    Field(discriminator="type"),
-]
+CCOutput = Annotated[CCInductionOutput, Field(discriminator="type")]

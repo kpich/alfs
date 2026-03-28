@@ -6,28 +6,27 @@ from pathlib import Path
 from alfs.cc.apply import run
 from alfs.cc.models import (
     CCInductionOutput,
-    CCRewriteOutput,
-    CCTrimSenseOutput,
+    CCInductionTask,
+    ContextLabel,
     InductionSense,
-    RewrittenSense,
 )
-from alfs.data_models.alf import Alf, Sense
-from alfs.data_models.pos import PartOfSpeech
+from alfs.data_models.alf import Alf
+from alfs.data_models.occurrence import Occurrence
+from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 
 
 def _setup(tmp_path: Path) -> tuple[Path, Path, Path]:
     cc_dir = tmp_path / "cc_tasks"
-    for type_name in ("induction", "rewrite", "trim_sense", "morph_redirect"):
-        (cc_dir / "pending" / type_name).mkdir(parents=True)
-        (cc_dir / "done" / type_name).mkdir(parents=True)
+    (cc_dir / "pending" / "induction").mkdir(parents=True)
+    (cc_dir / "done" / "induction").mkdir(parents=True)
     senses_db = tmp_path / "senses.db"
     queue_dir = tmp_path / "queue"
     queue_dir.mkdir()
     return cc_dir, senses_db, queue_dir
 
 
-def test_apply_induction(tmp_path: Path):
+def test_apply_induction_new_senses(tmp_path: Path):
     cc_dir, senses_db, queue_dir = _setup(tmp_path)
 
     store = SenseStore(senses_db)
@@ -36,7 +35,9 @@ def test_apply_induction(tmp_path: Path):
     output = CCInductionOutput(
         id="test1",
         form="cat",
-        senses=[InductionSense(definition="a small domesticated feline", pos="noun")],
+        new_senses=[
+            InductionSense(definition="a small domesticated feline", pos="noun")
+        ],
     )
     (cc_dir / "done" / "induction" / "test1.json").write_text(output.model_dump_json())
 
@@ -52,137 +53,105 @@ def test_apply_induction(tmp_path: Path):
     assert req["form"] == "cat"
 
 
-def test_apply_rewrite(tmp_path: Path):
+def test_apply_induction_adds_to_blocklist(tmp_path: Path):
     cc_dir, senses_db, queue_dir = _setup(tmp_path)
+    blocklist_file = tmp_path / "blocklist.yaml"
 
-    store = SenseStore(senses_db)
-    store.update(
-        "run",
-        lambda _: Alf(
-            form="run",
-            senses=[Sense(id="s1", definition="to move fast", pos=PartOfSpeech.verb)],
-        ),
+    output = CCInductionOutput(
+        id="test-bl",
+        form="thrumbly",
+        add_to_blocklist=True,
+        blocklist_reason="tokenization artifact",
     )
-
-    output = CCRewriteOutput(
-        id="test2",
-        form="run",
-        rewrites=[RewrittenSense(sense_num=1, definition="to move swiftly on foot")],
-    )
-    (cc_dir / "done" / "rewrite" / "test2.json").write_text(output.model_dump_json())
-
-    run(cc_dir, senses_db, queue_dir)
-
-    assert not (cc_dir / "done" / "rewrite" / "test2.json").exists()
-    pending_files = list((queue_dir / "pending").glob("*.json"))
-    assert len(pending_files) == 1
-    req = json.loads(pending_files[0].read_text())
-    assert req["type"] == "rewrite"
-    assert req["after"]["definition"] == "to move swiftly on foot"
-
-
-def test_apply_rewrite_sense_num_out_of_range(tmp_path: Path):
-    cc_dir, senses_db, queue_dir = _setup(tmp_path)
-
-    store = SenseStore(senses_db)
-    store.update(
-        "run",
-        lambda _: Alf(
-            form="run",
-            senses=[Sense(id="s1", definition="to move fast", pos=PartOfSpeech.verb)],
-        ),
-    )
-
-    output = CCRewriteOutput(
-        id="test3",
-        form="run",
-        rewrites=[RewrittenSense(sense_num=5, definition="to move swiftly on foot")],
-    )
-    (cc_dir / "done" / "rewrite" / "test3.json").write_text(output.model_dump_json())
-
-    run(cc_dir, senses_db, queue_dir)
-
-    # File should NOT be deleted (error case)
-    assert (cc_dir / "done" / "rewrite" / "test3.json").exists()
-    # No clerk request
-    assert not list((queue_dir / "pending").glob("*.json"))
-
-
-def test_apply_trim_sense_first(tmp_path: Path):
-    """sense_num=1 (1-based) maps to index 0, i.e. the first sense."""
-    cc_dir, senses_db, queue_dir = _setup(tmp_path)
-
-    store = SenseStore(senses_db)
-    store.update(
-        "bank",
-        lambda _: Alf(
-            form="bank",
-            senses=[
-                Sense(id="s1", definition="financial institution"),
-                Sense(id="s2", definition="side of a river"),
-            ],
-        ),
-    )
-
-    output = CCTrimSenseOutput(
-        id="test4a", form="bank", sense_num=1, reason="redundant"
-    )
-    (cc_dir / "done" / "trim_sense" / "test4a.json").write_text(
+    (cc_dir / "done" / "induction" / "test-bl.json").write_text(
         output.model_dump_json()
     )
 
-    run(cc_dir, senses_db, queue_dir)
+    run(cc_dir, senses_db, queue_dir, blocklist_file=str(blocklist_file))
 
-    assert not (cc_dir / "done" / "trim_sense" / "test4a.json").exists()
-    pending_files = list((queue_dir / "pending").glob("*.json"))
-    assert len(pending_files) == 1
-    req = json.loads(pending_files[0].read_text())
-    assert req["type"] == "trim_sense"
-    assert req["sense_id"] == "s1"
+    # Output file deleted
+    assert not (cc_dir / "done" / "induction" / "test-bl.json").exists()
+    # Blocklist file updated
+    assert blocklist_file.exists()
+    content = blocklist_file.read_text()
+    assert "thrumbly" in content
+    # No clerk request
+    assert not list((queue_dir / "pending").glob("*.json"))
 
 
-def test_apply_trim_sense(tmp_path: Path):
+def test_apply_induction_skip_labels(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup(tmp_path)
+    labeled_db = tmp_path / "labeled.db"
+
+    store = SenseStore(senses_db)
+    store.update("cat", lambda _: Alf(form="cat", senses=[]))
+
+    # Write the task file so apply can get occurrence_refs
+    task = CCInductionTask(
+        id="test-labels",
+        form="cat",
+        contexts=["The cat sat.", "The cat meowed."],
+        existing_defs=[],
+        occurrence_refs=[
+            Occurrence(doc_id="doc1", byte_offset=100),
+            Occurrence(doc_id="doc2", byte_offset=200),
+        ],
+    )
+    (cc_dir / "pending" / "induction" / "test-labels.json").write_text(
+        task.model_dump_json()
+    )
+
+    output = CCInductionOutput(
+        id="test-labels",
+        form="cat",
+        new_senses=[
+            InductionSense(definition="a small domesticated feline", pos="noun")
+        ],
+        context_labels=[
+            ContextLabel(context_idx=0, sense_idx=1),  # sense assignment
+            ContextLabel(context_idx=1, sense_idx=None),  # skip
+        ],
+    )
+    (cc_dir / "done" / "induction" / "test-labels.json").write_text(
+        output.model_dump_json()
+    )
+
+    run(cc_dir, senses_db, queue_dir, labeled_db=str(labeled_db))
+
+    # Task file should be deleted after processing
+    assert not (cc_dir / "pending" / "induction" / "test-labels.json").exists()
+    # Check labeled occurrences written
+    occ_store = OccurrenceStore(labeled_db)
+    df = occ_store.query_form("cat")
+    assert len(df) == 2
+    rows = {(r["doc_id"], r["byte_offset"]): r for r in df.iter_rows(named=True)}
+    assert rows[("doc1", 100)]["sense_key"] == "1"
+    assert rows[("doc1", 100)]["rating"] == 2
+    assert rows[("doc2", 200)]["sense_key"] == "_skip"
+    assert rows[("doc2", 200)]["rating"] == 0
+
+
+def test_apply_induction_no_labeled_db_skip_ignored(tmp_path: Path):
+    """If labeled_db not passed, skip labels are silently omitted (no crash)."""
     cc_dir, senses_db, queue_dir = _setup(tmp_path)
 
     store = SenseStore(senses_db)
-    store.update(
-        "bank",
-        lambda _: Alf(
-            form="bank",
-            senses=[
-                Sense(id="s1", definition="financial institution"),
-                Sense(id="s2", definition="side of a river"),
-            ],
-        ),
+    store.update("cat", lambda _: Alf(form="cat", senses=[]))
+
+    output = CCInductionOutput(
+        id="test-nolabeled",
+        form="cat",
+        new_senses=[InductionSense(definition="a small feline", pos="noun")],
+        context_labels=[ContextLabel(context_idx=0, sense_idx=None)],
+    )
+    (cc_dir / "done" / "induction" / "test-nolabeled.json").write_text(
+        output.model_dump_json()
     )
 
-    output = CCTrimSenseOutput(id="test4", form="bank", sense_num=2, reason="redundant")
-    (cc_dir / "done" / "trim_sense" / "test4.json").write_text(output.model_dump_json())
-
+    # Should not raise even though there's no labeled_db
     run(cc_dir, senses_db, queue_dir)
 
-    assert not (cc_dir / "done" / "trim_sense" / "test4.json").exists()
-    pending_files = list((queue_dir / "pending").glob("*.json"))
-    assert len(pending_files) == 1
-    req = json.loads(pending_files[0].read_text())
-    assert req["type"] == "trim_sense"
-    assert req["sense_id"] == "s2"
-
-
-def test_apply_trim_sense_null(tmp_path: Path):
-    cc_dir, senses_db, queue_dir = _setup(tmp_path)
-
-    output = CCTrimSenseOutput(
-        id="test5", form="bank", sense_num=None, reason="all distinct"
-    )
-    (cc_dir / "done" / "trim_sense" / "test5.json").write_text(output.model_dump_json())
-
-    run(cc_dir, senses_db, queue_dir)
-
-    # File deleted (no-op but ok)
-    assert not (cc_dir / "done" / "trim_sense" / "test5.json").exists()
-    # No clerk request
-    assert not list((queue_dir / "pending").glob("*.json"))
+    assert not (cc_dir / "done" / "induction" / "test-nolabeled.json").exists()
 
 
 def test_apply_empty_done_dir(tmp_path: Path):

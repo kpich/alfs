@@ -1,4 +1,4 @@
-.PHONY: download etl seg update relabel label_new dedupe postag cleanup rewrite retag prune spelling_variant morph_redirect undo_morph trim_senses delete_entry validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest
+.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -21,6 +21,11 @@ GROQ_MODEL         ?= llama-3.1-8b-instant
 INSTANCE_LOG       ?= ../alfs_data/instance_log
 SOURCE             ?= wikibooks
 N_DOCS             ?= 10000
+INDUCTION_QUEUE    ?= ../alfs_data/induction_queue.yaml
+BLOCKLIST_FILE     ?= ../alfs_data/blocklist.yaml
+ENQUEUE_TOP_N      ?= 500
+ENQUEUE_MIN_COUNT  ?= 5
+ENQUEUE_N_OCC_REFS ?= 3
 
 download:
 	uv run --no-sync python -m alfs.etl.download \
@@ -35,8 +40,27 @@ seg:
 	uv run --no-sync python -m alfs.seg.augment \
 		--docs $(DOCS) --seg-data-dir $(SEG_DATA_DIR)
 
-update:
-	bash scripts/update.sh \
+enqueue_new_forms:
+	uv run --no-sync python -m alfs.update.induction.enqueue_new_forms \
+		--seg-data-dir $(SEG_DATA_DIR) \
+		--senses-db $(SENSES_DB) \
+		--queue-file $(INDUCTION_QUEUE) \
+		--blocklist-file $(BLOCKLIST_FILE) \
+		--top-n $(ENQUEUE_TOP_N) \
+		--min-count $(ENQUEUE_MIN_COUNT) \
+		--n-occurrence-refs $(ENQUEUE_N_OCC_REFS)
+
+enqueue_poor_coverage:
+	uv run --no-sync python -m alfs.update.induction.enqueue_poor_coverage \
+		--labeled-db $(LABELED_DB) \
+		--queue-file $(INDUCTION_QUEUE) \
+		--blocklist-file $(BLOCKLIST_FILE) \
+		--top-n $(ENQUEUE_TOP_N)
+
+induce_senses:
+	uv run --no-sync python -m alfs.update.induction.induce_senses \
+		--queue-file $(INDUCTION_QUEUE) \
+		--blocklist-file $(BLOCKLIST_FILE) \
 		--seg-data-dir $(SEG_DATA_DIR) \
 		--docs $(DOCS) \
 		--senses-db $(SENSES_DB) \
@@ -44,93 +68,19 @@ update:
 		--queue-dir $(CLERK_QUEUE) \
 		--model $(SENSE_UPDATE_MODEL)
 
-relabel:
-	bash scripts/relabel.sh \
+cc_induce_senses:
+	uv run --no-sync python -m alfs.update.induction.induce_senses \
+		--queue-file $(INDUCTION_QUEUE) \
+		--blocklist-file $(BLOCKLIST_FILE) \
+		--seg-data-dir $(SEG_DATA_DIR) \
+		--docs $(DOCS) \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
-		--docs $(DOCS) \
-		--seg-data-dir $(SEG_DATA_DIR) \
-		--nwords $(NWORDS) \
-		--model $(LABEL_MODEL) \
-		--log-dir $(INSTANCE_LOG)
-
-label_new:
-	bash scripts/label_new.sh \
-		--senses-db $(SENSES_DB) \
-		--labeled-db $(LABELED_DB) \
-		--docs $(DOCS) \
-		--seg-data-dir $(SEG_DATA_DIR) \
-		--nwords $(NWORDS) \
-		--model $(LABEL_MODEL) \
-		--log-dir $(INSTANCE_LOG)
-
-dedupe:
-	uv run --no-sync python -m alfs.update.refinement.dedupe \
-		--senses-db $(SENSES_DB) \
 		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
+		--cc-tasks-dir $(CC_TASKS_DIR)
 
 postag:
 	uv run --no-sync python -m alfs.update.refinement.postag \
-		--senses-db $(SENSES_DB) \
-		--labeled-db $(LABELED_DB) \
-		--docs $(DOCS) \
-		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
-
-cleanup:
-	uv run --no-sync python -m alfs.update.refinement.cleanup \
-		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE)
-
-rewrite:
-	uv run --no-sync python -m alfs.update.refinement.rewrite \
-		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
-
-retag:
-	uv run --no-sync python -m alfs.update.refinement.retag \
-		--senses-db $(SENSES_DB) \
-		--labeled-db $(LABELED_DB) \
-		--docs $(DOCS) \
-		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
-
-prune:
-	uv run --no-sync python -m alfs.update.refinement.prune \
-		--senses-db $(SENSES_DB) \
-		--labeled-db $(LABELED_DB) \
-		--queue-dir $(CLERK_QUEUE)
-
-spelling_variant:
-	uv run --no-sync python -m alfs.update.refinement.spelling_variant \
-		--senses-db $(SENSES_DB) \
-		--cc-tasks-dir $(CC_TASKS_DIR)
-
-morph_redirect:
-	uv run --no-sync python -m alfs.update.refinement.morph_redirect \
-		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
-
-undo_morph:
-	uv run --no-sync python -m alfs.update.refinement.undo_morph \
-		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
-
-trim_senses:
-	uv run --no-sync python -m alfs.update.refinement.trim_sense \
-		--senses-db $(SENSES_DB) \
-		--labeled-db $(LABELED_DB) \
-		--docs $(DOCS) \
-		--queue-dir $(CLERK_QUEUE) \
-		--n 50 \
-		--model $(SENSE_UPDATE_MODEL)
-
-delete_entry:
-	uv run --no-sync python -m alfs.update.refinement.delete_entry \
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
@@ -148,7 +98,9 @@ cc_apply:
 	uv run --no-sync python -m alfs.cc.apply \
 		--cc-tasks-dir $(CC_TASKS_DIR) \
 		--senses-db $(SENSES_DB) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--labeled-db $(LABELED_DB) \
+		--blocklist-file $(BLOCKLIST_FILE)
 
 cc-clean:
 	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json
@@ -177,7 +129,9 @@ dataviewer:
 backup:
 	uv run --no-sync python -m alfs.backup \
 		--senses-db $(SENSES_DB) --senses-repo $(SENSES_REPO) \
-		--queue-dir $(CLERK_QUEUE)
+		--queue-dir $(CLERK_QUEUE) \
+		--blocklist-file $(BLOCKLIST_FILE) \
+		--queue-file $(INDUCTION_QUEUE)
 
 backup-gdrive:
 	rclone sync ../text_data $(GDRIVE_REMOTE):$(GDRIVE_DEST)/text_data \

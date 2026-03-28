@@ -84,6 +84,21 @@ def write_mutation_log(queue_dir: Path, senses_repo: Path) -> None:
         print(f"  Appended {len(entries)} mutations → mutations/{month_key}.jsonl")
 
 
+def backup_yaml_files(
+    senses_repo: Path,
+    blocklist_file: Path | None,
+    queue_file: Path | None,
+) -> None:
+    """Copy blocklist.yaml and induction_queue.yaml into senses_repo root."""
+    import shutil
+
+    for src in [blocklist_file, queue_file]:
+        if src is not None and src.exists():
+            dst = senses_repo / src.name
+            shutil.copy2(src, dst)
+            print(f"  Copied {src.name} → {dst}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backup senses to YAML")
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
@@ -92,6 +107,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--queue-dir", help="Path to clerk queue dir (enables mutation log)"
+    )
+    parser.add_argument(
+        "--blocklist-file", default=None, help="Path to blocklist.yaml (optional)"
+    )
+    parser.add_argument(
+        "--queue-file", default=None, help="Path to induction_queue.yaml (optional)"
     )
     args = parser.parse_args()
 
@@ -130,6 +151,12 @@ def main() -> None:
 
     if args.queue_dir:
         write_mutation_log(Path(args.queue_dir), repo)
+
+    backup_yaml_files(
+        repo,
+        Path(args.blocklist_file) if args.blocklist_file else None,
+        Path(args.queue_file) if args.queue_file else None,
+    )
 
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     result = subprocess.run(
