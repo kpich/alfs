@@ -361,10 +361,11 @@ def run_from_queue(
     context_chars: int = 150,
     max_samples: int = 20,
     cc_tasks_dir: str | Path | None = None,
+    limit: int = 5,
 ) -> None:
-    """Dequeue all entries and run induction for each."""
+    """Dequeue up to limit entries and run induction for each."""
     queue = InductionQueue(Path(queue_file))
-    entries = queue.dequeue_all()
+    entries = queue.dequeue(limit)
     if not entries:
         print("Induction queue is empty.")
         return
@@ -556,6 +557,9 @@ def main() -> None:
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-samples", type=int, default=20)
     parser.add_argument(
+        "--limit", type=int, default=5, help="Max forms to dequeue per run (queue mode)"
+    )
+    parser.add_argument(
         "--senses-db", default=None, help="Path to senses.db (optional)"
     )
     parser.add_argument(
@@ -587,6 +591,7 @@ def main() -> None:
             args.context_chars,
             args.max_samples,
             cc_tasks_dir,
+            args.limit,
         )
     else:
         if not args.target:

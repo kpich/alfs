@@ -72,6 +72,14 @@ class InductionQueue:
             self.save([])
         return entries
 
+    def dequeue(self, limit: int) -> list[InductionQueueEntry]:
+        """Read up to limit entries, save remainder back, return dequeued entries."""
+        entries = self.load()
+        batch = entries[:limit]
+        if batch:
+            self.save(entries[limit:])
+        return batch
+
     def remove_forms(self, forms: set[str]) -> None:
         """Remove specific forms from the queue."""
         entries = self.load()

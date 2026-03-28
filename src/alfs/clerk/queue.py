@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import contextlib
 from datetime import UTC, datetime
 import logging
 from pathlib import Path
@@ -107,6 +108,10 @@ def drain(
     processing_dir = queue_dir / "processing"
     done_dir = queue_dir / "done"
     failed_dir = queue_dir / "failed"
+
+    for orphan in sorted(processing_dir.glob("*.json")):
+        with contextlib.suppress(OSError):
+            orphan.rename(pending_dir / orphan.name)
 
     pending_files = sorted(pending_dir.glob("*.json"))
     if not pending_files:
