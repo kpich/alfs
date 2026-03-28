@@ -1,7 +1,7 @@
 import polars as pl
 
 from alfs.data_models.alf import Alf, Alfs, Sense
-from alfs.viewer.compile import compile_entries
+from alfs.viewer.compile import assign_percentiles, compile_entries
 
 
 def _alfs(*alfs: Alf) -> Alfs:
@@ -57,7 +57,8 @@ def test_redirect_forms_excluded():
     labeled = _labeled([])
     docs = _docs([("doc1", 2020, "")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
+    assign_percentiles(result, {})
 
     assert "the" in result
     assert "The" not in result
@@ -71,7 +72,8 @@ def test_non_redirect_forms_included():
     labeled = _labeled([("run", "doc1", 0, "1", 2)])
     docs = _docs([("doc1", 2020, "run fast")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
+    assign_percentiles(result, {})
 
     assert "run" in result
     assert result["run"]["senses"][0]["definition"] == "to move quickly"
@@ -95,7 +97,8 @@ def test_percentile_ordering():
         [("doc1", 2020, ""), ("doc2", 2020, ""), ("doc3", 2020, ""), ("doc4", 2020, "")]
     )
 
-    result = compile_entries(alfs, labeled, docs, {"common": 3, "rare": 1})
+    result = compile_entries(alfs, labeled, docs)
+    assign_percentiles(result, {"common": 3, "rare": 1})
 
     assert result["common"]["percentile"] < result["rare"]["percentile"]
 
@@ -107,7 +110,7 @@ def test_instances_included_per_sense():
     labeled = _labeled([("run", "doc1", 0, "1", 2)])
     docs = _docs([("doc1", 2020, "run fast through the park")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
 
     instances = result["run"]["senses"][0]["instances"]
     assert len(instances) == 1
@@ -121,7 +124,7 @@ def test_uuid_sense_keys_translated_to_positional():
     labeled = _labeled([("run", "doc1", 0, sense.id, 2)])
     docs = _docs([("doc1", 2020, "")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
 
     # KDE key should use positional key "1", not the UUID
     assert "1" in result["run"]["by_year_kde"]
@@ -134,7 +137,7 @@ def test_instances_included_for_rating1():
     labeled = _labeled([("walk", "doc1", 0, "1", 1)])
     docs = _docs([("doc1", 2020, "walk slowly")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
 
     assert len(result["walk"]["senses"][0]["instances"]) == 1
 
@@ -146,7 +149,7 @@ def test_instances_excluded_for_rating0():
     labeled = _labeled([("walk", "doc1", 0, "1", 0)])
     docs = _docs([("doc1", 2020, "walk slowly")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
 
     assert result["walk"]["senses"][0]["instances"] == []
 
@@ -164,7 +167,7 @@ def test_senses_bar_populated():
     )
     docs = _docs([("doc1", 2020, ""), ("doc2", 2020, ""), ("doc3", 2020, "")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
 
     senses_bar = result["run"]["senses_bar"]
     assert len(senses_bar) == 2
@@ -176,7 +179,7 @@ def test_senses_bar_empty_when_no_positive():
     labeled = _labeled([("run", "doc1", 0, "1", 0)])
     docs = _docs([("doc1", 2020, "")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
 
     assert result["run"]["senses_bar"] == []
 
@@ -188,7 +191,7 @@ def test_senses_bar_omits_zero_count_senses():
     labeled = _labeled([("run", "doc1", 0, "1", 2)])
     docs = _docs([("doc1", 2020, "")])
 
-    result = compile_entries(alfs, labeled, docs, {})
+    result = compile_entries(alfs, labeled, docs)
 
     senses_bar = result["run"]["senses_bar"]
     assert len(senses_bar) == 1

@@ -1,9 +1,15 @@
 """Compile viewer data from senses.db + labeled.db + docs.parquet.
 
-Usage:
+Usage (full, single-process):
     python -m alfs.viewer.compile \\
         --senses-db senses.db --labeled-db labeled.db --docs docs.parquet \\
-        --output data.json
+        --corpus-counts corpus_counts.json --output data.json
+
+Usage (batch mode, for parallel NF):
+    python -m alfs.viewer.compile \\
+        --senses-db senses.db --labeled-db labeled.db --docs docs.parquet \\
+        --corpus-counts corpus_counts.json \\
+        --batch-idx 0 --num-batches 8 --output entries_0.json
 """
 
 import argparse
@@ -25,10 +31,13 @@ def compile_entries(
     alfs: Alfs,
     labeled: pl.DataFrame,
     docs: pl.DataFrame,
-    corpus_counts: dict[str, int],
     timestamps: dict[str, str | None] | None = None,
+    batch_forms: set[str] | None = None,
 ) -> dict:
-    """Build the viewer entries dict, skipping redirect forms."""
+    """Build viewer entries dict for the given forms (all forms if batch_forms is None).
+
+    Returns entries without percentile — caller assigns percentile after merging.
+    """
     uuid_to_pos: dict[str, str] = {}
     for _form, alf in alfs.entries.items():
         if alf.redirect is not None:
@@ -113,6 +122,8 @@ def compile_entries(
     for form, alf in alfs.entries.items():
         if alf.redirect is not None:
             continue
+        if batch_forms is not None and form not in batch_forms:
+            continue
         senses = []
         for top_idx, sense in enumerate(alf.senses):
             sense_entry: dict = {
@@ -164,12 +175,15 @@ def compile_entries(
             "updated_at": (timestamps or {}).get(form),
         }
 
+    return entries
+
+
+def assign_percentiles(entries: dict, corpus_counts: dict[str, int]) -> None:
+    """Assign percentile rank in-place based on corpus frequency across all entries."""
     sorted_forms = sorted(entries, key=lambda f: corpus_counts.get(f, 0), reverse=True)
     n = len(sorted_forms)
     for rank, form in enumerate(sorted_forms, start=1):
         entries[form]["percentile"] = math.ceil(rank / n * 100) if n else 100
-
-    return entries
 
 
 def main() -> None:
@@ -177,8 +191,12 @@ def main() -> None:
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
-    parser.add_argument("--by-prefix-dir", required=True, help="Path to by_prefix/ dir")
-    parser.add_argument("--output", required=True, help="Path to output data.json")
+    parser.add_argument(
+        "--corpus-counts", required=True, help="Pre-computed corpus_counts.json"
+    )
+    parser.add_argument("--output", required=True, help="Path to output JSON")
+    parser.add_argument("--batch-idx", type=int, help="Batch index (0-based)")
+    parser.add_argument("--num-batches", type=int, help="Total number of batches")
     args = parser.parse_args()
 
     sense_store = SenseStore(Path(args.senses_db))
@@ -190,19 +208,21 @@ def main() -> None:
     labeled = occ_store.to_polars()
     docs = pl.read_parquet(args.docs)
 
-    alfs_forms = list(alfs.entries.keys())
-    corpus_df = (
-        pl.scan_parquet(str(Path(args.by_prefix_dir) / "**" / "*.parquet"))
-        .filter(pl.col("form").is_in(alfs_forms))
-        .group_by("form")
-        .agg(pl.len().alias("count"))
-        .collect()
-    )
-    corpus_counts = dict(
-        zip(corpus_df["form"].to_list(), corpus_df["count"].to_list(), strict=False)
-    )
+    corpus_counts: dict[str, int] = json.loads(Path(args.corpus_counts).read_text())
 
-    entries = compile_entries(alfs, labeled, docs, corpus_counts, timestamps)
+    batch_forms: set[str] | None = None
+    if args.batch_idx is not None:
+        num_batches = args.num_batches or 1
+        all_forms = sorted(entries_dict.keys())
+        batch_size = math.ceil(len(all_forms) / num_batches)
+        start = args.batch_idx * batch_size
+        batch_forms = set(all_forms[start : start + batch_size])
+
+    entries = compile_entries(alfs, labeled, docs, timestamps, batch_forms)
+
+    # Only assign percentiles in single-process (non-batch) mode
+    if batch_forms is None:
+        assign_percentiles(entries, corpus_counts)
 
     output = {"entries": entries}
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)

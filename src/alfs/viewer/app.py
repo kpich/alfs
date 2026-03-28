@@ -11,6 +11,7 @@ from pathlib import Path
 from flask import Flask, abort, render_template, request
 
 DATA_PATH = Path("../viewer_data/data.json")
+QC_STATS_PATH = Path("../viewer_data/qc_stats.json")
 
 PAGE_SIZE = 500
 RECENT_N = 100
@@ -158,6 +159,48 @@ def word(form: str):
         bar_chart_data=json.dumps(bar_chart_data),
         percentile=percentile,
         is_recent=is_recent,
+    )
+
+
+@app.route("/qc")
+def qc():
+    if not QC_STATS_PATH.exists():
+        return render_template("qc.html", available=False, rating_counts=None)
+    stats = json.loads(QC_STATS_PATH.read_text())
+    rating_counts = stats["rating_counts"]
+    return render_template("qc.html", available=True, rating_counts=rating_counts)
+
+
+@app.route("/qc/<int:rating>")
+def qc_instances(rating: int):
+    if rating not in (0, 1):
+        abort(404)
+    instances_path = Path(f"../viewer_data/qc_{rating}.json")
+    if not instances_path.exists():
+        return render_template(
+            "qc_instances.html",
+            available=False,
+            rating=rating,
+            instances=[],
+            page=1,
+            total_pages=1,
+            total=0,
+        )
+    data = json.loads(instances_path.read_text())
+    all_instances = data["instances"]
+    total = len(all_instances)
+    total_pages = max(1, math.ceil(total / PAGE_SIZE))
+    page = request.args.get("page", 1, type=int)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * PAGE_SIZE
+    return render_template(
+        "qc_instances.html",
+        available=True,
+        rating=rating,
+        instances=all_instances[start : start + PAGE_SIZE],
+        page=page,
+        total_pages=total_pages,
+        total=total,
     )
 
 

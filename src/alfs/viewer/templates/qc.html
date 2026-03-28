@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}QC Dashboard — ALFS{% endblock %}
+{% block content %}
+<h1 class="mb-4">QC Dashboard</h1>
+<p><a href="/">&larr; Home</a></p>
+
+{% if not available %}
+<p class="text-muted">QC stats not yet compiled. Run <code>make compile</code> to generate.</p>
+{% else %}
+
+<div id="rating-chart" style="width:400px;height:300px;"></div>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script>
+Plotly.newPlot('rating-chart', [{
+  type: 'bar',
+  x: ['2', '1', '0'],
+  y: [{{ rating_counts['2'] }}, {{ rating_counts['1'] }}, {{ rating_counts['0'] }}],
+  marker: { color: ['#198754', '#0d6efd', '#dc3545'] }
+}], {
+  xaxis: { title: 'Rating' },
+  yaxis: { title: 'Instance count' },
+  width: 400,
+  height: 300,
+  autosize: false,
+});
+</script>
+
+<div class="mt-4">
+  <p><a href="/qc/0">View rating 0 instances ({{ rating_counts['0'] }})</a></p>
+  <p><a href="/qc/1">View rating 1 instances ({{ rating_counts['1'] }})</a></p>
+</div>
+{% endif %}
+{% endblock %}

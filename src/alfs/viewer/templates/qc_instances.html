@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Rating {{ rating }} Instances — ALFS{% endblock %}
+{% block content %}
+<h1 class="mb-1">Rating {{ rating }} instances</h1>
+<p class="text-muted mb-3">{{ total }} total &middot; <a href="/qc">&larr; QC Dashboard</a></p>
+
+{% if not available %}
+<p class="text-muted">QC instances not yet compiled. Run <code>make compile</code> to generate.</p>
+{% elif not instances and total == 0 %}
+<p class="text-muted">No rating {{ rating }} instances found.</p>
+{% else %}
+
+{% if total_pages > 1 %}
+<nav class="mb-3">
+  <ul class="pagination pagination-sm">
+    {% for p in range(1, total_pages + 1) %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+<table class="table table-sm table-hover">
+  <thead><tr><th>Form</th><th>Sense</th><th>Context</th></tr></thead>
+  <tbody>
+  {% for inst in instances %}
+    <tr>
+      <td><a href="/word/{{ inst.form }}">{{ inst.form }}</a></td>
+      <td>{{ inst.sense_key }}</td>
+      <td>{{ inst.context | safe }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if total_pages > 1 %}
+<nav>
+  <ul class="pagination pagination-sm">
+    {% for p in range(1, total_pages + 1) %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+{% endif %}
+{% endblock %}
