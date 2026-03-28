@@ -273,7 +273,7 @@ def run(
     # Sort by form so same-word requests are consecutive (maximises prompt caching)
     sampled.sort(key=lambda x: str(x["form"]))
 
-    sense_menu_cache: dict[str, str] = {}
+    sense_menu_cache: dict[str, tuple[str, dict[str, str]]] = {}
     batch_requests: list[str] = []
     metadata_rows: list[str] = []
 
@@ -288,11 +288,11 @@ def run(
 
         if form not in sense_menu_cache:
             try:
-                menu, _ = build_sense_menu(sense_store, form)
+                menu, key_map = build_sense_menu(sense_store, form)
             except ValueError:
                 continue
-            sense_menu_cache[form] = menu
-        sense_menu = sense_menu_cache[form]
+            sense_menu_cache[form] = (menu, key_map)
+        sense_menu, key_map = sense_menu_cache[form]
 
         context = extract_context(text, byte_offset, form, context_chars)
         system_msg = build_system_message(form, sense_menu)
@@ -327,6 +327,7 @@ def run(
                     "doc_id": doc_id,
                     "byte_offset": byte_offset,
                     "model": model,
+                    "key_map": key_map,
                 }
             )
         )

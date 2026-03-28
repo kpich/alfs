@@ -118,10 +118,9 @@ def ingest(
             row = json.loads(line.strip())
             meta[row["custom_id"]] = row
 
-    sense_store = SenseStore(Path(senses_db))
     occ_store = OccurrenceStore(Path(labeled_db))
+    sense_store = SenseStore(Path(senses_db))  # only needed for forms without key_map
 
-    key_map_cache: dict[str, dict[str, str]] = {}
     upsert_rows: list[
         tuple[str, tuple[str, str, int, str, int, list[str] | None]]
     ] = []  # (model, row)
@@ -184,15 +183,21 @@ def ingest(
             if display_key == "0":
                 uuid_key = "0"
             else:
-                if form not in key_map_cache:
+                # Prefer key_map stored in metadata (snapshot at prepare time).
+                # Fall back to rebuilding from current sense store for old metadata
+                # files that predate this field.
+                stored = item.get("key_map")
+                if stored is not None:
+                    key_map: dict[str, str] = {
+                        str(k): str(v) for k, v in stored.items()
+                    }  # type: ignore[union-attr]
+                else:
                     try:
                         _, key_map = build_sense_menu(sense_store, form)
                     except ValueError:
                         print(f"Line {line_no}: no sense menu for {form!r}, skipping")
                         skipped += 1
                         continue
-                    key_map_cache[form] = key_map
-                key_map = key_map_cache[form]
                 if display_key not in key_map:
                     print(
                         f"Line {line_no}: sense key {display_key!r} not in menu "
