@@ -33,6 +33,12 @@ ACTIONS: list[Action] = [
         description="Dequeue forms and run local LLM sense induction",
     ),
     Action(
+        "cc-induce-senses",
+        "CC Induce Senses",
+        ["make", "cc_induce_senses"],
+        description="Dequeue forms and write CC induction task files",
+    ),
+    Action(
         "clerk",
         "Clerk",
         ["make", "clerk"],
