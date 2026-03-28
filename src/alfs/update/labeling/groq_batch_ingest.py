@@ -10,6 +10,7 @@ Usage:
 import argparse
 import json
 from pathlib import Path
+import shutil
 
 from alfs.data_models.annotated_occurrence import OccurrenceRating
 from alfs.data_models.occurrence_store import OccurrenceStore
@@ -37,19 +38,82 @@ def parse_response(content: str) -> dict[str, object] | None:
     }
 
 
+def _find_metadata(batch_output: Path, batch_dir: Path) -> Path:
+    """Scan batch_metadata_*.jsonl files in batch_dir to find one matching the
+    custom_ids in batch_output. Raises ValueError if no match or ambiguous."""
+    # Read the first custom_id from the output file
+    first_id: str | None = None
+    with batch_output.open() as f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                obj = json.loads(raw)
+                first_id = str(obj.get("custom_id", ""))
+                break
+            except json.JSONDecodeError:
+                continue
+    if first_id is None:
+        raise ValueError(f"Could not read any custom_id from {batch_output}")
+
+    matches: list[Path] = []
+    for meta_file in sorted(batch_dir.glob("batch_metadata_*.jsonl")):
+        with meta_file.open() as f:
+            first_line = f.readline().strip()
+        if not first_line:
+            continue
+        try:
+            row = json.loads(first_line)
+            if str(row.get("custom_id", "")) == first_id:
+                matches.append(meta_file)
+        except json.JSONDecodeError:
+            continue
+
+    if not matches:
+        raise ValueError(
+            f"No batch_metadata_*.jsonl in {batch_dir} contains "
+            f"custom_id {first_id!r}. "
+            f"Make sure the metadata file is in --batch-dir."
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"Multiple metadata files match custom_id {first_id!r}: {matches}. "
+            f"Use --metadata to specify explicitly."
+        )
+    return matches[0]
+
+
 def ingest(
     batch_output: str | Path,
-    metadata_path: str | Path,
     senses_db: str | Path,
     labeled_db: str | Path,
+    metadata_path: str | Path | None = None,
     log_dir: str | Path | None = None,
+    batch_dir: str | Path | None = None,
+    archive_dir: str | Path | None = None,
 ) -> int:
     """Parse Groq batch output JSONL and upsert results into labeled.db.
 
+    If metadata_path is None, batch_dir must be set and the matching metadata
+    file is auto-discovered by custom_id.
+
+    If archive_dir is set, moves batch_output, metadata, and matching batch_input
+    (if present) into archive_dir after successful ingest.
+
     Returns the number of rows inserted.
     """
+    batch_output = Path(batch_output)
+    if metadata_path is None:
+        if batch_dir is None:
+            raise ValueError("Either --metadata or --batch-dir must be provided")
+        metadata_path = _find_metadata(batch_output, Path(batch_dir))
+        print(f"Auto-discovered metadata: {metadata_path}")
+    else:
+        metadata_path = Path(metadata_path)
+
     meta: dict[str, dict[str, object]] = {}
-    with Path(metadata_path).open() as f:
+    with metadata_path.open() as f:
         for line in f:
             row = json.loads(line.strip())
             meta[row["custom_id"]] = row
@@ -161,6 +225,20 @@ def ingest(
                 append_upserts(Path(log_dir), model_rows, model=model_name)
 
     print(f"Ingested {len(upsert_rows)} rows, skipped {skipped}")
+
+    if archive_dir is not None:
+        archive_path = Path(archive_dir)
+        archive_path.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(batch_output), archive_path / batch_output.name)
+        shutil.move(str(metadata_path), archive_path / metadata_path.name)
+        # Also move matching batch_input if it exists alongside the metadata
+        batch_input_path = metadata_path.parent / metadata_path.name.replace(
+            "batch_metadata_", "batch_input_"
+        )
+        if batch_input_path.exists():
+            shutil.move(str(batch_input_path), archive_path / batch_input_path.name)
+        print(f"Archived files to {archive_path}")
+
     return len(upsert_rows)
 
 
@@ -169,20 +247,37 @@ def main() -> None:
         description="Ingest Groq batch output into labeled.db"
     )
     parser.add_argument("--batch-output", required=True)
-    parser.add_argument("--metadata", required=True)
+    parser.add_argument(
+        "--metadata",
+        default=None,
+        help="Path to metadata JSONL (auto-discovered from --batch-dir if omitted)",
+    )
+    parser.add_argument(
+        "--batch-dir",
+        default=None,
+        help=(
+            "Directory to scan for matching metadata"
+            " (used when --metadata is omitted)"
+        ),
+    )
     parser.add_argument("--senses-db", required=True)
     parser.add_argument("--labeled-db", required=True)
     parser.add_argument(
         "--log-dir", default=None, help="Directory for instance-tagging change log"
     )
+    parser.add_argument(
+        "--archive-dir", default=None, help="Move ingested files here after success"
+    )
     args = parser.parse_args()
 
     ingest(
         batch_output=args.batch_output,
-        metadata_path=args.metadata,
         senses_db=args.senses_db,
         labeled_db=args.labeled_db,
+        metadata_path=args.metadata,
         log_dir=args.log_dir,
+        batch_dir=args.batch_dir,
+        archive_dir=args.archive_dir,
     )
 
 

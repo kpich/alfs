@@ -14,6 +14,7 @@ Output files in --output-dir:
 
 import argparse
 from collections import defaultdict
+from datetime import datetime
 import json
 from pathlib import Path
 
@@ -139,11 +140,20 @@ def run(
     context_chars: int = 100,
     seed: int | None = None,
     min_count: int = 5,
-) -> tuple[Path, Path]:
-    """Build batch_input.jsonl and batch_metadata.jsonl in output_dir.
+    max_batch_size: int = 50_000,
+    batch_id: str | None = None,
+) -> list[tuple[Path, Path]]:
+    """Build batch_input and batch_metadata JSONL files in output_dir.
 
-    Returns (batch_path, metadata_path).
+    Files are named batch_input_{batch_id}_{NNN:03d}.jsonl where batch_id
+    defaults to a timestamp (YYYYMMDDTHHMMSS). If requests exceed max_batch_size,
+    multiple chunk pairs are created.
+
+    Returns list of (batch_path, metadata_path) pairs, one per chunk.
     """
+    if batch_id is None:
+        batch_id = datetime.now().strftime("%Y%m%dT%H%M%S")
+
     sense_store = SenseStore(Path(senses_db))
     occ_store = OccurrenceStore(Path(labeled_db))
 
@@ -323,20 +333,33 @@ def run(
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    batch_path = out_dir / "batch_input.jsonl"
-    metadata_path = out_dir / "batch_metadata.jsonl"
 
-    with batch_path.open("w") as f:
-        for line in batch_requests:
-            f.write(line + "\n")
+    # Split into chunks of max_batch_size
+    chunks: list[tuple[Path, Path]] = []
+    total = len(batch_requests)
+    n_chunks = max(1, (total + max_batch_size - 1) // max_batch_size)
+    for chunk_idx in range(n_chunks):
+        start = chunk_idx * max_batch_size
+        end = min(start + max_batch_size, total)
+        chunk_requests = batch_requests[start:end]
+        chunk_metadata = metadata_rows[start:end]
+        chunk_num = chunk_idx + 1
+        batch_path = out_dir / f"batch_input_{batch_id}_{chunk_num:03d}.jsonl"
+        metadata_path = out_dir / f"batch_metadata_{batch_id}_{chunk_num:03d}.jsonl"
+        with batch_path.open("w") as f:
+            for line in chunk_requests:
+                f.write(line + "\n")
+        with metadata_path.open("w") as f:
+            for line in chunk_metadata:
+                f.write(line + "\n")
+        print(
+            f"Chunk {chunk_num}/{n_chunks}: {len(chunk_requests)} requests"
+            f" → {batch_path.name}"
+        )
+        chunks.append((batch_path, metadata_path))
 
-    with metadata_path.open("w") as f:
-        for line in metadata_rows:
-            f.write(line + "\n")
-
-    print(f"Wrote {len(batch_requests)} requests → {batch_path}")
-    print(f"Wrote metadata → {metadata_path}")
-    return batch_path, metadata_path
+    print(f"Wrote {total} total requests in {n_chunks} chunk(s) to {out_dir}")
+    return chunks
 
 
 def main() -> None:
@@ -353,6 +376,7 @@ def main() -> None:
     parser.add_argument("--context-chars", type=int, default=100)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--min-count", type=int, default=5)
+    parser.add_argument("--max-batch-size", type=int, default=50_000)
     args = parser.parse_args()
 
     run(
@@ -366,6 +390,7 @@ def main() -> None:
         context_chars=args.context_chars,
         seed=args.seed,
         min_count=args.min_count,
+        max_batch_size=args.max_batch_size,
     )
 
 

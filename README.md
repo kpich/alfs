@@ -52,27 +52,30 @@ make clerk-watch # apply queued sense mutations from clerk_queue/
 
 An alternative to the local-LLM labeling pipeline that uses Groq's batch API — cheaper and faster for large runs.
 
-**1. Prepare the batch file**
+**1. Prepare the batch files**
 
 ```
 make groq-batch-prepare [GROQ_MODEL=llama-3.1-8b-instant]
 ```
 
-Writes two files to `../groq_batch/`:
-- `batch_input.jsonl` — upload this to Groq
-- `batch_metadata.jsonl` — sidecar needed for ingest; keep it alongside the output
+Writes timestamped files to `../groq_batch/`. If the request count exceeds Groq's 50k limit, multiple chunks are created automatically:
+- `batch_input_YYYYMMDDTHHMMSS_001.jsonl` — upload this to Groq
+- `batch_metadata_YYYYMMDDTHHMMSS_001.jsonl` — sidecar (do not move; ingest finds it automatically)
+- `batch_input_YYYYMMDDTHHMMSS_002.jsonl`, `batch_metadata_YYYYMMDDTHHMMSS_002.jsonl`, etc. if needed
 
-**2. Submit to Groq and download the result**
+**2. Submit each chunk to Groq and download the results**
 
-Upload `batch_input.jsonl` via the Groq console or their batch API. When the job completes, download the result file and save it as `../groq_batch/batch_output.jsonl`.
+Upload each `batch_input_*.jsonl` file to Groq's console or batch API. Each is a separate batch job (≤50k requests). When a job completes, download the output file and save it anywhere in `../groq_batch/` — the filename doesn't matter.
 
-**3. Ingest the results**
+**3. Ingest each output**
 
 ```
-make groq-batch-ingest
+make groq-batch-ingest BATCH_OUTPUT=../groq_batch/<downloaded_filename>.jsonl
 ```
 
-Reads `batch_output.jsonl` + `batch_metadata.jsonl` and upserts labeled occurrences into `labeled.db`.
+The matching metadata file is auto-discovered from `../groq_batch/` by matching request IDs. After a successful ingest, all three files (input, metadata, output) are moved to `../groq_batch_archive/` for safekeeping. Repeat for each chunk.
+
+`backup-gdrive` syncs `../groq_batch_archive/` to Google Drive so all batch history is preserved.
 
 ---
 
