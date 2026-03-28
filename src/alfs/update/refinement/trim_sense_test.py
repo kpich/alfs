@@ -48,7 +48,7 @@ def test_trim_sense_requires_at_least_two_senses(tmp_path: Path, monkeypatch) ->
     # Only "run" (2 senses) should be evaluated; "cat" (1 sense) is ineligible
     assert len(calls) == 1
     assert "run" in calls[0]
-    assert "cat" not in calls[0]
+    assert "a feline" not in calls[0]
 
 
 def test_trim_sense_skips_redirect_entries(tmp_path: Path, monkeypatch) -> None:
