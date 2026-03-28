@@ -16,6 +16,7 @@ SENSE_UPDATE_MODEL ?= qwen2.5:32b
 LABEL_MODEL        ?= gemma2:9b
 CC_TASKS_DIR       ?= ../cc_tasks
 GROQ_BATCH_DIR     ?= ../groq_batch
+GROQ_ARCHIVE_DIR   ?= ../groq_batch_archive
 GROQ_MODEL         ?= llama-3.1-8b-instant
 INSTANCE_LOG       ?= ../alfs_data/instance_log
 SOURCE             ?= wikibooks
@@ -188,6 +189,8 @@ backup-gdrive:
 		--progress
 	rclone sync ../seg_data $(GDRIVE_REMOTE):$(GDRIVE_DEST)/seg_data \
 		--progress
+	rclone sync $(GROQ_ARCHIVE_DIR) $(GDRIVE_REMOTE):$(GDRIVE_DEST)/groq_batch_archive \
+		--progress
 
 conductor:
 	uv run --no-sync python -m alfs.anthill
@@ -213,10 +216,11 @@ groq-batch-prepare:
 
 groq-batch-ingest:
 	uv run --no-sync python -m alfs.update.labeling.groq_batch_ingest \
-		--batch-output $(GROQ_BATCH_DIR)/batch_output.jsonl \
-		--metadata $(GROQ_BATCH_DIR)/batch_metadata.jsonl \
+		--batch-output $(BATCH_OUTPUT) \
+		--batch-dir $(GROQ_BATCH_DIR) \
 		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
-		--log-dir $(INSTANCE_LOG)
+		--log-dir $(INSTANCE_LOG) \
+		--archive-dir $(GROQ_ARCHIVE_DIR)
 
 cleandata:
 	@echo "This will delete: ../alfs_data  ../seg_data  ../update_data  ../viewer_data"
