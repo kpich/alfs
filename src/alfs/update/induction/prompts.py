@@ -31,6 +31,10 @@ def induction_critic_prompt(
         f"is normal dictionary practice and is NOT circular.\n"
         f"- The proposed meaning is nearly identical to an existing sense — not just "
         f"related, overlapping, or less precise, but essentially the same meaning.\n\n"
+        f"Words commonly have multiple distinct senses — a new sense being different "
+        f"from existing ones is expected and good, not a reason to reject. "
+        f'For example, "through" meaning "by means of" is a valid new sense even if '
+        f'an existing sense covers "movement from one side to the other".\n\n'
         f"Do NOT reject for vagueness, generality, or imprecision. "
         f"When in doubt, accept.\n\n"
         f'Output JSON only: {{"is_valid": true, "reason": "..."}}'
