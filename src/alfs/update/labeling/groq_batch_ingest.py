@@ -39,9 +39,13 @@ def parse_response(content: str) -> dict[str, object] | None:
 
 
 def _find_metadata(batch_output: Path, batch_dir: Path) -> Path:
-    """Scan batch_metadata_*.jsonl files in batch_dir to find one matching the
-    custom_ids in batch_output. Raises ValueError if no match or ambiguous."""
-    # Read the first custom_id from the output file
+    """Scan batch_metadata_*.jsonl files in batch_dir to find one whose custom_id
+    range contains the first custom_id in batch_output.
+
+    Raises ValueError if no match or ambiguous.
+    """
+    # Read the first custom_id from the output file (may not be '0' if some
+    # requests were dropped by Groq due to validation errors).
     first_id: str | None = None
     with batch_output.open() as f:
         for raw in f:
@@ -57,18 +61,31 @@ def _find_metadata(batch_output: Path, batch_dir: Path) -> Path:
     if first_id is None:
         raise ValueError(f"Could not read any custom_id from {batch_output}")
 
+    try:
+        first_id_int = int(first_id)
+    except ValueError:
+        raise ValueError(
+            f"custom_id {first_id!r} in {batch_output} is not an integer; "
+            f"cannot auto-discover metadata. Use --metadata explicitly."
+        ) from None
+
     matches: list[Path] = []
     for meta_file in sorted(batch_dir.glob("batch_metadata_*.jsonl")):
-        with meta_file.open() as f:
-            first_line = f.readline().strip()
-        if not first_line:
-            continue
+        # Read first and last line to get the custom_id range for this chunk.
         try:
-            row = json.loads(first_line)
-            if str(row.get("custom_id", "")) == first_id:
-                matches.append(meta_file)
-        except json.JSONDecodeError:
+            with meta_file.open() as f:
+                first_line = f.readline().strip()
+                last_line = first_line
+                for last_line in f:
+                    last_line = last_line.strip()
+            if not first_line:
+                continue
+            lo = int(json.loads(first_line)["custom_id"])
+            hi = int(json.loads(last_line)["custom_id"])
+        except (json.JSONDecodeError, KeyError, ValueError):
             continue
+        if lo <= first_id_int <= hi:
+            matches.append(meta_file)
 
     if not matches:
         raise ValueError(
