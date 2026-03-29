@@ -1,10 +1,13 @@
 """Unit tests for groq_batch_prepare.allocate_instances and effective_sense_count."""
 
+import polars as pl
+
 from alfs.data_models.alf import Alf, Sense
 from alfs.data_models.sense_store import SenseStore
 from alfs.update.labeling.groq_batch_prepare import (
     allocate_instances,
     effective_sense_count,
+    split_labeled_pairs,
 )
 
 
@@ -168,3 +171,70 @@ def test_empty_inputs_returns_empty() -> None:
         budget=100,
     )
     assert result == {}
+
+
+def _make_labeled_df(
+    rows: list[tuple[str, str, int, str | None]],
+) -> pl.DataFrame:
+    """Build a minimal good_labeled_df with columns form, doc_id, byte_offset,
+    updated_at."""
+    return pl.DataFrame(
+        {
+            "form": [r[0] for r in rows],
+            "doc_id": [r[1] for r in rows],
+            "byte_offset": [r[2] for r in rows],
+            "updated_at": [r[3] for r in rows],
+        }
+    )
+
+
+def test_split_labeled_pairs_stale_goes_to_stale() -> None:
+    """Occurrence labeled before a new sense is added → stale."""
+    df = _make_labeled_df([("run", "doc1", 100, "2024-01-01 00:00:00")])
+    max_sense_ts = {"run": "2024-06-01 00:00:00"}
+    good, stale = split_labeled_pairs(df, max_sense_ts)
+    assert ("doc1", 100) not in good["run"]
+    assert ("doc1", 100) in stale["run"]
+
+
+def test_split_labeled_pairs_fresh_goes_to_good() -> None:
+    """Occurrence labeled after the latest sense → good (excluded from re-sampling)."""
+    df = _make_labeled_df([("run", "doc1", 100, "2024-09-01 00:00:00")])
+    max_sense_ts = {"run": "2024-06-01 00:00:00"}
+    good, stale = split_labeled_pairs(df, max_sense_ts)
+    assert ("doc1", 100) in good["run"]
+    assert ("doc1", 100) not in stale.get("run", [])
+
+
+def test_split_labeled_pairs_no_sense_ts_goes_to_good() -> None:
+    """Form with no sense timestamp → occurrence treated as non-stale (good)."""
+    df = _make_labeled_df([("run", "doc1", 100, "2024-01-01 00:00:00")])
+    good, stale = split_labeled_pairs(df, max_sense_ts={})
+    assert ("doc1", 100) in good["run"]
+    assert len(stale.get("run", [])) == 0
+
+
+def test_split_labeled_pairs_null_labeled_ts_goes_to_good() -> None:
+    """Occurrence with NULL updated_at → treated as non-stale (good)."""
+    df = _make_labeled_df([("run", "doc1", 100, None)])
+    max_sense_ts = {"run": "2024-06-01 00:00:00"}
+    good, stale = split_labeled_pairs(df, max_sense_ts)
+    assert ("doc1", 100) in good["run"]
+    assert len(stale.get("run", [])) == 0
+
+
+def test_split_labeled_pairs_mixed() -> None:
+    """Mix of stale and fresh occurrences for the same form."""
+    df = _make_labeled_df(
+        [
+            ("run", "doc1", 100, "2024-01-01 00:00:00"),  # stale
+            ("run", "doc2", 200, "2024-09-01 00:00:00"),  # fresh
+            ("run", "doc3", 300, "2024-01-01 00:00:00"),  # stale
+        ]
+    )
+    max_sense_ts = {"run": "2024-06-01 00:00:00"}
+    good, stale = split_labeled_pairs(df, max_sense_ts)
+    assert ("doc2", 200) in good["run"]
+    assert ("doc1", 100) in stale["run"]
+    assert ("doc3", 300) in stale["run"]
+    assert len(stale["run"]) == 2

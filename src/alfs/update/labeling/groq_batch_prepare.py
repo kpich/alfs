@@ -107,6 +107,32 @@ def allocate_instances(
     return {f: int(need_at_k(f, k)) for f in eligible if int(need_at_k(f, k)) > 0}
 
 
+def split_labeled_pairs(
+    good_labeled_df: pl.DataFrame,
+    max_sense_ts: dict[str, str],
+) -> tuple[dict[str, set[tuple[str, int]]], dict[str, list[tuple[str, int]]]]:
+    """Classify rating >= 1 labeled occurrences into fresh-good and stale sets.
+
+    Returns (good_pairs, stale_pairs) where:
+      good_pairs  — labeled AFTER (or same time as) the latest sense addition;
+                    excluded from sampling
+      stale_pairs — labeled BEFORE the latest sense was added; eligible for
+                    re-sampling
+    """
+    good_pairs: dict[str, set[tuple[str, int]]] = defaultdict(set)
+    stale_pairs: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for row in good_labeled_df.iter_rows(named=True):
+        form = str(row["form"])
+        pair = (str(row["doc_id"]), int(row["byte_offset"]))
+        form_max_ts = max_sense_ts.get(form)
+        labeled_ts = row["updated_at"]
+        if form_max_ts and labeled_ts and labeled_ts < form_max_ts:
+            stale_pairs[form].append(pair)
+        else:
+            good_pairs[form].add(pair)
+    return good_pairs, stale_pairs
+
+
 def build_system_message(form: str, sense_menu: str) -> str:
     """System message for the labeling prompt (same per form, cached by Groq)."""
     return (
@@ -142,6 +168,7 @@ def run(
     min_count: int = 5,
     max_batch_size: int = 50_000,
     batch_id: str | None = None,
+    stale_fraction: float = 0.1,
 ) -> list[tuple[Path, Path]]:
     """Build batch_input and batch_metadata JSONL files in output_dir.
 
@@ -208,17 +235,23 @@ def run(
         f"across {len(allocation)} forms"
     )
 
-    # Build set of already-well-labeled (rating >= 1) pairs per form for filtering
-    good_pairs: dict[str, set[tuple[str, int]]] = defaultdict(set)
+    # Build pair sets for candidate filtering:
+    #   good_pairs  — rating >= 1, labeled AFTER latest sense was added
+    #                 → excluded from sampling
+    #   stale_pairs — rating >= 1, labeled BEFORE latest sense was added
+    #                 → eligible for re-sampling
+    max_sense_ts = sense_store.max_sense_updated_at_by_form()
     all_labeled = occ_store.to_polars()
+    good_pairs: dict[str, set[tuple[str, int]]] = defaultdict(set)
+    stale_pairs: dict[str, list[tuple[str, int]]] = defaultdict(list)
     if len(all_labeled) > 0:
         good_labeled_df = all_labeled.filter(pl.col("rating").is_in([1, 2])).select(
-            ["form", "doc_id", "byte_offset"]
+            ["form", "doc_id", "byte_offset", "updated_at"]
         )
-        for row in good_labeled_df.iter_rows(named=True):
-            good_pairs[str(row["form"])].add(
-                (str(row["doc_id"]), int(row["byte_offset"]))
-            )
+        good_pairs, stale_pairs = split_labeled_pairs(good_labeled_df, max_sense_ts)
+    else:
+        good_pairs = defaultdict(set)
+        stale_pairs = defaultdict(list)
 
     # Sample instances per form, grouped by prefix for efficient parquet loading
     rng = np.random.default_rng(seed)
@@ -238,24 +271,40 @@ def run(
             if k <= 0:
                 continue
             form_df = df.filter(pl.col("form") == form)
-            excluded = good_pairs.get(form, set())
-            candidates: list[tuple[str, int]] = [
+            form_good = good_pairs.get(form, set())
+            form_stale = stale_pairs.get(form, [])
+            form_stale_set = set(form_stale)
+            fresh_candidates: list[tuple[str, int]] = [
                 (str(row["doc_id"]), int(row["byte_offset"]))
                 for row in form_df.select(["doc_id", "byte_offset"]).iter_rows(
                     named=True
                 )
-                if (str(row["doc_id"]), int(row["byte_offset"])) not in excluded
+                if (str(row["doc_id"]), int(row["byte_offset"])) not in form_good
+                and (str(row["doc_id"]), int(row["byte_offset"])) not in form_stale_set
             ]
-            if not candidates:
-                continue
-            chosen = rng.choice(
-                len(candidates), size=min(k, len(candidates)), replace=False
-            )
-            for idx in chosen:
-                doc_id, byte_offset = candidates[int(idx)]
-                sampled.append(
-                    {"form": form, "doc_id": doc_id, "byte_offset": byte_offset}
+
+            k_stale = min(int(k * stale_fraction), len(form_stale))
+            k_fresh = k - k_stale
+
+            if form_stale and k_stale > 0:
+                chosen_stale = rng.choice(len(form_stale), size=k_stale, replace=False)
+                for idx in chosen_stale:
+                    doc_id, byte_offset = form_stale[int(idx)]
+                    sampled.append(
+                        {"form": form, "doc_id": doc_id, "byte_offset": byte_offset}
+                    )
+
+            if fresh_candidates and k_fresh > 0:
+                chosen_fresh = rng.choice(
+                    len(fresh_candidates),
+                    size=min(k_fresh, len(fresh_candidates)),
+                    replace=False,
                 )
+                for idx in chosen_fresh:
+                    doc_id, byte_offset = fresh_candidates[int(idx)]
+                    sampled.append(
+                        {"form": form, "doc_id": doc_id, "byte_offset": byte_offset}
+                    )
 
     print(f"Sampled {len(sampled)} instances")
 
@@ -378,6 +427,16 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--min-count", type=int, default=5)
     parser.add_argument("--max-batch-size", type=int, default=50_000)
+    parser.add_argument(
+        "--stale-fraction",
+        type=float,
+        default=0.1,
+        help=(
+            "Fraction of each form's budget reserved for re-labeling stale "
+            "occurrences (labeled before the most recently added sense). "
+            "Default: 0.1"
+        ),
+    )
     args = parser.parse_args()
 
     run(
@@ -392,6 +451,7 @@ def main() -> None:
         seed=args.seed,
         min_count=args.min_count,
         max_batch_size=args.max_batch_size,
+        stale_fraction=args.stale_fraction,
     )
 
 

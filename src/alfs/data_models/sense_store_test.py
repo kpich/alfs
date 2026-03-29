@@ -86,6 +86,19 @@ def test_update_missing_form(store: SenseStore) -> None:
     assert result.senses[0].definition == "a new entry"
 
 
+def test_max_sense_updated_at_by_form(store: SenseStore) -> None:
+    store.write(_alf("cat", "a feline"))
+    store.write(_alf("dog", "a canine"))
+    result = store.max_sense_updated_at_by_form()
+    assert set(result.keys()) == {"cat", "dog"}
+    assert result["cat"] is not None
+    assert result["dog"] is not None
+
+
+def test_max_sense_updated_at_by_form_empty(store: SenseStore) -> None:
+    assert store.max_sense_updated_at_by_form() == {}
+
+
 def test_all_timestamps(store: SenseStore) -> None:
     store.write(_alf("cat", "a feline"))
     store.write(_alf("dog", "a canine"))
