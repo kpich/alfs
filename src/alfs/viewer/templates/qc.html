@@ -14,7 +14,7 @@
 Plotly.newPlot('rating-chart', [{
   type: 'bar',
   x: ['2', '1', '0'],
-  y: [{{ rating_counts['2'] }}, {{ rating_counts['1'] }}, {{ rating_counts['0'] }}],
+  y: [{{ stats.rating_counts['2'] }}, {{ stats.rating_counts['1'] }}, {{ stats.rating_counts['0'] }}],
   marker: { color: ['#198754', '#0d6efd', '#dc3545'] }
 }], {
   xaxis: { title: 'Rating' },
@@ -26,8 +26,69 @@ Plotly.newPlot('rating-chart', [{
 </script>
 
 <div class="mt-4">
-  <p><a href="/qc/0">View rating 0 instances ({{ rating_counts['0'] }})</a></p>
-  <p><a href="/qc/1">View rating 1 instances ({{ rating_counts['1'] }})</a></p>
+  <p><a href="/qc/0">View rating 0 instances ({{ stats.rating_counts['0'] }})</a></p>
+  <p><a href="/qc/1">View rating 1 instances ({{ stats.rating_counts['1'] }})</a></p>
 </div>
+
+{% if stats and stats.word_rating_dist %}
+<h2 class="mt-5">Taggings per word</h2>
+<div style="display:flex;gap:16px;flex-wrap:wrap;">
+  <div id="word-hist-2" style="width:280px;height:240px;"></div>
+  <div id="word-hist-1" style="width:280px;height:240px;"></div>
+  <div id="word-hist-0" style="width:280px;height:240px;"></div>
+</div>
+<h2 class="mt-4">Taggings per sense</h2>
+<div style="display:flex;gap:16px;flex-wrap:wrap;">
+  <div id="sense-hist-2" style="width:280px;height:240px;"></div>
+  <div id="sense-hist-1" style="width:280px;height:240px;"></div>
+  <div id="sense-hist-0" style="width:280px;height:240px;"></div>
+</div>
+<script>
+var wrd = {{ stats.word_rating_dist | tojson }};
+var sns = {{ stats.sense_rating_dist | tojson }};
+var colors = {'2': '#198754', '1': '#0d6efd', '0': '#dc3545'};
+[['2','word-hist-2',wrd],['1','word-hist-1',wrd],['0','word-hist-0',wrd]].forEach(function(t) {
+  Plotly.newPlot(t[1], [{type:'histogram', x:t[2][t[0]], marker:{color:colors[t[0]]}}], {
+    title: 'Rating ' + t[0], xaxis:{title:'Count per word'}, yaxis:{title:'# words'},
+    width:280, height:240, autosize:false, margin:{t:30,b:40,l:45,r:10}
+  });
+});
+[['2','sense-hist-2',sns],['1','sense-hist-1',sns],['0','sense-hist-0',sns]].forEach(function(t) {
+  Plotly.newPlot(t[1], [{type:'histogram', x:t[2][t[0]], marker:{color:colors[t[0]]}}], {
+    title: 'Rating ' + t[0], xaxis:{title:'Count per sense'}, yaxis:{title:'# senses'},
+    width:280, height:240, autosize:false, margin:{t:30,b:40,l:45,r:10}
+  });
+});
+</script>
+{% endif %}
+
+{% if lag and lag.pct_stale is not none %}
+<h2 class="mt-5">Label staleness</h2>
+<p>
+  <strong>{{ lag.pct_stale }}%</strong> of {{ lag.total_with_ts }} labeled instances
+  were labeled before the most recent sense update for their form.
+</p>
+<div id="lag-chart" style="width:600px;height:300px;"></div>
+<script>
+Plotly.newPlot('lag-chart', [{
+  type: 'histogram',
+  x: {{ lag.lag_days | tojson }},
+  nbinsx: 60,
+  marker: { color: '#0d6efd' }
+}], {
+  xaxis: { title: 'Days since sense update (negative = labeled before update)' },
+  yaxis: { title: 'Instance count' },
+  shapes: [{
+    type: 'line',
+    x0: 0, x1: 0,
+    yref: 'paper', y0: 0, y1: 1,
+    line: { color: '#dc3545', width: 2, dash: 'dash' }
+  }],
+  width: 600,
+  height: 300,
+  autosize: false,
+});
+</script>
+{% endif %}
 {% endif %}
 {% endblock %}
