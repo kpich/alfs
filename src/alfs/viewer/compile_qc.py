@@ -57,7 +57,28 @@ def compile_qc_stats(labeled: pl.DataFrame) -> dict:
     }
     for r in ("0", "1", "2"):
         rating_counts.setdefault(r, 0)
-    return {"rating_counts": rating_counts}
+
+    def rating_dist(group_cols: list[str]) -> dict[str, list[int]]:
+        all_groups = labeled.select(group_cols).unique()
+        dist: dict[str, list[int]] = {}
+        for r in (0, 1, 2):
+            per_group = (
+                labeled.filter(pl.col("rating") == r)
+                .group_by(group_cols)
+                .agg(pl.len().alias("n"))
+            )
+            dist[str(r)] = (
+                all_groups.join(per_group, on=group_cols, how="left")
+                .fill_null(0)["n"]
+                .to_list()
+            )
+        return dist
+
+    return {
+        "rating_counts": rating_counts,
+        "word_rating_dist": rating_dist(["form"]),
+        "sense_rating_dist": rating_dist(["form", "sense_key"]),
+    }
 
 
 def compile_qc_lag(labeled: pl.DataFrame, sense_store: SenseStore) -> dict:
