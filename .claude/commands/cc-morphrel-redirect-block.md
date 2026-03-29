@@ -47,7 +47,7 @@ You are a lexicographer reviewing wordforms in an expansive English dictionary. 
    The form should be removed entirely and added to the blocklist. Applies to:
    - Artifact forms: stray punctuation, markup fragments, tokenization errors (e.g. `5*!`, `--`, `</p>`)
    - Forms that are foreign words with no established use as English loan words
-   - Truly one-off proper names or abbreviations with no shared semantics (e.g. a unique username, a serial number)
+   - Truly one-off proper names or abbreviations with no shared semantics (e.g. a unique username, a serial number). Note: proper names in general — including minor fictional characters, historical figures, place names, and surnames — should be **kept**, not deleted. Only delete a proper name if it is so contextually unique that no reader would look it up (e.g. a throwaway username, an internal code name, a serial number).
 
    **This dictionary is intentionally expansive** — it includes appreciably more than a typical desk dictionary. Keep slang, technical jargon, neologisms, regional terms, archaic forms, and words a broad community of speakers would recognize. Only delete forms that are genuinely not English words or phrases by any standard.
 
