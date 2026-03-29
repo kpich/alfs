@@ -222,6 +222,16 @@ class SenseStore:
             for form, redirect, spelling_variant_of in wf_rows
         }
 
+    def max_sense_updated_at_by_form(self) -> dict[str, str]:
+        """Return {form: max(updated_at)} for forms with at least one
+        timestamped sense."""
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT form, MAX(updated_at) FROM senses "
+                "WHERE updated_at IS NOT NULL GROUP BY form"
+            ).fetchall()
+        return {row[0]: row[1] for row in rows}
+
     def all_timestamps(self) -> dict[str, str | None]:
         with self._connect() as con:
             rows = con.execute("SELECT form, updated_at FROM wordforms").fetchall()
