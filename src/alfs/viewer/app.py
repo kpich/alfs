@@ -12,6 +12,7 @@ from flask import Flask, abort, render_template, request
 
 DATA_PATH = Path("../viewer_data/data.json")
 QC_STATS_PATH = Path("../viewer_data/qc_stats.json")
+QC_LAG_PATH = Path("../viewer_data/qc_lag.json")
 
 PAGE_SIZE = 500
 RECENT_N = 100
@@ -165,10 +166,13 @@ def word(form: str):
 @app.route("/qc")
 def qc():
     if not QC_STATS_PATH.exists():
-        return render_template("qc.html", available=False, rating_counts=None)
+        return render_template("qc.html", available=False, rating_counts=None, lag=None)
     stats = json.loads(QC_STATS_PATH.read_text())
     rating_counts = stats["rating_counts"]
-    return render_template("qc.html", available=True, rating_counts=rating_counts)
+    lag = json.loads(QC_LAG_PATH.read_text()) if QC_LAG_PATH.exists() else None
+    return render_template(
+        "qc.html", available=True, rating_counts=rating_counts, lag=lag
+    )
 
 
 @app.route("/qc/<int:rating>")

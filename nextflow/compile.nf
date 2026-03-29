@@ -60,6 +60,17 @@ process COMPILE_QC_STATS {
     """
 }
 
+process COMPILE_QC_LAG {
+    publishDir params.viewer_data_dir, mode: 'copy'
+    output: path "qc_lag.json"
+    script:
+    """
+    uv run --project ${launchDir} --no-sync python -m alfs.viewer.compile_qc \
+        --mode lag --labeled-db ${params.labeled_db} \
+        --senses-db ${params.senses_db} --output qc_lag.json
+    """
+}
+
 process COMPILE_QC_INSTANCES {
     publishDir params.viewer_data_dir, mode: 'copy'
     input:
@@ -88,5 +99,6 @@ workflow {
     COMPILE_MERGE(entries_ch.collect(), corpus_counts_ch)
 
     COMPILE_QC_STATS()
+    COMPILE_QC_LAG()
     COMPILE_QC_INSTANCES(Channel.of(0, 1), docs_ch)
 }

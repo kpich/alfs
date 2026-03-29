@@ -9,6 +9,10 @@ Usage:
     python -m alfs.viewer.compile_qc \\
         --mode instances --labeled-db labeled.db --docs docs.parquet \\
         --senses-db senses.db --rating 0 --output qc_0.json
+
+    # Staleness lag histogram data:
+    python -m alfs.viewer.compile_qc \\
+        --mode lag --labeled-db labeled.db --senses-db senses.db --output qc_lag.json
 """
 
 import argparse
@@ -56,6 +60,44 @@ def compile_qc_stats(labeled: pl.DataFrame) -> dict:
     return {"rating_counts": rating_counts}
 
 
+def compile_qc_lag(labeled: pl.DataFrame, sense_store: SenseStore) -> dict:
+    ts = sense_store.max_sense_updated_at_by_form()
+    if not ts:
+        return {"pct_stale": None, "stale": 0, "total_with_ts": 0, "lag_days": []}
+
+    ts_df = pl.DataFrame(
+        {"form": list(ts.keys()), "sense_updated_at": list(ts.values())}
+    )
+    merged = labeled.join(ts_df, on="form", how="inner")
+    merged = merged.filter(
+        pl.col("updated_at").is_not_null() & pl.col("sense_updated_at").is_not_null()
+    )
+    if merged.is_empty():
+        return {"pct_stale": None, "stale": 0, "total_with_ts": 0, "lag_days": []}
+
+    fmt = "%Y-%m-%d %H:%M:%S"
+    merged = merged.with_columns(
+        (
+            (
+                pl.col("updated_at").str.to_datetime(fmt)
+                - pl.col("sense_updated_at").str.to_datetime(fmt)
+            ).dt.total_seconds()
+            / 86400.0
+        ).alias("lag_days")
+    )
+
+    lag_days = merged["lag_days"].to_list()
+    stale = sum(1 for d in lag_days if d < 0)
+    total = len(lag_days)
+    pct_stale = round(100.0 * stale / total, 1) if total > 0 else None
+    return {
+        "pct_stale": pct_stale,
+        "stale": stale,
+        "total_with_ts": total,
+        "lag_days": lag_days,
+    }
+
+
 def compile_qc_instances(
     labeled: pl.DataFrame, docs: pl.DataFrame, rating: int
 ) -> dict:
@@ -92,7 +134,7 @@ def compile_qc_instances(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compile QC data for viewer")
-    parser.add_argument("--mode", required=True, choices=["stats", "instances"])
+    parser.add_argument("--mode", required=True, choices=["stats", "instances", "lag"])
     parser.add_argument("--labeled-db", required=True)
     parser.add_argument(
         "--senses-db", help="Path to senses.db (required for instances mode)"
@@ -111,6 +153,10 @@ def main() -> None:
 
     if args.mode == "stats":
         result = compile_qc_stats(labeled)
+    elif args.mode == "lag":
+        if args.senses_db is None:
+            parser.error("--senses-db is required for lag mode")
+        result = compile_qc_lag(labeled, SenseStore(Path(args.senses_db)))
     else:
         if args.docs is None or args.rating is None or args.senses_db is None:
             parser.error(
@@ -125,6 +171,8 @@ def main() -> None:
     Path(args.output).write_text(json.dumps(result, indent=2))
     if args.mode == "stats":
         print(f"Wrote QC stats → {args.output}")
+    elif args.mode == "lag":
+        print(f"Wrote lag data ({result['pct_stale']}% stale) → {args.output}")
     else:
         n = len(result["instances"])
         print(f"Wrote {n} rating-{args.rating} instances → {args.output}")
