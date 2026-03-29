@@ -50,6 +50,12 @@ ACTIONS: list[Action] = [
         ["make", "cc_apply"],
         description="Apply CC skill outputs as clerk requests",
     ),
+    Action(
+        "cc-morphrel-block",
+        "CC MorphRel/Block",
+        ["make", "cc_morphrel_block"],
+        description="Generate CC task files for morph-rel, redirect, and block",
+    ),
 ]
 
 ACTIONS_BY_NAME: dict[str, Action] = {a.name: a for a in ACTIONS}

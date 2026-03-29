@@ -1,4 +1,4 @@
-.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest
+.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_morphrel_block cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -26,6 +26,7 @@ BLOCKLIST_FILE     ?= ../alfs_data/blocklist.yaml
 ENQUEUE_TOP_N      ?= 500
 ENQUEUE_MIN_COUNT  ?= 5
 ENQUEUE_N_OCC_REFS ?= 3
+CC_MORPHREL_N      ?= 20
 
 download:
 	uv run --no-sync python -m alfs.etl.download \
@@ -101,6 +102,13 @@ cc_apply:
 		--queue-dir $(CLERK_QUEUE) \
 		--labeled-db $(LABELED_DB) \
 		--blocklist-file $(BLOCKLIST_FILE)
+
+cc_morphrel_block:
+	uv run --no-sync python -m alfs.update.refinement.generate_morphrel_block_tasks \
+		--senses-db $(SENSES_DB) \
+		--cc-tasks-dir $(CC_TASKS_DIR) \
+		--blocklist-file $(BLOCKLIST_FILE) \
+		--n $(CC_MORPHREL_N)
 
 cc-clean:
 	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json

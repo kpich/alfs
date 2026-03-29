@@ -27,7 +27,14 @@ class CCInductionTask(BaseModel):
     occurrence_refs: list[Occurrence] = []  # parallel to contexts list
 
 
-CCTask = Annotated[CCInductionTask, Field(discriminator="type")]
+class CCMorphRelBlockTask(BaseModel):
+    type: Literal["morphrel_block"] = "morphrel_block"
+    id: str
+    form: str
+    senses: list[SenseInfo]
+
+
+CCTask = Annotated[CCInductionTask | CCMorphRelBlockTask, Field(discriminator="type")]
 
 
 # --- Output models (written to done/) ---
@@ -56,4 +63,24 @@ class CCInductionOutput(BaseModel):
     blocklist_reason: str | None = None
 
 
-CCOutput = Annotated[CCInductionOutput, Field(discriminator="type")]
+class MorphRelEntry(BaseModel):
+    sense_idx: int
+    morph_base: str
+    morph_relation: str
+    proposed_definition: str
+    promote_to_parent: bool
+
+
+class CCMorphRelBlockOutput(BaseModel):
+    type: Literal["morphrel_block"] = "morphrel_block"
+    id: str
+    form: str
+    action: Literal["morph_rel", "redirect", "delete"]
+    morph_rels: list[MorphRelEntry] = []
+    redirect_to: str | None = None
+    blocklist_reason: str | None = None
+
+
+CCOutput = Annotated[
+    CCInductionOutput | CCMorphRelBlockOutput, Field(discriminator="type")
+]

@@ -18,9 +18,15 @@ import uuid
 
 from pydantic import TypeAdapter
 
-from alfs.cc.models import CCInductionOutput, CCOutput
+from alfs.cc.models import CCInductionOutput, CCMorphRelBlockOutput, CCOutput
 from alfs.clerk.queue import enqueue
-from alfs.clerk.request import AddSensesRequest
+from alfs.clerk.request import (
+    AddSensesRequest,
+    ClearRedirectSensesRequest,
+    DeleteEntryRequest,
+    MorphRedirectRequest,
+    SetRedirectRequest,
+)
 from alfs.data_models.alf import Sense
 from alfs.data_models.blocklist import Blocklist
 from alfs.data_models.occurrence import Occurrence
@@ -126,6 +132,112 @@ def _apply_induction(
     return True
 
 
+def _apply_morphrel_block(
+    output: CCMorphRelBlockOutput,
+    sense_store: SenseStore,
+    queue_dir: Path,
+    occ_store: OccurrenceStore | None,
+    blocklist: Blocklist | None,
+) -> bool:
+    form = output.form
+
+    if output.action == "morph_rel":
+        alf = sense_store.read(form)
+        if alf is None:
+            print(f"  skipped morph_rel for {form!r}: form not found in sense store")
+            return True
+        for entry in output.morph_rels:
+            if sense_store.read(entry.morph_base) is None:
+                print(
+                    f"  skipped morph_rel sense {entry.sense_idx} for {form!r}: "
+                    f"base {entry.morph_base!r} not in sense store"
+                )
+                continue
+            if entry.sense_idx >= len(alf.senses):
+                print(
+                    f"  skipped morph_rel sense {entry.sense_idx} for {form!r}: "
+                    f"index out of range"
+                )
+                continue
+            before = alf.senses[entry.sense_idx]
+            after = before.model_copy(
+                update={
+                    "definition": entry.proposed_definition,
+                    "morph_base": entry.morph_base,
+                    "morph_relation": entry.morph_relation,
+                    "updated_by_model": "claude-code",
+                }
+            )
+            request = MorphRedirectRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                derived_sense_idx=entry.sense_idx,
+                base_form=entry.morph_base,
+                base_sense_idx=0,
+                relation=entry.morph_relation,
+                before=before,
+                after=after,
+                promote_to_parent=entry.promote_to_parent,
+            )
+            enqueue(request, queue_dir)
+            print(
+                f"  queued morph_rel sense {entry.sense_idx} for {form!r}"
+                f" → {entry.morph_base!r}"
+            )
+
+    elif output.action == "redirect":
+        if output.redirect_to is None:
+            print(f"  skipped redirect for {form!r}: redirect_to is None")
+            return True
+        if sense_store.read(output.redirect_to) is None:
+            print(
+                f"  skipped redirect for {form!r}: target {output.redirect_to!r} "
+                f"not in sense store"
+            )
+            return True
+        enqueue(
+            SetRedirectRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                redirect_to=output.redirect_to,
+            ),
+            queue_dir,
+        )
+        enqueue(
+            ClearRedirectSensesRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+            ),
+            queue_dir,
+        )
+        print(f"  queued redirect {form!r} → {output.redirect_to!r}")
+
+    elif output.action == "delete":
+        reason = output.blocklist_reason or "deleted by cc-morphrel-redirect-block"
+        if blocklist is not None:
+            blocklist.add(form, reason)
+            print(f"  added {form!r} to blocklist: {reason}")
+        if occ_store is not None:
+            occ_store.delete_by_form(form)
+            print(f"  deleted labeled occurrences for {form!r}")
+        enqueue(
+            DeleteEntryRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                reason=reason,
+                requesting_model="claude-code",
+            ),
+            queue_dir,
+        )
+        print(f"  queued delete for {form!r}")
+
+    return True
+
+
 def run(
     cc_tasks_dir: str | Path,
     senses_db: str | Path,
@@ -164,6 +276,14 @@ def run(
         ok: bool
         if isinstance(output, CCInductionOutput):
             ok = _apply_induction(
+                output,
+                sense_store,
+                queue_path,
+                occ_store,
+                blocklist,
+            )
+        elif isinstance(output, CCMorphRelBlockOutput):
+            ok = _apply_morphrel_block(
                 output,
                 sense_store,
                 queue_path,
