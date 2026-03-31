@@ -204,6 +204,44 @@ def _apply_morphrel_block(
         )
         print(f"  queued delete for {form!r}")
 
+    elif output.action == "normalize_case":
+        canonical = output.canonical_form
+        if not canonical:
+            print(f"  skipped normalize_case for {form!r}: no canonical_form specified")
+            return True
+        reason = f"case variant of {canonical}"
+        if blocklist is not None:
+            blocklist.add(form, reason)
+            print(f"  added {form!r} to blocklist: {reason}")
+        if occ_store is not None:
+            occ_store.delete_by_form(form)
+            print(f"  deleted labeled occurrences for {form!r}")
+        existing_alf = sense_store.read(form)
+        if sense_store.read(canonical) is None and existing_alf is not None:
+            enqueue(
+                AddSensesRequest(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(UTC),
+                    form=canonical,
+                    new_senses=list(existing_alf.senses),
+                ),
+                queue_dir,
+            )
+            print(f"  queued migrate senses from {form!r} to {canonical!r}")
+        else:
+            print(f"  {canonical!r} already exists; dropping {form!r}")
+        enqueue(
+            DeleteEntryRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                reason=reason,
+                requesting_model="claude-code",
+            ),
+            queue_dir,
+        )
+        print(f"  queued delete for {form!r}")
+
     return True
 
 

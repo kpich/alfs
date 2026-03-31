@@ -75,9 +75,10 @@ class CCMorphRelBlockOutput(BaseModel):
     type: Literal["morphrel_block"] = "morphrel_block"
     id: str
     form: str
-    action: Literal["morph_rel", "delete"]
+    action: Literal["morph_rel", "delete", "normalize_case"]
     morph_rels: list[MorphRelEntry] = []
     blocklist_reason: str | None = None
+    canonical_form: str | None = None  # required when action == "normalize_case"
 
 
 CCOutput = Annotated[
