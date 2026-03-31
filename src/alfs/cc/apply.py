@@ -210,9 +210,6 @@ def _apply_morphrel_block(
             print(f"  skipped normalize_case for {form!r}: no canonical_form specified")
             return True
         reason = f"case variant of {canonical}"
-        if blocklist is not None:
-            blocklist.add(form, reason)
-            print(f"  added {form!r} to blocklist: {reason}")
         if occ_store is not None:
             occ_store.delete_by_form(form)
             print(f"  deleted labeled occurrences for {form!r}")

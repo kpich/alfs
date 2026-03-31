@@ -164,6 +164,22 @@ def test_occurrence_refs_attached(tmp_path: Path, seg_dir: Path):
     assert len(entries["dog"].occurrences) == 2
 
 
+def test_does_not_exclude_lowercase_of_uppercase_senses_form(
+    tmp_path: Path, seg_dir: Path
+):
+    senses_db = tmp_path / "senses.db"
+    queue_file = tmp_path / "queue.yaml"
+    blocklist_file = tmp_path / "blocklist.yaml"
+
+    # "CAT" in senses.db should not block "cat" from the corpus
+    SenseStore(senses_db).update("CAT", lambda _: Alf(form="CAT", senses=[]))
+
+    added = run(seg_dir, senses_db, queue_file, blocklist_file, top_n=10, min_count=3)
+    forms = {e.form for e in InductionQueue(queue_file).load()}
+    assert "cat" in forms
+    assert added == 3  # cat, car, dog all enqueued
+
+
 def test_idempotent_double_run(tmp_path: Path, seg_dir: Path):
     senses_db = tmp_path / "senses.db"
     queue_file = tmp_path / "queue.yaml"
