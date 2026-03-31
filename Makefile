@@ -39,8 +39,8 @@ etl:
 
 seg:
 	bash scripts/seg.sh \
-		--params.docs $(DOCS) \
-		--params.seg_data_dir $(SEG_DATA_DIR)
+		--docs $(DOCS) \
+		--seg_data_dir $(SEG_DATA_DIR)
 
 enqueue_new_forms:
 	uv run --no-sync python -m alfs.update.induction.enqueue_new_forms \
