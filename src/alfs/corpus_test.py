@@ -114,3 +114,42 @@ def test_bold_form_wraps_match_in_strong():
     assert len(result) == 1
     assert "<strong>fox</strong>" in result[0]
     assert "The quick brown " in result[0]
+
+
+def test_include_rating_returns_dicts_with_text_and_rating():
+    text = "The quick brown fox jumps"
+    labeled = _labeled([("fox", "d1", 10, "1", 2), ("fox", "d2", 0, "1", 1)])
+    docs = _docs([("d1", text), ("d2", "fox trot")])
+
+    result = fetch_instances(
+        "fox", "1", labeled, docs, min_rating=0, include_rating=True
+    )
+
+    assert len(result) == 2
+    for item in result:
+        assert "text" in item
+        assert "rating" in item
+    ratings = {item["rating"] for item in result}
+    assert ratings == {1, 2}
+
+
+def test_include_rating_surfaces_missing_docs():
+    labeled = _labeled([("cat", "missing_doc", 0, "1", 2)])
+    docs = _docs([])
+
+    result = fetch_instances(
+        "cat", "1", labeled, docs, min_rating=0, include_rating=True
+    )
+
+    assert len(result) == 1
+    assert result[0]["text"] is None
+    assert result[0]["rating"] == 2
+
+
+def test_include_rating_false_still_skips_missing_docs():
+    labeled = _labeled([("cat", "missing_doc", 0, "1", 2)])
+    docs = _docs([])
+
+    result = fetch_instances("cat", "1", labeled, docs)
+
+    assert result == []

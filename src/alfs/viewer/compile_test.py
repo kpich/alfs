@@ -98,7 +98,8 @@ def test_instances_included_per_sense():
 
     instances = result["run"]["senses"][0]["instances"]
     assert len(instances) == 1
-    assert "<strong>run</strong>" in instances[0]
+    assert "<strong>run</strong>" in instances[0]["text"]
+    assert instances[0]["rating"] == 2
 
 
 def test_uuid_sense_keys_translated_to_positional():
@@ -126,7 +127,7 @@ def test_instances_included_for_rating1():
     assert len(result["walk"]["senses"][0]["instances"]) == 1
 
 
-def test_instances_excluded_for_rating0():
+def test_instances_included_for_rating0():
     alfs = _alfs(
         Alf(form="walk", senses=[Sense(definition="to move on foot")]),
     )
@@ -135,7 +136,9 @@ def test_instances_excluded_for_rating0():
 
     result = compile_entries(alfs, labeled, docs)
 
-    assert result["walk"]["senses"][0]["instances"] == []
+    instances = result["walk"]["senses"][0]["instances"]
+    assert len(instances) == 1
+    assert instances[0]["rating"] == 0
 
 
 def test_senses_bar_populated():
