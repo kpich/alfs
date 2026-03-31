@@ -6,6 +6,7 @@ from pathlib import Path
 from alfs.cc.apply import run
 from alfs.cc.models import (
     CCInductionOutput,
+    CCMorphRelBlockOutput,
     ContextLabel,
     InductionSense,
 )
@@ -138,6 +139,25 @@ def test_apply_induction_no_labeled_db_skip_ignored(tmp_path: Path):
     run(cc_dir, senses_db, queue_dir)
 
     assert not (cc_dir / "done" / "induction" / "test-nolabeled.json").exists()
+
+
+def test_normalize_case_does_not_add_to_blocklist(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup(tmp_path)
+    blocklist_file = tmp_path / "blocklist.yaml"
+    (cc_dir / "done" / "morphrel_block").mkdir(parents=True, exist_ok=True)
+
+    SenseStore(senses_db).update("abreha", lambda _: Alf(form="abreha", senses=[]))
+
+    output = CCMorphRelBlockOutput(
+        id="test-nc", form="abreha", action="normalize_case", canonical_form="Abreha"
+    )
+    (cc_dir / "done" / "morphrel_block" / "test-nc.json").write_text(
+        output.model_dump_json()
+    )
+
+    run(cc_dir, senses_db, queue_dir, blocklist_file=str(blocklist_file))
+
+    assert not blocklist_file.exists()
 
 
 def test_apply_empty_done_dir(tmp_path: Path):
