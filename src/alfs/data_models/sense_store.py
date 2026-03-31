@@ -138,7 +138,14 @@ class SenseStore:
                 con.execute(
                     "INSERT INTO senses (id, form, position, definition, pos, "
                     "morph_base, morph_relation, updated_by_model, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) "
+                    "ON CONFLICT(id) DO UPDATE SET "
+                    "form=excluded.form, position=excluded.position, "
+                    "definition=excluded.definition, pos=excluded.pos, "
+                    "morph_base=excluded.morph_base, "
+                    "morph_relation=excluded.morph_relation, "
+                    "updated_by_model=excluded.updated_by_model, "
+                    "updated_at=CURRENT_TIMESTAMP",
                     (
                         sense.id,
                         entry.form,
