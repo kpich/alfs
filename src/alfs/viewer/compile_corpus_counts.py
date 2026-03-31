@@ -26,7 +26,10 @@ def main() -> None:
     alfs_forms = list(sense_store.all_entries().keys())
 
     corpus_df = (
-        pl.scan_parquet(str(Path(args.by_prefix_dir) / "**" / "*.parquet"))
+        pl.scan_parquet(
+            str(Path(args.by_prefix_dir) / "**" / "*.parquet"),
+            schema={"form": pl.String},
+        )
         .filter(pl.col("form").is_in(alfs_forms))
         .group_by("form")
         .agg(pl.len().alias("count"))

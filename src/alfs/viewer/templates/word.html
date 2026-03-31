@@ -12,13 +12,18 @@
 </h1>
 
 <h2 class="mt-4">Senses</h2>
+<div class="mb-2 small">
+  examples: <span class="text-success fst-italic">excellent</span> &nbsp; <span class="text-primary fst-italic">okay</span> &nbsp; <span class="text-danger fst-italic">poor</span>
+</div>
+{% for pos_value, pos_senses in senses | groupby("pos") %}
+<h4 class="mt-3 mb-1 text-capitalize">{{ pos_value if pos_value else "Other" }}</h4>
 <ol>
-{% for sense in senses %}
-  <li{% if is_recent %} class="mb-1 ps-2 border-start border-warning border-3"{% endif %}>{% if sense.pos %}<em class="text-muted small">{{ sense.pos }}</em> {% endif %}{{ sense.definition }}
+  {% for sense in pos_senses %}
+  <li{% if is_recent %} class="mb-1 ps-2 border-start border-warning border-3"{% endif %}>{{ sense.definition }}
     {% if sense.instances %}
     <ul class="list-unstyled mt-1 ms-2">
       {% for inst in sense.instances %}
-      <li class="text-muted small fst-italic">...{{ inst | safe }}...</li>
+      <li class="small fst-italic{% if inst.rating == 2 %} text-success{% elif inst.rating == 1 %} text-primary{% else %} text-danger{% endif %}">{% if inst.text is none %}[missing doc]{% else %}...{{ inst.text | safe }}...{% endif %}</li>
       {% endfor %}
     </ul>
     {% endif %}
@@ -26,8 +31,9 @@
     <div class="text-muted small mt-1">→ <a href="/word/{{ sense.morph_base }}">{{ sense.morph_base }}</a>{% if sense.morph_relation %} <span class="fst-italic">({{ sense.morph_relation }})</span>{% endif %}</div>
     {% endif %}
   </li>
-{% endfor %}
+  {% endfor %}
 </ol>
+{% endfor %}
 
 {% if parent_senses %}
 <div class="card mt-3 border-secondary">

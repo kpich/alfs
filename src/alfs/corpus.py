@@ -32,8 +32,17 @@ def fetch_instances(
     context_chars: int = 150,
     max_instances: int = 10,
     bold_form: bool = False,
-) -> list[str]:
-    """Return context snippets for high-confidence labeled occurrences of a sense."""
+    include_rating: bool = False,
+) -> list[str] | list[dict]:
+    """Return context snippets for labeled occurrences of a sense.
+
+    When include_rating=False (default): returns list of plain text strings,
+    skipping occurrences whose doc is missing from the corpus.
+
+    When include_rating=True: returns list of dicts with keys 'text' (str or
+    None for missing docs) and 'rating' (int). Missing docs are included as
+    {"text": None, "rating": <rating>} rather than silently dropped.
+    """
     filtered = (
         labeled.filter(pl.col("form") == form)
         .filter(pl.col("sense_key") == sense_key)
@@ -49,13 +58,26 @@ def fetch_instances(
             docs_subset["doc_id"].to_list(), docs_subset["text"].to_list(), strict=False
         )
     )
-    results = []
+    results: list = []
     for row in filtered.iter_rows(named=True):
         text = docs_map.get(row["doc_id"], "")
-        if text:
-            results.append(
-                _extract_context(
-                    text, row["byte_offset"], form, context_chars, bold_form
+        if include_rating:
+            if text:
+                results.append(
+                    {
+                        "text": _extract_context(
+                            text, row["byte_offset"], form, context_chars, bold_form
+                        ),
+                        "rating": row["rating"],
+                    }
                 )
-            )
+            else:
+                results.append({"text": None, "rating": row["rating"]})
+        else:
+            if text:
+                results.append(
+                    _extract_context(
+                        text, row["byte_offset"], form, context_chars, bold_form
+                    )
+                )
     return results
