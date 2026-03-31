@@ -38,8 +38,9 @@ etl:
 		--cache-dir $(CACHE_DIR) --ngram-cache $(NGRAM_CACHE) --n-docs $(N_DOCS)
 
 seg:
-	uv run --no-sync python -m alfs.seg.augment \
-		--docs $(DOCS) --seg-data-dir $(SEG_DATA_DIR)
+	bash scripts/seg.sh \
+		--params.docs $(DOCS) \
+		--params.seg_data_dir $(SEG_DATA_DIR)
 
 enqueue_new_forms:
 	uv run --no-sync python -m alfs.update.induction.enqueue_new_forms \
