@@ -1,6 +1,7 @@
 """Shared corpus utilities for fetching labeled instances."""
 
 import html as _html
+from typing import Literal, overload
 
 import polars as pl
 
@@ -20,6 +21,36 @@ def _extract_context(
             + _html.escape(snippet[wp + len(form) :])
         )
     return snippet
+
+
+@overload
+def fetch_instances(
+    form: str,
+    sense_key: str,
+    labeled: pl.DataFrame,
+    docs: pl.DataFrame,
+    *,
+    min_rating: int = ...,
+    context_chars: int = ...,
+    max_instances: int = ...,
+    bold_form: bool = ...,
+    include_rating: Literal[False] = ...,
+) -> list[str]: ...
+
+
+@overload
+def fetch_instances(
+    form: str,
+    sense_key: str,
+    labeled: pl.DataFrame,
+    docs: pl.DataFrame,
+    *,
+    min_rating: int = ...,
+    context_chars: int = ...,
+    max_instances: int = ...,
+    bold_form: bool = ...,
+    include_rating: Literal[True],
+) -> list[dict]: ...
 
 
 def fetch_instances(
