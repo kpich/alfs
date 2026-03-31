@@ -22,7 +22,13 @@ def aggregate(df: pl.DataFrame, output_dir: Path, merge: bool = False) -> None:
 
     merge=True: read existing parquet, concat, re-sort, write.
     merge=False: overwrite (original behaviour).
+
+    Forms are lowercased before writing so that case variants (e.g. "Dogs",
+    "DOGS") all map to the same canonical occurrence pool ("dogs"). Byte offsets
+    remain valid — context extraction uses the offset directly against original
+    text, not a string search for the form.
     """
+    df = df.with_columns(pl.col("form").str.to_lowercase())
     df = df.with_columns(
         pl.col("form")
         .map_elements(

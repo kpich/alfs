@@ -12,7 +12,7 @@ from alfs.backup import write_mutation_log
 from alfs.clerk.request import (
     AddSensesRequest,
     ChangeRequest,
-    SetRedirectRequest,
+    DeleteEntryRequest,
 )
 from alfs.data_models.alf import Sense
 
@@ -33,12 +33,12 @@ def _make_add_senses(form: str, dt: datetime) -> AddSensesRequest:
     )
 
 
-def _make_redirect(form: str, to: str, dt: datetime) -> SetRedirectRequest:
-    return SetRedirectRequest(
+def _make_delete(form: str, dt: datetime) -> DeleteEntryRequest:
+    return DeleteEntryRequest(
         id=str(uuid.uuid4()),
         created_at=dt,
         form=form,
-        redirect_to=to,
+        reason="test deletion",
     )
 
 
@@ -54,7 +54,7 @@ def test_creates_monthly_files() -> None:
         feb = datetime(2026, 2, 20, 12, 0, tzinfo=UTC)
 
         req1 = _make_add_senses("dog", jan)
-        req2 = _make_redirect("Dogs", "dog", jan)
+        req2 = _make_delete("Dogs", jan)
         req3 = _make_add_senses("cat", feb)
 
         _write_done(done_dir, req1)
@@ -133,7 +133,7 @@ def test_appends_only_new_entries() -> None:
         _write_done(done_dir, req1)
         write_mutation_log(queue_dir, senses_repo)
 
-        req2 = _make_redirect("dogs", "dog", t2)
+        req2 = _make_delete("dogs", t2)
         _write_done(done_dir, req2)
         write_mutation_log(queue_dir, senses_repo)
 

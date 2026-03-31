@@ -1,5 +1,3 @@
-import pytest
-
 from alfs.data_models.alf import Alf, Sense
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
@@ -27,10 +25,10 @@ def test_build_sense_menu_simple(tmp_path):
     assert key_map["2"] == alf.senses[1].id
 
 
-def test_build_sense_menu_follows_redirect(tmp_path):
+def test_build_sense_menu_case_variant_sees_lowercase_senses(tmp_path):
     canonical = _alf("run", "to move quickly")
-    alias = Alf(form="Run", senses=[], redirect="run")
-    store = _store(tmp_path, canonical, alias)
+    uppercase = Alf(form="Run", senses=[])
+    store = _store(tmp_path, canonical, uppercase)
     menu, key_map = build_sense_menu(store, "Run")
     assert "1. to move quickly" in menu
     assert key_map["1"] == canonical.senses[0].id
@@ -46,13 +44,6 @@ def test_build_sense_menu_includes_pos(tmp_path):
     )
     menu, _ = build_sense_menu(store, "run")
     assert "1. [verb] to move quickly" in menu
-
-
-def test_build_sense_menu_broken_redirect_raises(tmp_path):
-    alias = Alf(form="Run", senses=[], redirect="nonexistent")
-    store = _store(tmp_path, alias)
-    with pytest.raises(ValueError, match="nonexistent"):
-        build_sense_menu(store, "Run")
 
 
 def test_build_sense_menu_morph_base_senses_are_selectable(tmp_path):
@@ -80,13 +71,13 @@ def test_build_sense_menu_morph_base_senses_are_selectable(tmp_path):
     assert key_map["4"] == dog.senses[1].id
 
 
-def test_build_sense_menu_redirect_then_morph_base(tmp_path):
+def test_build_sense_menu_case_variant_then_morph_base(tmp_path):
     dog = _alf("dog", "a domesticated animal")
     dogs = Alf(
         form="dogs",
         senses=[Sense(definition="plural of dog", morph_base="dog")],
     )
-    Dogs = Alf(form="Dogs", senses=[], redirect="dogs")
+    Dogs = Alf(form="Dogs", senses=[])
     store = _store(tmp_path, dog, dogs, Dogs)
     menu, key_map = build_sense_menu(store, "Dogs")
 

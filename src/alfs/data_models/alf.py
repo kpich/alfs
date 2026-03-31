@@ -28,7 +28,6 @@ class Alf(BaseModel):
 
     form: str
     senses: list[Sense] = []
-    redirect: str | None = None  # if set, this form is a case-variant/alias of redirect
     spelling_variant_of: str | None = (
         None  # preferred (American) spelling, if this is a variant
     )

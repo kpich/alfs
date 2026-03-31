@@ -136,7 +136,10 @@ def ingest(
             meta[row["custom_id"]] = row
 
     occ_store = OccurrenceStore(Path(labeled_db))
-    sense_store = SenseStore(Path(senses_db))  # only needed for forms without key_map
+    sense_store = SenseStore(Path(senses_db))
+    # Map sense UUID → owning entry form so labels land under the right form even
+    # when the batch was prepared for a case variant (e.g. "pots" vs "POTS").
+    sense_to_form = sense_store.sense_id_to_form()
 
     upsert_rows: list[
         tuple[str, tuple[str, str, int, str, int, list[str] | None]]
@@ -224,13 +227,15 @@ def ingest(
                     skipped += 1
                     continue
                 uuid_key = key_map[display_key]
+            # Store under the entry form that owns this sense (may differ in case)
+            entry_form = sense_to_form.get(uuid_key, form)
 
             synonyms = parsed.get("synonyms")
             model_name = str(item.get("model", "unknown"))
             upsert_rows.append(
                 (
                     model_name,
-                    (form, doc_id, byte_offset, uuid_key, rating.value, synonyms),
+                    (entry_form, doc_id, byte_offset, uuid_key, rating.value, synonyms),
                 )  # type: ignore[arg-type]
             )
 

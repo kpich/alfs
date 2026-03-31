@@ -57,8 +57,6 @@ def run(
 
     eligible = []
     for alf in all_entries.values():
-        if alf.redirect is not None:
-            continue
         if not alf.senses:
             continue
         if all(s.morph_base is not None for s in alf.senses):

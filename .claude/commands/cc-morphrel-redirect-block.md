@@ -1,4 +1,4 @@
-You are a lexicographer reviewing wordforms in an expansive English dictionary. For each form, decide whether it needs a morphological-relation tag, a redirect, a deletion+blocklist, or no change. Process all pending morphrel_block task files.
+You are a lexicographer reviewing wordforms in an expansive English dictionary. For each form, decide whether it needs a morphological-relation tag, a deletion+blocklist, or no change. Process all pending morphrel_block task files.
 
 ## Important: Tool Use
 
@@ -34,26 +34,20 @@ You are a lexicographer reviewing wordforms in an expansive English dictionary. 
    - `proposed_definition`: concise reference string (e.g. `"plural of dog (n.)"`)
    - `promote_to_parent`: `true` if the current definition contains content not obviously already on the base form; `false` if it would duplicate an existing base sense
 
-   ### B. redirect — case/punctuation variant
-   The form is purely a case or punctuation variant of another form that should be the canonical entry. Examples:
-   - `WALSH` → `Walsh` (all-caps of a proper noun)
-   - `re-enter` → `reenter` (hyphenation variant, if the unhyphenated form is the canonical spelling)
-
-   Do NOT redirect forms that have independent meanings, or where both casings are in common use as distinct words.
-
-   Provide `redirect_to`: the canonical form string.
-
-   ### C. delete — garbage / blocklist
+   ### B. delete — garbage / blocklist
    The form should be removed entirely and added to the blocklist. Applies to:
+   - **Case-only variants**: a form whose only distinction from another entry is capitalisation (e.g. `Dogs` when `dogs` exists, or `Running` when `running` exists). The dictionary is case-normalised; these are redundant entries. Use `blocklist_reason: "case variant of <lowercase form>"`.
    - Artifact forms: stray punctuation, markup fragments, tokenization errors (e.g. `5*!`, `--`, `</p>`)
    - Forms that are foreign words with no established use as English loan words
    - Truly one-off proper names or abbreviations with no shared semantics (e.g. a unique username, a serial number). Note: proper names in general — including minor fictional characters, historical figures, place names, and surnames — should be **kept**, not deleted. Only delete a proper name if it is so contextually unique that no reader would look it up (e.g. a throwaway username, an internal code name, a serial number).
+
+   **Exception — genuinely distinct uppercase forms**: if the uppercase form carries a meaning not present in the lowercase entry (e.g. `POTS` as an acronym, `His` as a pronoun for God), it should be kept as a separate entry. The test: would a reader specifically look up the uppercase form to find a meaning unavailable under the lowercase entry?
 
    **This dictionary is intentionally expansive** — it includes appreciably more than a typical desk dictionary. Keep slang, technical jargon, neologisms, regional terms, archaic forms, and words a broad community of speakers would recognize. Only delete forms that are genuinely not English words or phrases by any standard.
 
    Provide `blocklist_reason`: a brief explanation (e.g. `"tokenization artifact"`, `"foreign word (Spanish)"`, `"one-off proper name"`).
 
-   ### D. no action — keep as-is
+   ### C. no action — keep as-is
    The form is a valid dictionary entry with no morph/redirect/delete action needed. In this case: **do not write any output file** — just delete the pending file and move on.
 
 4. **Writing output**: If an action (A, B, or C) applies, write output JSON to `../cc_tasks/done/morphrel_block/{same_filename}` using the `Write` tool, then delete the pending file with `Bash` (`rm ../cc_tasks/pending/morphrel_block/{filename}`).
@@ -64,7 +58,7 @@ You are a lexicographer reviewing wordforms in an expansive English dictionary. 
      "type": "morphrel_block",
      "id": "<same id from task>",
      "form": "<the form>",
-     "action": "morph_rel" | "redirect" | "delete",
+     "action": "morph_rel" | "delete",
 
      // For morph_rel only:
      "morph_rels": [
@@ -76,9 +70,6 @@ You are a lexicographer reviewing wordforms in an expansive English dictionary. 
          "promote_to_parent": true
        }
      ],
-
-     // For redirect only:
-     "redirect_to": "Walsh",
 
      // For delete only:
      "blocklist_reason": "tokenization artifact"

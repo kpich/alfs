@@ -40,8 +40,6 @@ def compile_entries(
     """
     uuid_to_pos: dict[str, str] = {}
     for _form, alf in alfs.entries.items():
-        if alf.redirect is not None:
-            continue
         for i, sense in enumerate(alf.senses):
             uuid_to_pos[sense.id] = sense_key(i)
 
@@ -63,32 +61,10 @@ def compile_entries(
         .drop_nulls("year")
         .with_columns(pl.col("year").cast(pl.Int32))
     )
-    redirect_map = {
-        form: alf.redirect
-        for form, alf in alfs.entries.items()
-        if alf.redirect is not None
-    }
-
-    def apply_redirect(df: pl.DataFrame) -> pl.DataFrame:
-        if not redirect_map:
-            return df
-        rdf = pl.DataFrame(
-            {
-                "form": list(redirect_map.keys()),
-                "canonical": list(redirect_map.values()),
-            }
-        )
-        return (
-            df.join(rdf, on="form", how="left")
-            .with_columns(pl.coalesce(["canonical", "form"]).alias("form"))
-            .drop("canonical")
-        )
 
     # Numerator: rating>=1 occurrences per (form, sense_key, year)
-    joined = apply_redirect(
-        labeled.filter(pl.col("rating") >= 1).join(
-            docs_with_year, on="doc_id", how="inner"
-        )
+    joined = labeled.filter(pl.col("rating") >= 1).join(
+        docs_with_year, on="doc_id", how="inner"
     )
     counts = joined.group_by(["form", "sense_key", "year"]).agg(pl.len().alias("count"))
 
@@ -120,8 +96,6 @@ def compile_entries(
 
     entries: dict[str, dict] = {}
     for form, alf in alfs.entries.items():
-        if alf.redirect is not None:
-            continue
         if batch_forms is not None and form not in batch_forms:
             continue
         senses = []

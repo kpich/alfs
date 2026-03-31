@@ -26,7 +26,7 @@ def validate(labeled: pl.DataFrame, docs: pl.DataFrame) -> pl.DataFrame:
             continue  # orphaned label — not flagged
         char_offset = len(text.encode()[: row["byte_offset"]].decode())
         form = row["form"]
-        if text[char_offset : char_offset + len(form)] != form:
+        if text[char_offset : char_offset + len(form)].lower() != form.lower():
             stale_indices.append(i)
     return labeled[stale_indices]
 

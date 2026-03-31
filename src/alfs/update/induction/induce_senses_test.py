@@ -1,7 +1,6 @@
 import polars as pl
 
-from alfs.data_models.alf import Alf, Sense
-from alfs.data_models.sense_store import SenseStore
+from alfs.data_models.alf import Alf
 from alfs.data_models.update_target import UpdateTarget
 from alfs.update.induction import induce_senses
 
@@ -80,37 +79,3 @@ def _setup_occurrences(tmp_path, form: str) -> tuple:
     target_path.write_text(UpdateTarget(form=form).model_dump_json())
     output_path = tmp_path / "output.json"
     return docs_path, target_path, output_path
-
-
-def test_redirect_form_sees_canonical_senses_as_existing(tmp_path, monkeypatch):
-    """When inducting a redirect form, existing_defs should include the canonical form's
-    senses."""
-    senses_db = tmp_path / "senses.db"
-    store = SenseStore(senses_db)
-    dog = Alf(form="dog", senses=[Sense(definition="a domesticated animal")])
-    dogs = Alf(form="dogs", senses=[], redirect="dog")
-    store.write(dog)
-    store.write(dogs)
-
-    docs_path, target_path, output_path = _setup_occurrences(tmp_path, "dogs")
-
-    prompts_seen: list[str] = []
-
-    def fake_chat_json(model: str, prompt: str, format: object = None) -> object:
-        prompts_seen.append(prompt)
-        return {"all_covered": True, "senses": []}
-
-    monkeypatch.setattr(
-        "alfs.update.induction.induce_senses.llm.chat_json", fake_chat_json
-    )
-
-    induce_senses.run(
-        target_file=target_path,
-        seg_data_dir=tmp_path,
-        docs=docs_path,
-        output=output_path,
-        senses_db=senses_db,
-    )
-
-    assert prompts_seen, "LLM was not called"
-    assert "a domesticated animal" in prompts_seen[0]

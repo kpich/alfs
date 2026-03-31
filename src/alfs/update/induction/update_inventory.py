@@ -27,7 +27,6 @@ def merge_entry(existing: Alf, new: Alf) -> Alf:
     return Alf(
         form=existing.form,
         senses=list(existing.senses) + new_senses,
-        redirect=existing.redirect,
     )
 
 

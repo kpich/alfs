@@ -296,12 +296,12 @@ def test_ingest_archives_files(tmp_path: Path) -> None:
     assert (archive_dir / "batch_input_20260101T000000_001.jsonl").exists()
 
 
-def test_prepare_includes_redirect_forms(tmp_path: Path) -> None:
-    """Redirect forms are included in the batch using the canonical's sense menu."""
-    form = "Bark"  # redirect to "bark"
-    canonical = "bark"
+def test_prepare_includes_case_variant_senses(tmp_path: Path) -> None:
+    """Case variant forms share the same occurrence pool; sense menu includes all
+    variants."""
+    form = "bark"  # lowercase (parquets are normalized to lowercase)
     doc_id = "d1"
-    text = "the Bark is loud"
+    text = "the bark is loud"
     byte_offset = text.index(form)
 
     sense = Sense(definition="the sound a dog makes")
@@ -309,8 +309,7 @@ def test_prepare_includes_redirect_forms(tmp_path: Path) -> None:
     labeled_db = tmp_path / "labeled.db"
 
     store = SenseStore(senses_db)
-    store.write(Alf(form=canonical, senses=[sense]))
-    store.write(Alf(form=form, redirect=canonical))
+    store.write(Alf(form=form, senses=[sense]))
     OccurrenceStore(labeled_db)
 
     _write_occurrences(tmp_path / "seg", form, doc_id, byte_offset)

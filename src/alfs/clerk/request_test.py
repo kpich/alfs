@@ -9,13 +9,11 @@ import pytest
 from alfs.clerk.queue import drain, enqueue
 from alfs.clerk.request import (
     AddSensesRequest,
-    ClearRedirectSensesRequest,
     DeleteEntryRequest,
     MorphRedirectRequest,
     PosTagRequest,
     PruneRequest,
     RewriteRequest,
-    SetRedirectRequest,
     SetSpellingVariantRequest,
     TrimSenseRequest,
     UpdatePosRequest,
@@ -375,31 +373,6 @@ def test_morph_redirect_creates_parent_if_missing(store: SenseStore) -> None:
     assert parent.senses[0].definition == "moving quickly"
 
 
-# --- SetRedirectRequest ---
-
-
-def test_set_redirect_on_existing_entry(store: SenseStore) -> None:
-    store.write(Alf(form="colour", senses=[_sense("a visual property")]))
-    req = SetRedirectRequest(
-        id=_req_id(), created_at=_now(), form="colour", redirect_to="color"
-    )
-    result = req.apply(store, None)
-    assert result is True
-    entry = store.read("colour")
-    assert entry is not None
-    assert entry.redirect == "color"
-
-
-def test_set_redirect_creates_entry_if_missing(store: SenseStore) -> None:
-    req = SetRedirectRequest(
-        id=_req_id(), created_at=_now(), form="colour", redirect_to="color"
-    )
-    req.apply(store, None)
-    entry = store.read("colour")
-    assert entry is not None
-    assert entry.redirect == "color"
-
-
 # --- SetSpellingVariantRequest ---
 
 
@@ -413,21 +386,6 @@ def test_set_spelling_variant(store: SenseStore) -> None:
     entry = store.read("colour")
     assert entry is not None
     assert entry.spelling_variant_of == "color"
-
-
-# --- ClearRedirectSensesRequest ---
-
-
-def test_clear_redirect_senses(store: SenseStore) -> None:
-    store.write(
-        Alf(form="run", senses=[_sense("to move quickly"), _sense("to manage")])
-    )
-    req = ClearRedirectSensesRequest(id=_req_id(), created_at=_now(), form="run")
-    result = req.apply(store, None)
-    assert result is True
-    entry = store.read("run")
-    assert entry is not None
-    assert entry.senses == []
 
 
 # --- DeleteEntryRequest ---

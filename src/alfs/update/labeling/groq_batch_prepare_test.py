@@ -20,18 +20,18 @@ def _store(tmp_path, *entries: Alf) -> SenseStore:
     return store
 
 
-def test_effective_sense_count_redirect_uses_canonical_senses(tmp_path):
+def test_effective_sense_count_case_variant_sees_lowercase_senses(tmp_path):
     canonical = Alf(
         form="run",
         senses=[Sense(definition="to move quickly"), Sense(definition="to operate")],
     )
-    alias = Alf(form="Run", senses=[], redirect="run")
+    alias = Alf(form="Run", senses=[])
     store = _store(tmp_path, canonical, alias)
     assert effective_sense_count(alias, store) == 2
 
 
-def test_effective_sense_count_redirect_missing_target_returns_zero(tmp_path):
-    alias = Alf(form="Run", senses=[], redirect="run")
+def test_effective_sense_count_no_senses_returns_zero(tmp_path):
+    alias = Alf(form="Run", senses=[])
     store = _store(tmp_path, alias)
     assert effective_sense_count(alias, store) == 0
 
@@ -225,41 +225,35 @@ def test_split_labeled_pairs_null_labeled_ts_goes_to_good() -> None:
     assert len(stale.get("run", [])) == 0
 
 
-def test_run_redirect_forms_share_allocation(tmp_path) -> None:
-    """Redirect forms pool their corpus counts instead of doubling the budget.
+def test_run_case_variants_share_lowercase_pool(tmp_path) -> None:
+    """Case variants share the same lowercase occurrence pool; budget is not doubled.
 
-    With only "dog" (40 occurrences), run() should sample the same total as
-    when "dog" (20) + "DOG"→"dog" (20) together are present.
+    "DOG" and "dog" are separate entries but look up the same lowercase parquet rows.
+    The seen_lower dedup ensures "dog" occurrences are only sampled once.
     """
     senses = [
         Sense(definition="a domesticated canine"),
         Sense(definition="informal: ugly person"),
     ]
     canonical = Alf(form="dog", senses=senses)
-    redirect = Alf(form="DOG", senses=[], redirect="dog")
+    uppercase = Alf(form="DOG", senses=[])
 
     store = SenseStore(tmp_path / "senses.db")
     store.write(canonical)
-    store.write(redirect)
+    store.write(uppercase)
 
     OccurrenceStore(tmp_path / "labeled.db")
 
-    # 20 "dog" + 20 "DOG" occurrences across 40 docs
-    n_each = 20
-    rows_dog = [
-        {"form": "dog", "doc_id": f"doc{i}", "byte_offset": 0} for i in range(n_each)
-    ]
-    rows_DOG = [
-        {"form": "DOG", "doc_id": f"doc{i+n_each}", "byte_offset": 0}
-        for i in range(n_each)
-    ]
-    occ_df = pl.DataFrame(rows_dog + rows_DOG)
+    # 40 "dog" occurrences (parquets are lowercase-normalized after aggregation)
+    n = 40
+    rows = [{"form": "dog", "doc_id": f"doc{i}", "byte_offset": 0} for i in range(n)]
+    occ_df = pl.DataFrame(rows)
     prefix_dir = tmp_path / "by_prefix" / "d"
     prefix_dir.mkdir(parents=True)
     occ_df.write_parquet(str(prefix_dir / "occurrences.parquet"))
 
     # docs.parquet with enough text for context extraction
-    all_doc_ids = [f"doc{i}" for i in range(2 * n_each)]
+    all_doc_ids = [f"doc{i}" for i in range(n)]
     docs_df = pl.DataFrame(
         {"doc_id": all_doc_ids, "text": ["the dog ran away"] * len(all_doc_ids)}
     )
@@ -280,10 +274,10 @@ def test_run_redirect_forms_share_allocation(tmp_path) -> None:
     )
     assert len(pairs) == 1
     batch_path, _ = pairs[0]
-    total_with_redirect = sum(1 for _ in batch_path.read_text().splitlines() if _)
+    total = sum(1 for _ in batch_path.read_text().splitlines() if _)
 
     # Should be close to budget (≤ budget + 1 for int truncation), not doubled
-    assert total_with_redirect <= budget + 1
+    assert total <= budget + 1
 
 
 def test_split_labeled_pairs_mixed() -> None:

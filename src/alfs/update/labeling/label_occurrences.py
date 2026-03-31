@@ -12,7 +12,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alfs.data_models.alf import Alf, morph_base_form
+from alfs.data_models.alf import morph_base_form
 from alfs.data_models.annotated_occurrence import AnnotatedOccurrence, OccurrenceRating
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
@@ -41,40 +41,39 @@ def extract_context(text: str, byte_offset: int, form: str, context_chars: int) 
 def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]:
     """Return (menu_text, display_to_uuid_map).
 
-    display_to_uuid_map maps display keys like "1", "2a" to UUID-based sense keys
-    that are written to labeled.db.
+    Includes senses from all case variants of form (e.g. both "pots" and "POTS")
+    so that a labeling run can correctly categorize mixed-case corpus occurrences.
+    display_to_uuid_map maps display keys like "1", "2" to UUID-based sense keys
+    written to labeled.db.
     """
-    alf = store.read(form)
-    if alf is None:
+    variants = store.read_case_variants(form)
+    if not variants:
         raise ValueError(f"No entry for '{form}' in senses.db")
-    menu_form = alf.redirect if alf.redirect is not None else form
-    target_alf: Alf | None
-    if menu_form == form:
-        target_alf = alf
-    else:
-        target_alf = store.read(menu_form)
-    if target_alf is None:
-        raise ValueError(
-            f"Redirect target '{menu_form}' for '{form}' not found in senses.db"
-        )
-    lines = []
+    lines: list[str] = []
     key_map: dict[str, str] = {}
-    for i, sense in enumerate(target_alf.senses):
-        display = str(i + 1)
-        key_map[display] = sense.id
-        pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
-        lines.append(f"{i + 1}.{pos_tag} {sense.definition}")
-    base_name = morph_base_form(target_alf)
-    if base_name is not None:
-        base_alf = store.read(base_name)
-        if base_alf is not None and base_alf.senses:
-            lines.append(f"\nBase form '{base_name}':")
-            for i, sense in enumerate(base_alf.senses):
-                display = str(len(target_alf.senses) + i + 1)
+    counter = 0
+    for alf in variants:
+        if alf.senses:
+            if len(variants) > 1:
+                lines.append(f"\n[{alf.form}]")
+            for sense in alf.senses:
+                counter += 1
+                display = str(counter)
                 key_map[display] = sense.id
                 pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
-                lines.append(f"{display}.{pos_tag} {sense.definition}")
-    return "\n".join(lines), key_map
+                lines.append(f"{counter}.{pos_tag} {sense.definition}")
+        base_name = morph_base_form(alf)
+        if base_name is not None:
+            base_alf = store.read(base_name)
+            if base_alf is not None and base_alf.senses:
+                lines.append(f"\nBase form '{base_name}':")
+                for sense in base_alf.senses:
+                    counter += 1
+                    display = str(counter)
+                    key_map[display] = sense.id
+                    pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
+                    lines.append(f"{counter}.{pos_tag} {sense.definition}")
+    return "\n".join(lines).lstrip("\n"), key_map
 
 
 def run(
@@ -94,18 +93,20 @@ def run(
     sense_store = SenseStore(Path(senses_db))
     occ_store = OccurrenceStore(Path(labeled_db))
 
-    entry = sense_store.read(form)
-    if entry is None or (not entry.senses and entry.redirect is None):
+    variants = sense_store.read_case_variants(form)
+    if not variants or not any(v.senses for v in variants):
         print(f"No senses for '{form}' in senses.db; skipping labeling.")
         return
 
     sense_menu, key_map = build_sense_menu(sense_store, form)
+    # Map sense UUID → owning entry form so labels are stored under the correct form.
+    sense_to_form = sense_store.sense_id_to_form()
 
     occ_path = Path(seg_data_dir) / form_prefix(form) / "occurrences.parquet"
     if not occ_path.exists():
         print(f"No occurrences parquet for '{form}' ({occ_path}); skipping labeling.")
         return
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
+    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form.lower())
 
     labeled_pairs: set[tuple[str, int]] = set()
     existing = occ_store.query_form(form).filter(pl.col("rating").is_in([1, 2]))
@@ -144,6 +145,8 @@ def run(
         data = llm.chat_json(model, prompt, format=_LABEL_SCHEMA)
         display_key = data["sense_key"]
         uuid_key = key_map.get(display_key, display_key)
+        # Store under the entry form that owns this sense (may differ in case from form)
+        entry_form = sense_to_form.get(uuid_key, form)
         raw_synonyms = data.get("synonyms")
         synonyms: list[str] | None = (
             [str(s) for s in raw_synonyms] if isinstance(raw_synonyms, list) else None
@@ -157,7 +160,7 @@ def run(
         )
         upsert_rows.append(
             (
-                form,
+                entry_form,
                 ann.doc_id,
                 ann.byte_offset,
                 ann.sense_key,

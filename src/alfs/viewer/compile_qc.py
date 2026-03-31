@@ -31,8 +31,6 @@ def _translate_uuids(labeled: pl.DataFrame, alfs: Alfs) -> pl.DataFrame:
     """Replace UUID sense_keys with positional keys (e.g. "1", "2")."""
     uuid_to_pos: dict[str, str] = {}
     for _form, alf in alfs.entries.items():
-        if alf.redirect is not None:
-            continue
         for i, sense in enumerate(alf.senses):
             uuid_to_pos[sense.id] = sense_key(i)
     if not uuid_to_pos:

@@ -22,10 +22,8 @@ from alfs.cc.models import CCInductionOutput, CCMorphRelBlockOutput, CCOutput
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import (
     AddSensesRequest,
-    ClearRedirectSensesRequest,
     DeleteEntryRequest,
     MorphRedirectRequest,
-    SetRedirectRequest,
 )
 from alfs.data_models.alf import Sense
 from alfs.data_models.blocklist import Blocklist
@@ -185,35 +183,6 @@ def _apply_morphrel_block(
                 f"  queued morph_rel sense {entry.sense_idx} for {form!r}"
                 f" → {entry.morph_base!r}"
             )
-
-    elif output.action == "redirect":
-        if output.redirect_to is None:
-            print(f"  skipped redirect for {form!r}: redirect_to is None")
-            return True
-        if sense_store.read(output.redirect_to) is None:
-            print(
-                f"  skipped redirect for {form!r}: target {output.redirect_to!r} "
-                f"not in sense store"
-            )
-            return True
-        enqueue(
-            SetRedirectRequest(
-                id=str(uuid.uuid4()),
-                created_at=datetime.now(UTC),
-                form=form,
-                redirect_to=output.redirect_to,
-            ),
-            queue_dir,
-        )
-        enqueue(
-            ClearRedirectSensesRequest(
-                id=str(uuid.uuid4()),
-                created_at=datetime.now(UTC),
-                form=form,
-            ),
-            queue_dir,
-        )
-        print(f"  queued redirect {form!r} → {output.redirect_to!r}")
 
     elif output.action == "delete":
         reason = output.blocklist_reason or "deleted by cc-morphrel-redirect-block"

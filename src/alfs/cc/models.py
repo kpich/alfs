@@ -75,9 +75,8 @@ class CCMorphRelBlockOutput(BaseModel):
     type: Literal["morphrel_block"] = "morphrel_block"
     id: str
     form: str
-    action: Literal["morph_rel", "redirect", "delete"]
+    action: Literal["morph_rel", "delete"]
     morph_rels: list[MorphRelEntry] = []
-    redirect_to: str | None = None
     blocklist_reason: str | None = None
 
 

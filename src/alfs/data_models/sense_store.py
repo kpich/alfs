@@ -17,7 +17,7 @@ class SenseStore:
             con.execute(
                 "CREATE TABLE IF NOT EXISTS wordforms ("
                 "form TEXT PRIMARY KEY, "
-                "redirect TEXT, "
+                "spelling_variant_of TEXT, "
                 "updated_at TEXT"
                 ")"
             )
@@ -26,6 +26,8 @@ class SenseStore:
             }
             if "spelling_variant_of" not in existing_cols:
                 con.execute("ALTER TABLE wordforms ADD COLUMN spelling_variant_of TEXT")
+            if "redirect" in existing_cols:
+                con.execute("ALTER TABLE wordforms DROP COLUMN redirect")
             con.execute(
                 "CREATE TABLE IF NOT EXISTS senses ("
                 "id TEXT PRIMARY KEY, "
@@ -54,7 +56,7 @@ class SenseStore:
 
     def _assemble(self, con: sqlite3.Connection, form: str) -> Alf | None:
         wf = con.execute(
-            "SELECT redirect, spelling_variant_of FROM wordforms WHERE form = ?",
+            "SELECT spelling_variant_of FROM wordforms WHERE form = ?",
             (form,),
         ).fetchone()
         if wf is None:
@@ -77,18 +79,17 @@ class SenseStore:
             )
             for r in rows
         ]
-        return Alf(form=form, senses=senses, redirect=wf[0], spelling_variant_of=wf[1])
+        return Alf(form=form, senses=senses, spelling_variant_of=wf[0])
 
     def _write_entry(self, con: sqlite3.Connection, entry: Alf) -> None:
         """Write entry within an already-open transaction."""
         con.execute(
-            "INSERT INTO wordforms (form, redirect, spelling_variant_of, updated_at)"
-            " VALUES (?, ?, ?, CURRENT_TIMESTAMP)"
+            "INSERT INTO wordforms (form, spelling_variant_of, updated_at)"
+            " VALUES (?, ?, CURRENT_TIMESTAMP)"
             " ON CONFLICT(form) DO UPDATE SET"
-            " redirect=excluded.redirect,"
             " spelling_variant_of=excluded.spelling_variant_of,"
             " updated_at=CURRENT_TIMESTAMP",
-            (entry.form, entry.redirect, entry.spelling_variant_of),
+            (entry.form, entry.spelling_variant_of),
         )
         existing = {
             r[0]: r[1:]
@@ -182,7 +183,7 @@ class SenseStore:
     def all_entries(self) -> dict[str, Alf]:
         with self._connect() as con:
             wf_rows = con.execute(
-                "SELECT form, redirect, spelling_variant_of FROM wordforms"
+                "SELECT form, spelling_variant_of FROM wordforms"
             ).fetchall()
             sense_rows = con.execute(
                 "SELECT form, id, definition, pos, morph_base,"
@@ -216,11 +217,29 @@ class SenseStore:
             form: Alf(
                 form=form,
                 senses=senses_by_form.get(form, []),
-                redirect=redirect,
                 spelling_variant_of=spelling_variant_of,
             )
-            for form, redirect, spelling_variant_of in wf_rows
+            for form, spelling_variant_of in wf_rows
         }
+
+    def read_case_variants(self, form: str) -> list[Alf]:
+        """Return all entries whose form lowercases to the same string as form."""
+        form_lower = form.lower()
+        with self._connect() as con:
+            rows = con.execute("SELECT form FROM wordforms").fetchall()
+        variants = [r[0] for r in rows if r[0].lower() == form_lower]
+        result = []
+        for variant_form in variants:
+            entry = self.read(variant_form)
+            if entry is not None:
+                result.append(entry)
+        return result
+
+    def sense_id_to_form(self) -> dict[str, str]:
+        """Return {sense_id: form} for every sense in the store."""
+        with self._connect() as con:
+            rows = con.execute("SELECT id, form FROM senses").fetchall()
+        return {r[0]: r[1] for r in rows}
 
     def max_sense_updated_at_by_form(self) -> dict[str, str]:
         """Return {form: max(updated_at)} for forms with at least one

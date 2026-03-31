@@ -62,9 +62,12 @@ def run(
 
     # Build exclusion sets
     known_forms = set(SenseStore(Path(senses_db)).all_forms())
+    # Also exclude lowercase of any known form so that e.g. a "POTS" entry
+    # prevents "pots" from being enqueued as a new form (parquets are lowercased).
+    known_forms_lower = {f.lower() for f in known_forms}
     blocklist_forms = set(Blocklist(Path(blocklist_file)).load().keys())
     queued_forms = {e.form for e in InductionQueue(Path(queue_file)).load()}
-    excluded = known_forms | blocklist_forms | queued_forms
+    excluded = known_forms | known_forms_lower | blocklist_forms | queued_forms
 
     # Filter candidates: word-like forms not in any exclusion set
     candidates = (
@@ -96,7 +99,9 @@ def run(
             if not occ_path.exists():
                 continue
             try:
-                df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
+                df = pl.read_parquet(str(occ_path)).filter(
+                    pl.col("form") == form.lower()
+                )
                 rows = df.select(["doc_id", "byte_offset"]).to_dicts()
                 sampled = rng.sample(rows, min(n_occurrence_refs, len(rows)))
                 occs_by_form[form] = [

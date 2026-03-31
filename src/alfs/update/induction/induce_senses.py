@@ -80,22 +80,20 @@ def extract_context(text: str, byte_offset: int, form: str, context_chars: int) 
 
 
 def _load_existing_defs(form: str, senses_db: Path) -> list[str]:
-    """Load existing definitions for a form from senses.db."""
+    """Load existing definitions for a form from senses.db.
+
+    Includes senses from all case variants (e.g. both "pots" and "POTS") so
+    the LLM doesn't duplicate definitions already captured at another casing.
+    """
     store = SenseStore(senses_db)
-    entry = store.read(form)
-    if not entry:
-        return []
-    resolved = entry
-    if entry.redirect:
-        canonical = store.read(entry.redirect)
-        if canonical:
-            resolved = canonical
-    existing_defs = [s.definition for s in resolved.senses]
-    base_name = morph_base_form(resolved)
-    if base_name is not None:
-        base_entry = store.read(base_name)
-        if base_entry is not None:
-            existing_defs.extend(s.definition for s in base_entry.senses)
+    existing_defs: list[str] = []
+    for variant in store.read_case_variants(form):
+        existing_defs.extend(s.definition for s in variant.senses)
+        base_name = morph_base_form(variant)
+        if base_name is not None:
+            base_entry = store.read(base_name)
+            if base_entry is not None:
+                existing_defs.extend(s.definition for s in base_entry.senses)
     return existing_defs
 
 
@@ -117,7 +115,7 @@ def _load_contexts(
     if not occ_path.exists():
         return [], []
 
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
+    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form.lower())
     all_occurrences = list(df.select(["doc_id", "byte_offset"]).iter_rows(named=True))
 
     if pinned_occurrences:
@@ -416,7 +414,7 @@ def run(
         Path(output).write_text(alf.model_dump_json())
         print(f"No occurrences parquet for '{form}' ({occ_path}); skipping.")
         return
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
+    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form.lower())
     all_occurrences = list(df.select(["doc_id", "byte_offset"]).iter_rows(named=True))
 
     well_labeled: set[tuple[str, int]] = set()

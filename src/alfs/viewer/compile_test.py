@@ -49,22 +49,6 @@ def _docs(rows: list[tuple]) -> pl.DataFrame:
     )
 
 
-def test_redirect_forms_excluded():
-    alfs = _alfs(
-        Alf(form="the", senses=[Sense(definition="definite article")]),
-        Alf(form="The", senses=[], redirect="the"),
-    )
-    labeled = _labeled([])
-    docs = _docs([("doc1", 2020, "")])
-
-    result = compile_entries(alfs, labeled, docs)
-    assign_percentiles(result, {})
-
-    assert "the" in result
-    assert "The" not in result
-    assert 1 <= result["the"]["percentile"] <= 100
-
-
 def test_non_redirect_forms_included():
     alfs = _alfs(
         Alf(form="run", senses=[Sense(definition="to move quickly")]),

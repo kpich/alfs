@@ -37,8 +37,8 @@ def _make_tagger(
     model: str,
 ) -> Callable[[Alf | None], Alf]:
     def tag_form(existing: Alf | None) -> Alf:
-        if existing is None or existing.redirect:
-            return existing or Alf(form=form)
+        if existing is None:
+            return Alf(form=form)
 
         new_senses = []
         for top_idx, sense in enumerate(existing.senses):
@@ -95,7 +95,7 @@ def main() -> None:
 
     for form in sense_store.all_forms():
         existing = sense_store.read(form)
-        if existing is None or existing.redirect:
+        if existing is None:
             continue
         tagger = _make_tagger(form, labeled_df, docs_df, args.model)
         updated = tagger(existing)

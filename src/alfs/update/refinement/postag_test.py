@@ -60,24 +60,3 @@ def test_make_tagger_skips_senses_with_existing_pos(monkeypatch) -> None:
     assert result.senses[0].id == sense_with_pos.id
     # sense_without_pos now has POS set
     assert result.senses[1].pos == PartOfSpeech.verb
-
-
-def test_make_tagger_returns_redirect_entry_unchanged(monkeypatch) -> None:
-    labeled_df, docs_df = _empty_dfs()
-    calls: list = []
-
-    def fake_chat_json(model, prompt, retries=3, format=None):
-        calls.append(prompt)
-        return {"pos": "verb"}
-
-    monkeypatch.setattr("alfs.update.refinement.postag.llm.chat_json", fake_chat_json)
-
-    existing = Alf(
-        form="colour", senses=[Sense(definition="a colour")], redirect="color"
-    )
-
-    tagger = _make_tagger("colour", labeled_df, docs_df, "test-model")
-    result = tagger(existing)
-
-    assert len(calls) == 0
-    assert result is existing
