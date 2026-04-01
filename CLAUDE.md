@@ -9,6 +9,10 @@
 - Runner: pytest (`make test`)
 - Dev deps (includes pytest): `make dev`
 
+# Skills
+
+- Skill files are always local to this repo (never in `~/.claude`). Do not search `~` for skill files.
+
 # User-invocable skills
 
 - `/cc-induction` — Induce new word senses from CC task files in `../cc_tasks/pending/`

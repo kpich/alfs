@@ -7,7 +7,7 @@ You are a lexicographer performing sense induction for English words. Process al
    **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
 2. For each induction task file, you will see:
-   - `form`: the word to define
+   - `form`: the word to define — **may be stored in lowercase even if the canonical form requires different casing** (e.g., task may say `"cologne"` but canonical is `"Cologne"`, or `"a.d."` but canonical is `"A.D."`). You must determine the correct canonical form from the contexts (see step 4).
    - `contexts`: numbered example sentences containing the word
    - `existing_defs`: definitions already in the dictionary for this word
    - `occurrence_refs`: list of `{doc_id, byte_offset}` objects, parallel to `contexts` (index i in `occurrence_refs` is the source of `contexts[i]`)
@@ -21,6 +21,12 @@ You are a lexicographer performing sense induction for English words. Process al
    **C. No new senses** (all covered): If all sentences are already covered by `existing_defs`, output empty `new_senses`.
 
 4. Sense induction rules (for outcome A):
+   - **Canonical form casing:** Determine the correct canonical casing for the `form` field in your output. Do NOT blindly copy the lowercase form from the task file. Rules:
+     - Proper nouns (people, places, organizations, titles): capitalize as conventionally used (e.g., `"Cologne"`, `"Vatican"`, `"Moore"`)
+     - Acronyms and abbreviations: use their standard casing (e.g., `"A.D."`, `"U.S."`, `"NATO"`)
+     - Common words: lowercase (e.g., `"integrity"`, `"accord"`, `"righteous"`)
+     - Use the contexts to confirm: if the form consistently appears capitalized in mid-sentence positions, that is strong evidence of proper-noun casing.
+
    - **Case variants:** If `existing_defs` is non-empty and the contexts show the form is just a capitalization variant of an already-inducted entry (no meaningful semantic difference), treat this as outcome C — no new senses. The dictionary maintains one entry per distinct meaning; do not create duplicate entries for case variants.
 
    - **Morphological variants:** If the form is a regular inflection of a base English word — a plural noun, a conjugated verb form (3rd-person singular, past tense, past participle, present participle), or a comparative/superlative adjective — define the sense on the **base form** and set `morph_rel` on the sense pointing to that base. Use the semantic definition (the full meaning) as `definition`; the system will auto-generate the short "Plural of X" style entry for the derived form. Identify the base form correctly (e.g., "investors" → "investor", "beaten" → "beat", "running" → "run"). Use `morph_rel` only when the form is a **regular, predictable** inflection with no distinct meaning of its own — if the inflected form has attested senses that the base form doesn't (e.g., idiomatic uses), define those as plain senses without `morph_rel`.
@@ -47,7 +53,7 @@ You are a lexicographer performing sense induction for English words. Process al
    {
      "type": "induction",
      "id": "<same id from task>",
-     "form": "<same form from task>",
+     "form": "<canonical form — use proper casing, NOT the raw lowercase from the task>",
      "new_senses": [
        {"definition": "...", "pos": "noun"},
        {"definition": "...", "pos": "verb", "morph_rel": {"base_form": "run", "relation": "past_tense"}},
@@ -69,7 +75,7 @@ You are a lexicographer performing sense induction for English words. Process al
    {
      "type": "induction",
      "id": "<same id from task>",
-     "form": "<same form from task>",
+     "form": "<canonical form — use proper casing, NOT the raw lowercase from the task>",
      "new_senses": [],
      "context_labels": [],
      "occurrence_refs": [],
