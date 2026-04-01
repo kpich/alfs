@@ -60,11 +60,13 @@ def run(
     # Filter to word-like forms with enough occurrences
     total_counts = total_counts.filter(pl.col("total") >= min_count)
 
-    # Build exclusion sets
-    known_forms = set(SenseStore(Path(senses_db)).all_forms())
-    blocklist_forms = set(Blocklist(Path(blocklist_file)).load().keys())
-    queued_forms = {e.form for e in InductionQueue(Path(queue_file)).load()}
-    excluded = known_forms | blocklist_forms | queued_forms
+    # Build case-insensitive exclusion set: skip forms with a known case variant
+    known_forms_lower = {f.lower() for f in SenseStore(Path(senses_db)).all_forms()}
+    blocklist_forms_lower = {f.lower() for f in Blocklist(Path(blocklist_file)).load()}
+    queued_forms_lower = {
+        e.form.lower() for e in InductionQueue(Path(queue_file)).load()
+    }
+    excluded_lower = known_forms_lower | blocklist_forms_lower | queued_forms_lower
 
     # Filter candidates: word-like forms not in any exclusion set
     candidates = (
@@ -73,7 +75,7 @@ def run(
                 lambda f: bool(_WORD_RE.search(f)), return_dtype=pl.Boolean
             )
         )
-        .filter(~pl.col("form").is_in(list(excluded)))
+        .filter(~pl.col("form").str.to_lowercase().is_in(excluded_lower))
         .sort("total", descending=True)
         .head(top_n)
     )

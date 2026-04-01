@@ -164,20 +164,46 @@ def test_occurrence_refs_attached(tmp_path: Path, seg_dir: Path):
     assert len(entries["dog"].occurrences) == 2
 
 
-def test_does_not_exclude_lowercase_of_uppercase_senses_form(
-    tmp_path: Path, seg_dir: Path
-):
+def test_excludes_case_variants_of_known_forms(tmp_path: Path, seg_dir: Path):
     senses_db = tmp_path / "senses.db"
     queue_file = tmp_path / "queue.yaml"
     blocklist_file = tmp_path / "blocklist.yaml"
 
-    # "CAT" in senses.db should not block "cat" from the corpus
+    # "CAT" in senses.db should block "cat" from the corpus (case variant)
     SenseStore(senses_db).update("CAT", lambda _: Alf(form="CAT", senses=[]))
 
     added = run(seg_dir, senses_db, queue_file, blocklist_file, top_n=10, min_count=3)
     forms = {e.form for e in InductionQueue(queue_file).load()}
-    assert "cat" in forms
-    assert added == 3  # cat, car, dog all enqueued
+    assert "cat" not in forms
+    assert added == 2  # car and dog, not cat
+
+
+def test_excludes_sentence_initial_capitalization(tmp_path: Path):
+    senses_db = tmp_path / "senses.db"
+    queue_file = tmp_path / "queue.yaml"
+    blocklist_file = tmp_path / "blocklist.yaml"
+    seg_dir = tmp_path / "seg"
+
+    # Simulate "What" appearing capitalized at sentence starts in corpus
+    _make_seg_data(
+        seg_dir,
+        "W",
+        [
+            {"form": "What", "doc_id": "d1", "byte_offset": 0},
+            {"form": "What", "doc_id": "d2", "byte_offset": 0},
+            {"form": "What", "doc_id": "d3", "byte_offset": 0},
+            {"form": "What", "doc_id": "d4", "byte_offset": 0},
+            {"form": "What", "doc_id": "d5", "byte_offset": 0},
+        ],
+    )
+
+    # "what" (lowercase) is already in the dictionary
+    SenseStore(senses_db).update("what", lambda _: Alf(form="what", senses=[]))
+
+    added = run(seg_dir, senses_db, queue_file, blocklist_file, top_n=10, min_count=3)
+    forms = {e.form for e in InductionQueue(queue_file).load()}
+    assert "What" not in forms
+    assert added == 0
 
 
 def test_idempotent_double_run(tmp_path: Path, seg_dir: Path):
