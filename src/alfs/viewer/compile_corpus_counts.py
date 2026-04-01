@@ -29,6 +29,7 @@ def main() -> None:
         pl.scan_parquet(
             str(Path(args.by_prefix_dir) / "**" / "*.parquet"),
             schema={"form": pl.String},
+            extra_columns="ignore",
         )
         .filter(pl.col("form").is_in(alfs_forms))
         .group_by("form")
