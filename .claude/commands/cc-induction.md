@@ -23,6 +23,10 @@ You are a lexicographer performing sense induction for English words. Process al
 4. Sense induction rules (for outcome A):
    - **Case variants:** If `existing_defs` is non-empty and the contexts show the form is just a capitalization variant of an already-inducted entry (no meaningful semantic difference), treat this as outcome C — no new senses. The dictionary maintains one entry per distinct meaning; do not create duplicate entries for case variants.
 
+   - **Morphological variants:** If the form is a regular inflection of a base English word — a plural noun, a conjugated verb form (3rd-person singular, past tense, past participle, present participle), or a comparative/superlative adjective — define the sense on the **base form** and set `morph_rel` on the sense pointing to that base. Use the semantic definition (the full meaning) as `definition`; the system will auto-generate the short "Plural of X" style entry for the derived form. Identify the base form correctly (e.g., "investors" → "investor", "beaten" → "beat", "running" → "run"). Use `morph_rel` only when the form is a **regular, predictable** inflection with no distinct meaning of its own — if the inflected form has attested senses that the base form doesn't (e.g., idiomatic uses), define those as plain senses without `morph_rel`.
+
+     Supported `relation` values: `plural`, `3sg_present`, `past_tense`, `past_participle`, `present_participle`, `comparative`, `superlative`.
+
    - **Scope:** This is a broad-coverage dictionary. It includes individual letters ("D", "K"), abbreviations, acronyms, symbols, slang, informal usage, technical jargon, and other tokens with recognized public meaning — even if they would not appear in a conventional dictionary.
    - Only include a sense if the sentences clearly attest that meaning — not if it is merely plausible.
    - Each sense must be meaningfully distinct — not paraphrasable as another.
@@ -46,6 +50,7 @@ You are a lexicographer performing sense induction for English words. Process al
      "form": "<same form from task>",
      "new_senses": [
        {"definition": "...", "pos": "noun"},
+       {"definition": "...", "pos": "verb", "morph_rel": {"base_form": "run", "relation": "past_tense"}},
        ...
      ],
      "context_labels": [

@@ -44,6 +44,23 @@ from alfs.data_models.sense_store import SenseStore
 _output_adapter: TypeAdapter[CCOutput] = TypeAdapter(CCOutput)
 _SKIP_SENSE_KEY = "_skip"
 
+_MORPH_TEMPLATES: dict[str, str] = {
+    "plural": "Plural of {base}.",
+    "3sg_present": "Third-person singular present tense of {base}.",
+    "past_tense": "Past tense of {base}.",
+    "past_participle": "Past participle of {base}.",
+    "present_participle": "Present participle of {base}.",
+    "comparative": "Comparative form of {base}.",
+    "superlative": "Superlative form of {base}.",
+}
+
+
+def _morph_definition(relation: str, base_form: str) -> str:
+    template = _MORPH_TEMPLATES.get(relation)
+    if template is not None:
+        return template.format(base=base_form)
+    return f"{relation.replace('_', ' ').capitalize()} of {base_form}."
+
 
 def _apply_induction(
     output: CCInductionOutput,
@@ -113,29 +130,76 @@ def _apply_induction(
     )
 
     new_senses: list[Sense] = []
+    # base_form -> list of senses to add to the base form
+    base_senses: dict[str, list[Sense]] = {}
+
     for s in output.new_senses:
-        if s.definition.strip().lower() in existing_defs:
-            continue
         try:
             pos = PartOfSpeech(s.pos) if s.pos else None
         except ValueError:
             pos = None
-        new_senses.append(
-            Sense(definition=s.definition, pos=pos, updated_by_model="claude-code")
-        )
 
-    if not new_senses:
+        if s.morph_rel is not None:
+            # Add semantic sense to the base form
+            mr = s.morph_rel
+            base_entry = sense_store.read(mr.base_form)
+            base_existing = (
+                {b.definition.strip().lower() for b in base_entry.senses}
+                if base_entry
+                else set()
+            )
+            if s.definition.strip().lower() not in base_existing:
+                base_senses.setdefault(mr.base_form, []).append(
+                    Sense(
+                        definition=s.definition,
+                        pos=pos,
+                        updated_by_model="claude-code",
+                    )
+                )
+            # Add morph-redirect sense to derived form
+            morph_def = _morph_definition(mr.relation, mr.base_form)
+            if morph_def.strip().lower() not in existing_defs:
+                new_senses.append(
+                    Sense(
+                        definition=morph_def,
+                        pos=pos,
+                        morph_base=mr.base_form,
+                        morph_relation=mr.relation,
+                        updated_by_model="claude-code",
+                    )
+                )
+        else:
+            if s.definition.strip().lower() in existing_defs:
+                continue
+            new_senses.append(
+                Sense(definition=s.definition, pos=pos, updated_by_model="claude-code")
+            )
+
+    for base_form, senses in base_senses.items():
+        enqueue(
+            AddSensesRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=base_form,
+                new_senses=senses,
+            ),
+            queue_dir,
+        )
+        print(f"  queued {len(senses)} new sense(s) for base form {base_form!r}")
+
+    if not new_senses and not base_senses:
         print(f"  skipped induction for {output.form!r}: no new senses")
         return True
 
-    request = AddSensesRequest(
-        id=str(uuid.uuid4()),
-        created_at=datetime.now(UTC),
-        form=output.form,
-        new_senses=new_senses,
-    )
-    enqueue(request, queue_dir)
-    print(f"  queued {len(new_senses)} new sense(s) for {output.form!r}")
+    if new_senses:
+        request = AddSensesRequest(
+            id=str(uuid.uuid4()),
+            created_at=datetime.now(UTC),
+            form=output.form,
+            new_senses=new_senses,
+        )
+        enqueue(request, queue_dir)
+        print(f"  queued {len(new_senses)} new sense(s) for {output.form!r}")
     return True
 
 

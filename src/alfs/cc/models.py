@@ -37,9 +37,17 @@ class CCMorphRelBlockTask(BaseModel):
 # --- Output models (written to done/) ---
 
 
+class InductionMorphRel(BaseModel):
+    base_form: str
+    # e.g. "plural", "past_tense", "past_participle", "present_participle",
+    # "3sg_present", "comparative", "superlative"
+    relation: str
+
+
 class InductionSense(BaseModel):
     definition: str
     pos: str
+    morph_rel: InductionMorphRel | None = None
 
 
 class ContextLabel(BaseModel):
