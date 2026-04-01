@@ -45,6 +45,7 @@ testpaths = ["src", "integration_tests"]
 
 [tool.uv]
 package = true
+exclude-newer = "7 days"
 
 [tool.ruff]
 line-length = 88
