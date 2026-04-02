@@ -205,9 +205,11 @@ def compile_qc_coverage(
 
     # Search full sorted list for first uncovered rank (may be beyond chart_top_n)
     first_uncovered_rank: int | None = None
+    first_uncovered_form: str | None = None
     for rank, (form, _) in enumerate(sorted_forms_all, start=1):
         if not has_def.get(form, False) and form not in blocklist_forms:
             first_uncovered_rank = rank
+            first_uncovered_form = form
             break
 
     # x position for vertical line: only set if rank falls within chart range
@@ -220,6 +222,7 @@ def compile_qc_coverage(
         "pct_instances_covered": round(pct_instances_covered, 2),
         "pct_senses_covered_est": round(pct_senses_covered_est, 2),
         "first_uncovered_rank": first_uncovered_rank,
+        "first_uncovered_form": first_uncovered_form,
         "bucket_counts_covered": bucket_counts_covered,
         "bucket_counts_uncovered": bucket_counts_uncovered,
         "first_uncovered_bucket_x": first_uncovered_bucket_x,

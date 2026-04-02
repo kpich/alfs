@@ -20,7 +20,11 @@
     {% if coverage.first_uncovered_rank is not none %}
     <div class="border rounded p-3 text-center" style="min-width:160px;">
       <div class="fs-1 fw-bold text-warning">{{ coverage.first_uncovered_rank }}</div>
-      <div class="text-muted small">first uncovered rank</div>
+      <div class="text-muted small">first uncovered rank
+        {% if coverage.first_uncovered_form %}
+        — <strong>{{ coverage.first_uncovered_form }}</strong>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
   </div>
