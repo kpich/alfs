@@ -82,6 +82,8 @@ You are a lexicographer performing quality control on dictionary entries. For ea
 
    Valid POS values: `"noun"`, `"verb"`, `"adjective"`, `"adverb"`, `"preposition"`, `"conjunction"`, `"pronoun"`, `"determiner"`, `"interjection"`, `"proper_noun"`, `"other"`.
 
+   **Note:** If the correct POS is `proper_noun` but the form is lowercased, prefer `normalize_case` (entry-level) over a POS correction.
+
    For each correction: `{"sense_idx": <0-based>, "pos": "<correct_pos>"}`.
 
    ---
