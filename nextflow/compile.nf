@@ -2,6 +2,7 @@ nextflow.enable.dsl = 2
 
 params.senses_db           = "${launchDir}/../alfs_data/senses.db"
 params.labeled_db          = "${launchDir}/../alfs_data/labeled.db"
+params.blocklist_yaml      = "${launchDir}/../alfs_data/blocklist.yaml"
 params.text_data_dir       = "${launchDir}/../text_data"
 params.seg_data_dir        = "${launchDir}/../seg_data"
 params.viewer_data_dir     = "${launchDir}/../viewer_data"
@@ -71,6 +72,23 @@ process COMPILE_QC_LAG {
     """
 }
 
+process COMPILE_QC_COVERAGE {
+    publishDir params.viewer_data_dir, mode: 'copy'
+    input:
+        path "corpus_counts.json"
+    output: path "qc_coverage.json"
+    script:
+    """
+    uv run --project ${launchDir} --no-sync python -m alfs.viewer.compile_qc \
+        --mode coverage \
+        --labeled-db ${params.labeled_db} \
+        --senses-db ${params.senses_db} \
+        --corpus-counts corpus_counts.json \
+        --blocklist ${params.blocklist_yaml} \
+        --output qc_coverage.json
+    """
+}
+
 process COMPILE_QC_INSTANCES {
     publishDir params.viewer_data_dir, mode: 'copy'
     input:
@@ -100,5 +118,6 @@ workflow {
 
     COMPILE_QC_STATS()
     COMPILE_QC_LAG()
+    COMPILE_QC_COVERAGE(corpus_counts_ch)
     COMPILE_QC_INSTANCES(Channel.of(0, 1), docs_ch)
 }

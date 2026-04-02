@@ -23,6 +23,7 @@ import polars as pl
 
 from alfs.corpus import _extract_context
 from alfs.data_models.alf import Alfs, sense_key
+from alfs.data_models.blocklist import Blocklist
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 
@@ -117,6 +118,107 @@ def compile_qc_lag(labeled: pl.DataFrame, sense_store: SenseStore) -> dict:
     }
 
 
+def compile_qc_coverage(
+    labeled: pl.DataFrame,
+    alfs: Alfs,
+    corpus_counts: dict[str, int],
+    blocklist_forms: set[str],
+    n_buckets: int = 50,
+) -> dict:
+    import math
+
+    has_def = {form: bool(alf.senses) for form, alf in alfs.entries.items()}
+
+    counts_df = labeled.group_by("form").agg(
+        pl.len().alias("n_labeled"),
+        (pl.col("rating") == 2).sum().alias("n_excellent"),
+    )
+    n_labeled: dict[str, int] = dict(
+        zip(counts_df["form"].to_list(), counts_df["n_labeled"].to_list(), strict=False)
+    )
+    n_excellent: dict[str, int] = dict(
+        zip(
+            counts_df["form"].to_list(),
+            counts_df["n_excellent"].to_list(),
+            strict=False,
+        )
+    )
+
+    total_labeled = labeled.height
+    total_excellent = int((labeled["rating"] == 2).sum())
+    global_excellent_rate = (
+        total_excellent / total_labeled if total_labeled > 0 else 0.0
+    )
+
+    # Total corpus tokens: use _total if present (all corpus), else fall back to tracked
+    # sum
+    total_corpus = corpus_counts.get(
+        "_total", sum(v for k, v in corpus_counts.items() if not k.startswith("_"))
+    )
+
+    covered_corpus = sum(corpus_counts.get(f, 0) for f, hd in has_def.items() if hd)
+    pct_instances_covered = (
+        covered_corpus / total_corpus * 100.0 if total_corpus > 0 else 0.0
+    )
+
+    K = 5
+    smoothed_num = 0.0
+    for form, count in corpus_counts.items():
+        if form.startswith("_"):
+            continue
+        if not has_def.get(form, False):
+            continue
+        nl = n_labeled.get(form, 0)
+        ne = n_excellent.get(form, 0)
+        smoothed_rate = (ne + K * global_excellent_rate) / (nl + K)
+        smoothed_num += smoothed_rate * count
+    pct_senses_covered_est = (
+        smoothed_num / total_corpus * 100.0 if total_corpus > 0 else 0.0
+    )
+
+    # Sort tracked forms by corpus frequency, build n_buckets aggregated bars
+    sorted_forms = sorted(
+        [(f, c) for f, c in corpus_counts.items() if not f.startswith("_")],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    N = len(sorted_forms)
+    bucket_size = max(1, math.ceil(N / n_buckets))
+
+    bucket_counts_covered: list[int] = []
+    bucket_counts_uncovered: list[int] = []
+    for i in range(n_buckets):
+        chunk = sorted_forms[i * bucket_size : (i + 1) * bucket_size]
+        if not chunk:
+            break
+        bucket_counts_covered.append(sum(c for f, c in chunk if has_def.get(f, False)))
+        bucket_counts_uncovered.append(
+            sum(c for f, c in chunk if not has_def.get(f, False))
+        )
+
+    first_uncovered_rank: int | None = None
+    for rank, (form, _) in enumerate(sorted_forms, start=1):
+        if not has_def.get(form, False) and form not in blocklist_forms:
+            first_uncovered_rank = rank
+            break
+
+    # x position for vertical line: left edge of the bucket containing first uncovered
+    # rank
+    first_uncovered_bucket_x: float | None = None
+    if first_uncovered_rank is not None:
+        b = (first_uncovered_rank - 1) // bucket_size  # 0-based bucket index
+        first_uncovered_bucket_x = b + 0.5  # left edge of bar at x = b+1
+
+    return {
+        "pct_instances_covered": round(pct_instances_covered, 2),
+        "pct_senses_covered_est": round(pct_senses_covered_est, 2),
+        "first_uncovered_rank": first_uncovered_rank,
+        "bucket_counts_covered": bucket_counts_covered,
+        "bucket_counts_uncovered": bucket_counts_uncovered,
+        "first_uncovered_bucket_x": first_uncovered_bucket_x,
+    }
+
+
 def compile_qc_instances(
     labeled: pl.DataFrame, docs: pl.DataFrame, rating: int
 ) -> dict:
@@ -153,7 +255,9 @@ def compile_qc_instances(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compile QC data for viewer")
-    parser.add_argument("--mode", required=True, choices=["stats", "instances", "lag"])
+    parser.add_argument(
+        "--mode", required=True, choices=["stats", "instances", "lag", "coverage"]
+    )
     parser.add_argument("--labeled-db", required=True)
     parser.add_argument(
         "--senses-db", help="Path to senses.db (required for instances mode)"
@@ -163,6 +267,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--rating", type=int, choices=[0, 1], help="Rating to compile (instances mode)"
+    )
+    parser.add_argument(
+        "--corpus-counts",
+        help="Path to corpus_counts.json (required for coverage mode)",
+    )
+    parser.add_argument(
+        "--blocklist", help="Path to blocklist.yaml (optional, for coverage mode)"
     )
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
@@ -176,6 +287,19 @@ def main() -> None:
         if args.senses_db is None:
             parser.error("--senses-db is required for lag mode")
         result = compile_qc_lag(labeled, SenseStore(Path(args.senses_db)))
+    elif args.mode == "coverage":
+        if args.corpus_counts is None or args.senses_db is None:
+            parser.error(
+                "--corpus-counts and --senses-db are required for coverage mode"
+            )
+        corpus_counts: dict[str, int] = json.loads(Path(args.corpus_counts).read_text())
+        alfs = Alfs(entries=SenseStore(Path(args.senses_db)).all_entries())
+        blocklist_forms: set[str] = (
+            set(Blocklist(Path(args.blocklist)).load().keys())
+            if args.blocklist
+            else set()
+        )
+        result = compile_qc_coverage(labeled, alfs, corpus_counts, blocklist_forms)
     else:
         if args.docs is None or args.rating is None or args.senses_db is None:
             parser.error(
@@ -192,6 +316,11 @@ def main() -> None:
         print(f"Wrote QC stats → {args.output}")
     elif args.mode == "lag":
         print(f"Wrote lag data ({result['pct_stale']}% stale) → {args.output}")
+    elif args.mode == "coverage":
+        print(
+            f"Coverage: {result['pct_instances_covered']}% instances, "
+            f"{result['pct_senses_covered_est']}% senses (est) → {args.output}"
+        )
     else:
         n = len(result["instances"])
         print(f"Wrote {n} rating-{args.rating} instances → {args.output}")

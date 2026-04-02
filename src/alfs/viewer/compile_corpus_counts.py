@@ -25,9 +25,10 @@ def main() -> None:
     sense_store = SenseStore(Path(args.senses_db))
     alfs_forms = list(sense_store.all_entries().keys())
 
+    parquet_glob = str(Path(args.by_prefix_dir) / "**" / "*.parquet")
     corpus_df = (
         pl.scan_parquet(
-            str(Path(args.by_prefix_dir) / "**" / "*.parquet"),
+            parquet_glob,
             schema={"form": pl.String},
             extra_columns="ignore",
         )
@@ -36,13 +37,28 @@ def main() -> None:
         .agg(pl.len().alias("count"))
         .collect()
     )
-    corpus_counts = dict(
+    corpus_counts: dict[str, int] = dict(
         zip(corpus_df["form"].to_list(), corpus_df["count"].to_list(), strict=False)
     )
 
+    total_tokens = int(
+        pl.scan_parquet(
+            parquet_glob,
+            schema={"form": pl.String},
+            extra_columns="ignore",
+        )
+        .select(pl.len())
+        .collect()
+        .item()
+    )
+    corpus_counts["_total"] = total_tokens
+
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(corpus_counts))
-    print(f"Wrote corpus counts for {len(corpus_counts)} forms → {args.output}")
+    print(
+        f"Wrote corpus counts for {len(corpus_counts) - 1} forms "
+        f"({total_tokens:,} total tokens) → {args.output}"
+    )
 
 
 if __name__ == "__main__":

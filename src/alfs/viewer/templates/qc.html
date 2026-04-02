@@ -8,8 +8,52 @@
 <p class="text-muted">QC stats not yet compiled. Run <code>make compile</code> to generate.</p>
 {% else %}
 
-<div id="rating-chart" style="width:400px;height:300px;"></div>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+{% if coverage %}
+<div class="mb-4">
+  <div class="d-flex gap-4 mb-3">
+    <div class="border rounded p-3 text-center" style="min-width:160px;">
+      <div class="fs-1 fw-bold text-success">{{ coverage.pct_instances_covered }}%</div>
+      <div class="text-muted small">corpus instances covered</div>
+    </div>
+    {% if coverage.first_uncovered_rank is not none %}
+    <div class="border rounded p-3 text-center" style="min-width:160px;">
+      <div class="fs-1 fw-bold text-warning">{{ coverage.first_uncovered_rank }}</div>
+      <div class="text-muted small">first uncovered rank</div>
+    </div>
+    {% endif %}
+  </div>
+  <div id="coverage-chart" style="width:900px;height:280px;"></div>
+  <script>
+  (function() {
+    var covered   = {{ coverage.bucket_counts_covered | tojson }};
+    var uncovered = {{ coverage.bucket_counts_uncovered | tojson }};
+    var firstX    = {{ coverage.first_uncovered_bucket_x | tojson }};
+    var xs = covered.map(function(_, i) { return i + 1; });
+    var shapes = [];
+    if (firstX !== null) {
+      shapes.push({ type:'line', x0:firstX+0.5, x1:firstX+0.5,
+        yref:'paper', y0:0, y1:1, line:{color:'#dc3545', width:2, dash:'dash'} });
+    }
+    Plotly.newPlot('coverage-chart', [
+      { type:'bar', name:'covered', x:xs, y:covered, marker:{color:'#198754'} },
+      { type:'bar', name:'uncovered', x:xs, y:uncovered, marker:{color:'#dc3545'} }
+    ], {
+      barmode: 'stack',
+      xaxis: { title: 'Frequency rank bucket (most common → least)' },
+      yaxis: { title: 'Corpus token count' },
+      shapes: shapes,
+      width: 900, height: 280, autosize: false,
+      margin: { t: 20, b: 50, l: 70, r: 20 },
+      legend: { orientation: 'h', y: 1.1 }
+    });
+  })();
+  </script>
+</div>
+{% endif %}
+
+<div id="rating-chart" style="width:400px;height:300px;"></div>
 <script>
 Plotly.newPlot('rating-chart', [{
   type: 'bar',
@@ -24,6 +68,13 @@ Plotly.newPlot('rating-chart', [{
   autosize: false,
 });
 </script>
+
+{% if coverage and coverage.pct_senses_covered_est is not none %}
+<p class="mt-2">
+  Estimated <strong>{{ coverage.pct_senses_covered_est }}%</strong> of corpus instances
+  have quality sense coverage (rating&nbsp;2), weighted by term frequency.
+</p>
+{% endif %}
 
 <div class="mt-4">
   <p><a href="/qc/0">View rating 0 instances ({{ stats.rating_counts['0'] }})</a></p>

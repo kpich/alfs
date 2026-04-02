@@ -13,6 +13,7 @@ from flask import Flask, abort, render_template, request
 DATA_PATH = Path("../viewer_data/data.json")
 QC_STATS_PATH = Path("../viewer_data/qc_stats.json")
 QC_LAG_PATH = Path("../viewer_data/qc_lag.json")
+QC_COVERAGE_PATH = Path("../viewer_data/qc_coverage.json")
 
 PAGE_SIZE = 500
 RECENT_N = 100
@@ -199,10 +200,17 @@ def word(form: str):
 @app.route("/qc")
 def qc():
     if not QC_STATS_PATH.exists():
-        return render_template("qc.html", available=False, stats=None, lag=None)
+        return render_template(
+            "qc.html", available=False, stats=None, lag=None, coverage=None
+        )
     stats = json.loads(QC_STATS_PATH.read_text())
     lag = json.loads(QC_LAG_PATH.read_text()) if QC_LAG_PATH.exists() else None
-    return render_template("qc.html", available=True, stats=stats, lag=lag)
+    coverage = (
+        json.loads(QC_COVERAGE_PATH.read_text()) if QC_COVERAGE_PATH.exists() else None
+    )
+    return render_template(
+        "qc.html", available=True, stats=stats, lag=lag, coverage=coverage
+    )
 
 
 @app.route("/qc/<int:rating>")
