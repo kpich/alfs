@@ -124,23 +124,39 @@ def compile_qc_coverage(
     corpus_counts: dict[str, int],
     blocklist_forms: set[str],
     n_buckets: int = 50,
-    chart_top_n: int = 200,
+    min_bucket_count: int = 50,
     top_corpus_forms: dict[str, int] | None = None,
 ) -> dict:
     import math
 
-    has_def = {form: bool(alf.senses) for form, alf in alfs.entries.items()}
+    # Case-insensitive: a form is covered if any case variant has at least one sense.
+    has_def: dict[str, bool] = {}
+    for form, alf in alfs.entries.items():
+        lower = form.lower()
+        if bool(alf.senses):
+            has_def[lower] = True
+        elif lower not in has_def:
+            has_def[lower] = False
 
-    counts_df = labeled.group_by("form").agg(
-        pl.len().alias("n_labeled"),
-        (pl.col("rating") == 2).sum().alias("n_excellent"),
+    # Aggregate labeled counts by lowercase form so "The" and "the" share stats.
+    counts_df = (
+        labeled.with_columns(pl.col("form").str.to_lowercase().alias("form_lower"))
+        .group_by("form_lower")
+        .agg(
+            pl.len().alias("n_labeled"),
+            (pl.col("rating") == 2).sum().alias("n_excellent"),
+        )
     )
     n_labeled: dict[str, int] = dict(
-        zip(counts_df["form"].to_list(), counts_df["n_labeled"].to_list(), strict=False)
+        zip(
+            counts_df["form_lower"].to_list(),
+            counts_df["n_labeled"].to_list(),
+            strict=False,
+        )
     )
     n_excellent: dict[str, int] = dict(
         zip(
-            counts_df["form"].to_list(),
+            counts_df["form_lower"].to_list(),
             counts_df["n_excellent"].to_list(),
             strict=False,
         )
@@ -158,7 +174,11 @@ def compile_qc_coverage(
         "_total", sum(v for k, v in corpus_counts.items() if not k.startswith("_"))
     )
 
-    covered_corpus = sum(corpus_counts.get(f, 0) for f, hd in has_def.items() if hd)
+    covered_corpus = sum(
+        v
+        for k, v in corpus_counts.items()
+        if not k.startswith("_") and has_def.get(k.lower(), False)
+    )
     pct_instances_covered = (
         covered_corpus / total_corpus * 100.0 if total_corpus > 0 else 0.0
     )
@@ -168,10 +188,10 @@ def compile_qc_coverage(
     for form, count in corpus_counts.items():
         if form.startswith("_"):
             continue
-        if not has_def.get(form, False):
+        if not has_def.get(form.lower(), False):
             continue
-        nl = n_labeled.get(form, 0)
-        ne = n_excellent.get(form, 0)
+        nl = n_labeled.get(form.lower(), 0)
+        ne = n_excellent.get(form.lower(), 0)
         smoothed_rate = (ne + K * global_excellent_rate) / (nl + K)
         smoothed_num += smoothed_rate * count
     pct_senses_covered_est = (
@@ -191,36 +211,45 @@ def compile_qc_coverage(
         key=lambda x: x[1],
         reverse=True,
     )
-    sorted_forms = sorted_forms_all[:chart_top_n]
 
-    N = len(sorted_forms)
+    N = len(sorted_forms_all)
     bucket_size = max(1, math.ceil(N / n_buckets))
 
     bucket_counts_covered: list[int] = []
     bucket_counts_uncovered: list[int] = []
     for i in range(n_buckets):
-        chunk = sorted_forms[i * bucket_size : (i + 1) * bucket_size]
+        chunk = sorted_forms_all[i * bucket_size : (i + 1) * bucket_size]
         if not chunk:
             break
-        bucket_counts_covered.append(sum(c for f, c in chunk if has_def.get(f, False)))
-        bucket_counts_uncovered.append(
-            sum(c for f, c in chunk if not has_def.get(f, False))
-        )
+        cov = sum(c for f, c in chunk if has_def.get(f.lower(), False))
+        uncov = sum(c for f, c in chunk if not has_def.get(f.lower(), False))
+        if cov + uncov < min_bucket_count:
+            break  # right-truncate: drop the sparse tail
+        bucket_counts_covered.append(cov)
+        bucket_counts_uncovered.append(uncov)
 
-    # Search full sorted list for first uncovered rank (may be beyond chart_top_n)
+    n_shown = len(bucket_counts_covered)
+
+    # Search full sorted list for first uncovered rank
     first_uncovered_rank: int | None = None
     first_uncovered_form: str | None = None
     for rank, (form, _) in enumerate(sorted_forms_all, start=1):
-        if not has_def.get(form, False) and form not in blocklist_forms:
+        lower = form.lower()
+        if (
+            not has_def.get(lower, False)
+            and lower not in blocklist_forms
+            and form not in blocklist_forms
+        ):
             first_uncovered_rank = rank
             first_uncovered_form = form
             break
 
-    # x position for vertical line: only set if rank falls within chart range
+    # x position for vertical line: only set if rank falls within the shown buckets
     first_uncovered_bucket_x: float | None = None
-    if first_uncovered_rank is not None and first_uncovered_rank <= chart_top_n:
+    if first_uncovered_rank is not None:
         b = (first_uncovered_rank - 1) // bucket_size  # 0-based bucket index
-        first_uncovered_bucket_x = b + 0.5  # left edge of bar at x = b+1
+        if b < n_shown:
+            first_uncovered_bucket_x = b + 0.5  # left edge of bar at x = b+1
 
     return {
         "pct_instances_covered": round(pct_instances_covered, 2),

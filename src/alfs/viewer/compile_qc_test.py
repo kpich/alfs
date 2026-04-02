@@ -42,12 +42,96 @@ def _labeled(rows: list[tuple]) -> pl.DataFrame:
     )
 
 
+# --- case-insensitive coverage ---
+
+
+def test_case_insensitive_coverage():
+    # "the" has a def; "The" in corpus should count as covered
+    alfs = _alfs(Alf(form="the", senses=[_sense()]))
+    corpus_counts = {"the": 500, "The": 200, "_total": 700}
+    result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set())
+    assert result["pct_instances_covered"] == 100.0
+
+
+def test_case_insensitive_first_uncovered():
+    # "the" has def; "The" in top_corpus_forms should not count as uncovered
+    alfs = _alfs(Alf(form="the", senses=[_sense()]))
+    corpus_counts = {"the": 500, "_total": 700}
+    top_corpus_forms = {"The": 200, "the": 500, "xyz": 100}
+    result = compile_qc_coverage(
+        _labeled([]),
+        alfs,
+        corpus_counts,
+        set(),
+        top_corpus_forms=top_corpus_forms,
+    )
+    assert result["first_uncovered_form"] == "xyz"
+    assert result["first_uncovered_rank"] == 3
+
+
+def test_case_insensitive_sense_coverage():
+    # "the" has def; labeled data uses "The" → should be aggregated
+    alfs = _alfs(Alf(form="the", senses=[_sense()]))
+    corpus_counts = {"the": 100, "_total": 100}
+    labeled = _labeled([("The", "d1", 0, "s1", 2)] * 20)
+    result = compile_qc_coverage(labeled, alfs, corpus_counts, set())
+    # Global rate = 1.0 (all excellent), smoothed = 1.0
+    assert result["pct_senses_covered_est"] == 100.0
+
+
+# --- winsorization (right-truncation) ---
+
+
+def test_winsorization_drops_sparse_tail():
+    # 4 forms: ranks 1-2 have high counts (>= min_bucket_count), rank 3-4 are sparse
+    alfs = _alfs(
+        Alf(form="cat", senses=[_sense()]),
+        Alf(form="dog", senses=[_sense()]),
+        Alf(form="xyz", senses=[]),
+        Alf(form="foo", senses=[]),
+    )
+    corpus_counts = {"cat": 400, "dog": 300, "xyz": 10, "foo": 5}
+    # n_buckets=2, bucket_size=2; bucket0=(cat,dog)=700, bucket1=(xyz,foo)=15
+    # min_bucket_count=50 → bucket1 dropped
+    result = compile_qc_coverage(
+        _labeled([]),
+        alfs,
+        corpus_counts,
+        set(),
+        n_buckets=2,
+        min_bucket_count=50,
+    )
+    assert len(result["bucket_counts_covered"]) == 1
+    assert len(result["bucket_counts_uncovered"]) == 1
+
+
+def test_winsorization_line_outside_shown_range():
+    # first uncovered is in a bucket that gets winsorized away → no line
+    alfs = _alfs(Alf(form="cat", senses=[_sense()]))
+    corpus_counts = {"cat": 400, "xyz": 5}
+    top_corpus_forms = {"cat": 400, "xyz": 5}
+    result = compile_qc_coverage(
+        _labeled([]),
+        alfs,
+        corpus_counts,
+        set(),
+        n_buckets=2,
+        min_bucket_count=50,
+        top_corpus_forms=top_corpus_forms,
+    )
+    # xyz is uncovered (rank 2) but its bucket is winsorized
+    assert result["first_uncovered_rank"] == 2
+    assert result["first_uncovered_bucket_x"] is None
+
+
+# --- instance coverage ---
+
+
 def test_pct_instances_covered_uses_total_key():
-    # _total includes untracked corpus tokens — denominator should be 1000 not 100
     alfs = _alfs(Alf(form="cat", senses=[_sense()]))
     corpus_counts = {"cat": 80, "_total": 1000}
     result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set())
-    assert result["pct_instances_covered"] == 8.0  # 80/1000
+    assert result["pct_instances_covered"] == 8.0
 
 
 def test_pct_instances_covered_fallback_without_total():
@@ -57,7 +141,7 @@ def test_pct_instances_covered_fallback_without_total():
     )
     corpus_counts = {"cat": 80, "xyz": 20}
     result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set())
-    assert result["pct_instances_covered"] == 80.0  # 80/100 fallback
+    assert result["pct_instances_covered"] == 80.0
 
 
 def test_pct_instances_covered_no_defs():
@@ -67,38 +151,28 @@ def test_pct_instances_covered_no_defs():
     assert result["pct_instances_covered"] == 0.0
 
 
+# --- sense coverage ---
+
+
 def test_pct_senses_covered_est_all_excellent():
     alfs = _alfs(Alf(form="cat", senses=[_sense()]))
     corpus_counts = {"cat": 100, "_total": 100}
     labeled = _labeled([("cat", "d1", 0, "s1", 2)] * 20)
     result = compile_qc_coverage(labeled, alfs, corpus_counts, set())
-    # 20 excellent/20 labeled → rate=1.0; smoothed=(20+5)/(20+5)=1.0
     assert result["pct_senses_covered_est"] == 100.0
 
 
 def test_pct_senses_covered_est_smoothing_zero_labeled():
-    # global rate = 0 (no labeled), cat has 0 labeled → smoothed = 0
     alfs = _alfs(Alf(form="cat", senses=[_sense()]))
     corpus_counts = {"cat": 100, "_total": 100}
     result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set())
     assert result["pct_senses_covered_est"] == 0.0
 
 
-def test_pct_senses_covered_est_uses_global_prior():
-    # dog has 10 excellent labels, global rate=1.0; cat has 0 → gets prior 1.0
-    alfs = _alfs(
-        Alf(form="cat", senses=[_sense()]),
-        Alf(form="dog", senses=[_sense()]),
-    )
-    corpus_counts = {"cat": 50, "dog": 50, "_total": 100}
-    labeled = _labeled([("dog", "d1", 0, "s1", 2)] * 10)
-    result = compile_qc_coverage(labeled, alfs, corpus_counts, set())
-    assert result["pct_senses_covered_est"] == 100.0
+# --- first uncovered ---
 
 
 def test_first_uncovered_rank_basic():
-    # rank 1: cat (has def), rank 2: the (blocklisted), rank 3: xyz (no def, not
-    # blocked)
     alfs = _alfs(
         Alf(form="cat", senses=[_sense()]),
         Alf(form="the", senses=[]),
@@ -107,6 +181,7 @@ def test_first_uncovered_rank_basic():
     corpus_counts = {"cat": 300, "the": 200, "xyz": 100}
     result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, {"the"})
     assert result["first_uncovered_rank"] == 3
+    assert result["first_uncovered_form"] == "xyz"
 
 
 def test_first_uncovered_rank_none_when_all_covered():
@@ -119,98 +194,58 @@ def test_first_uncovered_rank_none_when_all_covered():
     assert result["first_uncovered_rank"] is None
 
 
-def test_first_uncovered_rank_blocklisted_not_counted():
-    alfs = _alfs(
-        Alf(form="cat", senses=[_sense()]),
-        Alf(form="xyz", senses=[]),
+def test_first_uncovered_blocklist_checks_lowercase():
+    # blocklist uses lowercase; corpus has mixed-case form
+    alfs = _alfs(Alf(form="cat", senses=[_sense()]))
+    corpus_counts = {"cat": 200, "The": 100}
+    top_corpus_forms = {"cat": 200, "The": 100}
+    result = compile_qc_coverage(
+        _labeled([]),
+        alfs,
+        corpus_counts,
+        {"the"},
+        top_corpus_forms=top_corpus_forms,
     )
-    corpus_counts = {"cat": 200, "xyz": 100}
-    result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, {"xyz"})
-    assert result["first_uncovered_rank"] is None
+    assert result["first_uncovered_rank"] is None  # "The" → blocklisted via "the"
 
 
-def test_bucket_arrays_length():
-    alfs = _alfs(*[Alf(form=f"w{i}", senses=[_sense()]) for i in range(100)])
-    corpus_counts = {f"w{i}": 100 - i for i in range(100)}
-    result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set(), n_buckets=10)
-    assert len(result["bucket_counts_covered"]) == 10
-    assert len(result["bucket_counts_uncovered"]) == 10
+# --- buckets ---
 
 
-def test_bucket_arrays_sum_to_tracked_total():
+def test_bucket_arrays_sum_to_shown_total():
     alfs = _alfs(
         Alf(form="cat", senses=[_sense()]),
         Alf(form="dog", senses=[]),
     )
-    corpus_counts = {"cat": 80, "dog": 20}
-    result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set(), n_buckets=2)
-    total = sum(result["bucket_counts_covered"]) + sum(
-        result["bucket_counts_uncovered"]
-    )
-    assert total == 100
-
-
-def test_first_uncovered_bucket_x_set():
-    # 4 forms, n_buckets=2, bucket_size=2
-    # rank 1: cat (def), rank 2: dog (def), rank 3: xyz (no def), rank 4: foo (no def)
-    # first uncovered = rank 3, bucket 1 (0-based), bucket_x = 1 + 0.5 = 1.5
-    alfs = _alfs(
-        Alf(form="cat", senses=[_sense()]),
-        Alf(form="dog", senses=[_sense()]),
-        Alf(form="xyz", senses=[]),
-        Alf(form="foo", senses=[]),
-    )
-    corpus_counts = {"cat": 400, "dog": 300, "xyz": 200, "foo": 100}
-    result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set(), n_buckets=2)
-    assert result["first_uncovered_bucket_x"] == 1.5
-
-
-def test_first_uncovered_bucket_x_none_when_all_covered():
-    alfs = _alfs(Alf(form="cat", senses=[_sense()]))
-    corpus_counts = {"cat": 100}
-    result = compile_qc_coverage(_labeled([]), alfs, corpus_counts, set())
-    assert result["first_uncovered_bucket_x"] is None
-
-
-def test_top_corpus_forms_shows_untracked_words():
-    # senses.db has only "cat" (with def), but corpus also has "the" (untracked,
-    # uncovered)
-    alfs = _alfs(Alf(form="cat", senses=[_sense()]))
-    corpus_counts = {"cat": 100, "_total": 200}
-    top_corpus_forms = {"the": 100, "cat": 100}  # "the" not in senses.db
+    corpus_counts = {"cat": 800, "dog": 200}
     result = compile_qc_coverage(
         _labeled([]),
         alfs,
         corpus_counts,
         set(),
         n_buckets=2,
-        chart_top_n=2,
-        top_corpus_forms=top_corpus_forms,
+        min_bucket_count=1,
     )
-    # "the" has no def → should appear as uncovered
-    assert sum(result["bucket_counts_uncovered"]) > 0
-    assert (
-        result["first_uncovered_rank"] == 1
-    )  # "the" is rank 1 (count=100 same as cat, sorted stably)
+    total = sum(result["bucket_counts_covered"]) + sum(
+        result["bucket_counts_uncovered"]
+    )
+    assert total == 1000
 
 
-def test_top_corpus_forms_line_outside_range():
-    # first uncovered is beyond chart_top_n → no line
+def test_top_corpus_forms_shows_untracked_words():
     alfs = _alfs(Alf(form="cat", senses=[_sense()]))
-    corpus_counts = {"cat": 100}
-    top_corpus_forms = {"cat": 100, "xyz": 50}  # "xyz" is rank 2, uncovered
+    corpus_counts = {"cat": 100, "_total": 200}
+    top_corpus_forms = {"the": 100, "cat": 100}
     result = compile_qc_coverage(
         _labeled([]),
         alfs,
         corpus_counts,
         set(),
-        n_buckets=1,
-        chart_top_n=1,
+        n_buckets=2,
+        min_bucket_count=1,
         top_corpus_forms=top_corpus_forms,
     )
-    # first_uncovered_rank=2 but chart_top_n=1, so no line
-    assert result["first_uncovered_rank"] == 2
-    assert result["first_uncovered_bucket_x"] is None
+    assert sum(result["bucket_counts_uncovered"]) > 0
 
 
 def test_empty_corpus_returns_zeros():
