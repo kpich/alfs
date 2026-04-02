@@ -18,8 +18,7 @@ process COMPILE_CORPUS_COUNTS {
         --senses-db ${params.senses_db} \
         --by-prefix-dir ${params.seg_data_dir}/by_prefix \
         --output corpus_counts.json \
-        --top-forms-output top_corpus_forms.json \
-        --top-forms-n 500
+        --top-forms-output top_corpus_forms.json
     """
 }
 

@@ -23,13 +23,7 @@ def main() -> None:
     parser.add_argument("--output", required=True)
     parser.add_argument(
         "--top-forms-output",
-        help="Output top-N all-corpus form counts (no senses.db filter)",
-    )
-    parser.add_argument(
-        "--top-forms-n",
-        type=int,
-        default=500,
-        help="Number of top forms for --top-forms-output (default: 500)",
+        help="Output all-corpus form counts, case-normalized (no senses.db filter)",
     )
     args = parser.parse_args()
 
@@ -67,15 +61,23 @@ def main() -> None:
         f"({total_tokens:,} total tokens) → {args.output}"
     )
 
-    # top_forms: top-N all-corpus forms (unfiltered), for coverage chart
+    # top_forms: all corpus forms, case-normalized to lowercase, for coverage chart
     if args.top_forms_output:
-        top_df = all_df.sort("count", descending=True).head(args.top_forms_n)
+        top_df = (
+            all_df.with_columns(pl.col("form").str.to_lowercase().alias("form_lower"))
+            .group_by("form_lower")
+            .agg(pl.col("count").sum())
+            .rename({"form_lower": "form"})
+            .sort("count", descending=True)
+        )
         top_forms: dict[str, int] = dict(
             zip(top_df["form"].to_list(), top_df["count"].to_list(), strict=False)
         )
         Path(args.top_forms_output).parent.mkdir(parents=True, exist_ok=True)
         Path(args.top_forms_output).write_text(json.dumps(top_forms))
-        print(f"Wrote top-{args.top_forms_n} corpus forms → {args.top_forms_output}")
+        print(
+            f"Wrote {len(top_forms)} corpus forms (lowercase) → {args.top_forms_output}"
+        )
 
 
 if __name__ == "__main__":

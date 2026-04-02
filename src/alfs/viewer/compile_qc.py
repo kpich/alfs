@@ -123,7 +123,7 @@ def compile_qc_coverage(
     alfs: Alfs,
     corpus_counts: dict[str, int],
     blocklist_forms: set[str],
-    n_buckets: int = 50,
+    n_buckets: int = 20,
     min_bucket_count: int = 50,
     top_corpus_forms: dict[str, int] | None = None,
 ) -> dict:
