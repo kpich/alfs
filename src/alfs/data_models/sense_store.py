@@ -1,7 +1,8 @@
 """SQLite-backed store for Alf sense entries."""
 
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
 
@@ -49,10 +50,18 @@ class SenseStore:
                 con.execute("ALTER TABLE senses DROP COLUMN subsenses")
             con.commit()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Generator[sqlite3.Connection]:
         con = sqlite3.connect(self._db_path, timeout=30)
         con.execute("PRAGMA foreign_keys = ON")
-        return con
+        try:
+            yield con
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+        finally:
+            con.close()
 
     def _assemble(self, con: sqlite3.Connection, form: str) -> Alf | None:
         wf = con.execute(
