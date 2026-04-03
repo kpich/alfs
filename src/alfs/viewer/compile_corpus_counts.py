@@ -39,7 +39,7 @@ def main() -> None:
             schema={"form": pl.String},
             extra_columns="ignore",
         )
-        .filter(pl.col("form").str.contains(r"[a-zA-Z0-9]"))
+        .filter(pl.col("form").str.contains(r"[a-zA-Z]"))
         .group_by("form")
         .agg(pl.len().alias("count"))
         .collect()
