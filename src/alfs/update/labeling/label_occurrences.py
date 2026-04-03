@@ -53,26 +53,41 @@ def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]
     key_map: dict[str, str] = {}
     counter = 0
     for alf in variants:
-        if alf.senses:
-            if len(variants) > 1:
-                lines.append(f"\n[{alf.form}]")
-            for sense in alf.senses:
-                counter += 1
-                display = str(counter)
-                key_map[display] = sense.id
-                pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
-                lines.append(f"{counter}.{pos_tag} {sense.definition}")
-        base_name = morph_base_form(alf)
-        if base_name is not None:
+        is_pure_morph = (
+            bool(alf.senses)
+            and all(s.morph_base is not None for s in alf.senses)
+            and morph_base_form(alf) is not None
+        )
+        if is_pure_morph:
+            base_name = morph_base_form(alf)
             base_alf = store.read(base_name)
             if base_alf is not None and base_alf.senses:
-                lines.append(f"\nBase form '{base_name}':")
+                if len(variants) > 1:
+                    lines.append(f"\n[{alf.form}]")
                 for sense in base_alf.senses:
                     counter += 1
-                    display = str(counter)
-                    key_map[display] = sense.id
+                    key_map[str(counter)] = sense.id
                     pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
                     lines.append(f"{counter}.{pos_tag} {sense.definition}")
+        else:
+            if alf.senses:
+                if len(variants) > 1:
+                    lines.append(f"\n[{alf.form}]")
+                for sense in alf.senses:
+                    counter += 1
+                    key_map[str(counter)] = sense.id
+                    pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
+                    lines.append(f"{counter}.{pos_tag} {sense.definition}")
+            base_name = morph_base_form(alf)
+            if base_name is not None:
+                base_alf = store.read(base_name)
+                if base_alf is not None and base_alf.senses:
+                    lines.append(f"\nBase form '{base_name}':")
+                    for sense in base_alf.senses:
+                        counter += 1
+                        key_map[str(counter)] = sense.id
+                        pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
+                        lines.append(f"{counter}.{pos_tag} {sense.definition}")
     return "\n".join(lines).lstrip("\n"), key_map
 
 

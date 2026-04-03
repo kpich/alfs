@@ -79,51 +79,7 @@ def _apply_induction(
             print(f"  deleted labeled occurrences for {output.form!r}")
         return True
 
-    # Apply context labels
-    if output.context_labels and occ_store is not None:
-        occurrence_refs: list[Occurrence] = output.occurrence_refs
-        if not occurrence_refs:
-            print(
-                f"  warning: no occurrence_refs in output for {output.form!r}, "
-                f"skipping context labels"
-            )
-        else:
-            rows = []
-            for label in output.context_labels:
-                idx = label.context_idx
-                if idx < 0 or idx >= len(occurrence_refs):
-                    continue
-                occ = occurrence_refs[idx]
-                if label.sense_idx is None:
-                    # _skip label
-                    rows.append(
-                        (
-                            output.form,
-                            occ.doc_id,
-                            occ.byte_offset,
-                            _SKIP_SENSE_KEY,
-                            0,
-                            None,
-                        )
-                    )
-                else:
-                    # Sense assignment (1-indexed into new_senses)
-                    sense_key = str(label.sense_idx)
-                    rows.append(
-                        (
-                            output.form,
-                            occ.doc_id,
-                            occ.byte_offset,
-                            sense_key,
-                            2,
-                            None,
-                        )
-                    )
-            if rows:
-                occ_store.upsert_many(rows, "claude-code")
-                print(f"  labeled {len(rows)} occurrence(s) for {output.form!r}")
-
-    # Enqueue new senses
+    # Build new senses, tracking sense_idx → UUID for context label application
     entry = sense_store.read(output.form)
     existing_defs = (
         {s.definition.strip().lower() for s in entry.senses} if entry else set()
@@ -132,8 +88,12 @@ def _apply_induction(
     new_senses: list[Sense] = []
     # base_form -> list of senses to add to the base form
     base_senses: dict[str, list[Sense]] = {}
+    # Maps 1-based sense_idx (from context_labels) to the UUID to store in occ_store.
+    # For morph_rel senses this is the BASE form's sense UUID; for plain senses it is
+    # the new derived-form sense UUID.
+    sense_idx_to_uuid: dict[int, str] = {}
 
-    for s in output.new_senses:
+    for i, s in enumerate(output.new_senses, start=1):
         try:
             pos = PartOfSpeech(s.pos) if s.pos else None
         except ValueError:
@@ -143,19 +103,21 @@ def _apply_induction(
             # Add semantic sense to the base form
             mr = s.morph_rel
             base_entry = sense_store.read(mr.base_form)
-            base_existing = (
-                {b.definition.strip().lower() for b in base_entry.senses}
-                if base_entry
-                else set()
-            )
-            if s.definition.strip().lower() not in base_existing:
-                base_senses.setdefault(mr.base_form, []).append(
-                    Sense(
-                        definition=s.definition,
-                        pos=pos,
-                        updated_by_model="claude-code",
-                    )
+            base_existing_by_def = {
+                b.definition.strip().lower(): b
+                for b in (base_entry.senses if base_entry else [])
+            }
+            norm_def = s.definition.strip().lower()
+            if norm_def not in base_existing_by_def:
+                new_base_sense = Sense(
+                    definition=s.definition,
+                    pos=pos,
+                    updated_by_model="claude-code",
                 )
+                base_senses.setdefault(mr.base_form, []).append(new_base_sense)
+                sense_idx_to_uuid[i] = new_base_sense.id
+            else:
+                sense_idx_to_uuid[i] = base_existing_by_def[norm_def].id
             # Add morph-redirect sense to derived form
             morph_def = _morph_definition(mr.relation, mr.base_form)
             if morph_def.strip().lower() not in existing_defs:
@@ -171,9 +133,48 @@ def _apply_induction(
         else:
             if s.definition.strip().lower() in existing_defs:
                 continue
-            new_senses.append(
-                Sense(definition=s.definition, pos=pos, updated_by_model="claude-code")
+            new_sense = Sense(
+                definition=s.definition, pos=pos, updated_by_model="claude-code"
             )
+            new_senses.append(new_sense)
+            sense_idx_to_uuid[i] = new_sense.id
+
+    # Apply context labels using UUID sense keys
+    if output.context_labels and occ_store is not None:
+        occurrence_refs: list[Occurrence] = output.occurrence_refs
+        if not occurrence_refs:
+            print(
+                f"  warning: no occurrence_refs in output for {output.form!r}, "
+                f"skipping context labels"
+            )
+        else:
+            rows = []
+            for label in output.context_labels:
+                idx = label.context_idx
+                if idx < 0 or idx >= len(occurrence_refs):
+                    continue
+                occ = occurrence_refs[idx]
+                if label.sense_idx is None:
+                    rows.append(
+                        (
+                            output.form,
+                            occ.doc_id,
+                            occ.byte_offset,
+                            _SKIP_SENSE_KEY,
+                            0,
+                            None,
+                        )
+                    )
+                else:
+                    uuid_key = sense_idx_to_uuid.get(label.sense_idx)
+                    if uuid_key is None:
+                        continue  # out-of-range or duplicate sense — skip label
+                    rows.append(
+                        (output.form, occ.doc_id, occ.byte_offset, uuid_key, 2, None)
+                    )
+            if rows:
+                occ_store.upsert_many(rows, "claude-code")
+                print(f"  labeled {len(rows)} occurrence(s) for {output.form!r}")
 
     for base_form, senses in base_senses.items():
         enqueue(

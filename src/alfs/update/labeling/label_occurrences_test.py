@@ -58,17 +58,16 @@ def test_build_sense_menu_morph_base_senses_are_selectable(tmp_path):
     store = _store(tmp_path, dog, dogs)
     menu, key_map = build_sense_menu(store, "dogs")
 
-    # dogs' own senses at 1 and 2
-    assert "1. plural of dog" in menu
-    assert "2. harasses persistently" in menu
-    assert key_map["1"] == dogs.senses[0].id
-    assert key_map["2"] == dogs.senses[1].id
+    # Pure-morph form: dog's senses appear directly at 1 and 2
+    assert "1. a domesticated animal" in menu
+    assert "2. an unattractive person" in menu
+    assert key_map["1"] == dog.senses[0].id
+    assert key_map["2"] == dog.senses[1].id
 
-    # dog's senses numbered 3 and 4, selectable
-    assert "3. a domesticated animal" in menu
-    assert "4. an unattractive person" in menu
-    assert key_map["3"] == dog.senses[0].id
-    assert key_map["4"] == dog.senses[1].id
+    # Morph redirect senses must NOT appear as choices
+    assert "plural of dog" not in menu
+    assert "harasses persistently" not in menu
+    assert "3" not in key_map
 
 
 def test_build_sense_menu_case_variant_then_morph_base(tmp_path):
@@ -81,10 +80,10 @@ def test_build_sense_menu_case_variant_then_morph_base(tmp_path):
     store = _store(tmp_path, dog, dogs, Dogs)
     menu, key_map = build_sense_menu(store, "Dogs")
 
-    # dogs' own sense at 1
-    assert "1. plural of dog" in menu
-    assert key_map["1"] == dogs.senses[0].id
+    # Pure-morph form: dog's sense appears directly at 1
+    assert "1. a domesticated animal" in menu
+    assert key_map["1"] == dog.senses[0].id
 
-    # dog's sense at 2, selectable
-    assert "2. a domesticated animal" in menu
-    assert key_map["2"] == dog.senses[0].id
+    # Morph redirect sense must NOT appear
+    assert "plural of dog" not in menu
+    assert "2" not in key_map

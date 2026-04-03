@@ -10,6 +10,7 @@ from alfs.cc.models import (
     CCQCOutput,
     ContextLabel,
     DeletedSenseEntry,
+    InductionMorphRel,
     InductionSense,
     MorphRelEntry,
     PosCorrection,
@@ -117,10 +118,56 @@ def test_apply_induction_skip_labels(tmp_path: Path):
     df = occ_store.query_form("cat")
     assert len(df) == 2
     rows = {(r["doc_id"], r["byte_offset"]): r for r in df.iter_rows(named=True)}
-    assert rows[("doc1", 100)]["sense_key"] == "1"
+    sense_key = rows[("doc1", 100)]["sense_key"]
+    assert len(sense_key) == 36, f"Expected UUID sense_key, got {sense_key!r}"
     assert rows[("doc1", 100)]["rating"] == 2
     assert rows[("doc2", 200)]["sense_key"] == "_skip"
     assert rows[("doc2", 200)]["rating"] == 0
+
+
+def test_apply_induction_morph_rel_label_stores_base_uuid(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup(tmp_path)
+    labeled_db = tmp_path / "labeled.db"
+
+    store = SenseStore(senses_db)
+    store.update("dogs", lambda _: Alf(form="dogs", senses=[]))
+
+    output = CCInductionOutput(
+        id="test-morph-label",
+        form="dogs",
+        new_senses=[
+            InductionSense(
+                definition="a domesticated carnivorous mammal",
+                pos="noun",
+                morph_rel=InductionMorphRel(base_form="dog", relation="plural"),
+            )
+        ],
+        context_labels=[ContextLabel(context_idx=0, sense_idx=1)],
+        occurrence_refs=[Occurrence(doc_id="doc1", byte_offset=0)],
+    )
+    (cc_dir / "done" / "induction" / "test-morph-label.json").write_text(
+        output.model_dump_json()
+    )
+
+    run(cc_dir, senses_db, queue_dir, labeled_db=str(labeled_db))
+
+    occ_store = OccurrenceStore(labeled_db)
+    df = occ_store.query_form("dogs")
+    assert len(df) == 1
+    sense_key = df.to_dicts()[0]["sense_key"]
+
+    # Must be a UUID, not a numeric index
+    assert len(sense_key) == 36, f"Expected UUID sense_key, got {sense_key!r}"
+
+    # UUID must match the new base sense enqueued for "dog"
+    pending = list((queue_dir / "pending").glob("*.json"))
+    dog_reqs = [
+        json.loads(f.read_text())
+        for f in pending
+        if json.loads(f.read_text()).get("form") == "dog"
+    ]
+    assert len(dog_reqs) == 1
+    assert sense_key == dog_reqs[0]["new_senses"][0]["id"]
 
 
 def test_apply_induction_no_labeled_db_skip_ignored(tmp_path: Path):
