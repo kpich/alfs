@@ -149,7 +149,7 @@ def run(
             text = docs_map.get(str(inst["doc_id"]), "")
             if not text:
                 continue
-            ctx = extract_context(text, int(inst["byte_offset"]), form, context_chars)
+            ctx = extract_context(text, int(inst["byte_offset"]), form, context_chars)  # type: ignore[call-overload]
             contexts.append(ctx)
             valid_instances.append(inst)
 
@@ -196,7 +196,7 @@ def run(
                     "instances": [
                         {
                             "doc_id": str(inst["doc_id"]),
-                            "byte_offset": int(inst["byte_offset"]),  # type: ignore[arg-type]
+                            "byte_offset": int(inst["byte_offset"]),  # type: ignore[call-overload]
                         }
                         for inst in valid_instances
                     ],

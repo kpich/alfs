@@ -60,6 +60,7 @@ def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]
         )
         if is_pure_morph:
             base_name = morph_base_form(alf)
+            assert base_name is not None
             base_alf = store.read(base_name)
             if base_alf is not None and base_alf.senses:
                 if len(variants) > 1:

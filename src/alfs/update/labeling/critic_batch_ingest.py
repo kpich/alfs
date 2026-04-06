@@ -188,7 +188,7 @@ def ingest(
             reviewed_by_model.setdefault(model_name, [])
             bad_by_model.setdefault(model_name, [])
             for idx, inst in enumerate(instances, 1):
-                triple = (form, str(inst["doc_id"]), int(inst["byte_offset"]))  # type: ignore[arg-type]
+                triple = (form, str(inst["doc_id"]), int(inst["byte_offset"]))  # type: ignore[call-overload]
                 reviewed_by_model[model_name].append(triple)
                 if idx in bad_set:
                     bad_by_model[model_name].append(triple)
