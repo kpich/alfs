@@ -45,6 +45,8 @@ def test_query_form_missing_returns_empty(store: OccurrenceStore) -> None:
         "model": pl.String,
         "updated_at": pl.String,
         "synonyms": pl.String,
+        "last_critic_date": pl.String,
+        "last_critic_model": pl.String,
     }
 
 
@@ -117,6 +119,57 @@ def test_delete_by_sense_id_other_forms_unaffected(store: OccurrenceStore) -> No
     store.delete_by_sense_id("run", uid)
     assert len(store.query_form("run")) == 0
     assert len(store.query_form("walk")) == 1
+
+
+def test_mark_critic_reviewed_sets_date(store: OccurrenceStore) -> None:
+    store.upsert_many(
+        [("run", "doc1", 0, "1", 2, None), ("run", "doc1", 10, "1", 1, None)],
+        model="test-model",
+    )
+    store.mark_critic_reviewed(
+        reviewed=[("run", "doc1", 0), ("run", "doc1", 10)],
+        timestamp="2026-04-06T12:00:00Z",
+        model="critic-model",
+    )
+    df = store.query_form("run").sort("byte_offset")
+    assert df["last_critic_date"][0] == "2026-04-06T12:00:00Z"
+    assert df["last_critic_date"][1] == "2026-04-06T12:00:00Z"
+    assert df["last_critic_model"][0] == "critic-model"
+    assert df["rating"][0] == 2  # unchanged
+    assert df["rating"][1] == 1  # unchanged
+
+
+def test_mark_critic_reviewed_downgrades_bad(store: OccurrenceStore) -> None:
+    store.upsert_many(
+        [("run", "doc1", 0, "1", 2, None), ("run", "doc1", 10, "1", 2, None)],
+        model="test-model",
+    )
+    store.mark_critic_reviewed(
+        reviewed=[("run", "doc1", 0), ("run", "doc1", 10)],
+        timestamp="2026-04-06T12:00:00Z",
+        model="critic-model",
+        bad=[("run", "doc1", 10)],
+    )
+    df = store.query_form("run").sort("byte_offset")
+    assert df["rating"][0] == 2  # not in bad → unchanged
+    assert df["rating"][1] == 0  # in bad → downgraded
+    assert df["last_critic_date"][0] == "2026-04-06T12:00:00Z"
+    assert df["last_critic_date"][1] == "2026-04-06T12:00:00Z"
+
+
+def test_mark_critic_reviewed_unreviewed_stays_null(store: OccurrenceStore) -> None:
+    store.upsert_many(
+        [("run", "doc1", 0, "1", 2, None), ("run", "doc1", 10, "1", 2, None)],
+        model="test-model",
+    )
+    store.mark_critic_reviewed(
+        reviewed=[("run", "doc1", 0)],
+        timestamp="2026-04-06T12:00:00Z",
+        model="critic-model",
+    )
+    df = store.query_form("run").sort("byte_offset")
+    assert df["last_critic_date"][0] == "2026-04-06T12:00:00Z"
+    assert df["last_critic_date"][1] is None
 
 
 def test_upsert_synonyms_round_trip(store: OccurrenceStore) -> None:

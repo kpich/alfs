@@ -139,8 +139,10 @@ def build_system_message(form: str, sense_menu: str) -> str:
         f"\n"
         f'Respond with ONLY valid JSON: {{"sense_key": "1", "rating": 2,'
         f' "synonyms": ["word1", "word2"]}}\n'
-        f"Rating: 2=excellent, 1=okay (needs a more refined sense), 0=poor/doesn't "
-        f"fit.\n"
+        f"Rating: 2=excellent match for this sense, 1=okay but could be more specific,"
+        f" 0=the word is NOT being used in any of these senses (e.g., it's a different"
+        f" meaning entirely, it's being used as a proper name, it's slang for something"
+        f" else). When in doubt between 0 and 1, use 0.\n"
         f'If rating is 0, set sense_key to "0".\n'
         f'synonyms: other words that could roughly fit in place of "{form}" here.'
         f" Doesn't need to be a perfect match — approximate or related words are fine."

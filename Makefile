@@ -1,4 +1,4 @@
-.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest
+.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -18,6 +18,9 @@ CC_TASKS_DIR       ?= ../cc_tasks
 GROQ_BATCH_DIR     ?= ../groq_batch
 GROQ_ARCHIVE_DIR   ?= ../groq_batch_archive
 GROQ_MODEL         ?= llama-3.1-8b-instant
+CRITIC_BATCH_DIR   ?= ../critic_batch
+CRITIC_ARCHIVE_DIR ?= ../critic_batch_archive
+CRITIC_MODEL       ?= openai/gpt-oss-20b
 INSTANCE_LOG       ?= ../alfs_data/instance_log
 SOURCE             ?= wikibooks
 N_DOCS             ?= 10000
@@ -184,6 +187,19 @@ groq-batch-ingest:
 		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
 		--log-dir $(INSTANCE_LOG) \
 		--archive-dir $(GROQ_ARCHIVE_DIR)
+
+critic-batch-prepare:
+	uv run --no-sync python -m alfs.update.labeling.critic_batch_prepare \
+		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
+		--docs $(DOCS) --output-dir $(CRITIC_BATCH_DIR) \
+		--model $(CRITIC_MODEL)
+
+critic-batch-ingest:
+	uv run --no-sync python -m alfs.update.labeling.critic_batch_ingest \
+		--batch-output $(BATCH_OUTPUT) \
+		--batch-dir $(CRITIC_BATCH_DIR) \
+		--labeled-db $(LABELED_DB) \
+		--archive-dir $(CRITIC_ARCHIVE_DIR)
 
 cleandata:
 	@echo "This will delete: ../alfs_data  ../seg_data  ../update_data  ../viewer_data"

@@ -17,6 +17,8 @@ _SCHEMA = {
     "model": pl.String,
     "updated_at": pl.String,
     "synonyms": pl.String,  # NULL=missing, '[]'=none, '["a","b"]'=list (JSON)
+    "last_critic_date": pl.String,  # NULL=never reviewed; ISO timestamp once reviewed
+    "last_critic_model": pl.String,  # FK-resolved name of model used for critic review
 }
 
 _COUNT_SCHEMA = {
@@ -57,6 +59,13 @@ class OccurrenceStore:
                 )
             with contextlib.suppress(sqlite3.OperationalError):
                 con.execute("ALTER TABLE labeled ADD COLUMN synonyms TEXT")
+            with contextlib.suppress(sqlite3.OperationalError):
+                con.execute("ALTER TABLE labeled ADD COLUMN last_critic_date TEXT")
+            with contextlib.suppress(sqlite3.OperationalError):
+                con.execute(
+                    "ALTER TABLE labeled ADD COLUMN"
+                    " last_critic_model_id INTEGER REFERENCES models(id)"
+                )
             con.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -100,8 +109,11 @@ class OccurrenceStore:
         with self._connect() as con:
             rows = con.execute(
                 "SELECT l.form, l.doc_id, l.byte_offset, l.sense_key, l.rating, "
-                "m.name as model, l.updated_at, l.synonyms "
-                "FROM labeled l LEFT JOIN models m ON l.model_id = m.id "
+                "m.name as model, l.updated_at, l.synonyms, "
+                "l.last_critic_date, mc.name as last_critic_model "
+                "FROM labeled l "
+                "LEFT JOIN models m ON l.model_id = m.id "
+                "LEFT JOIN models mc ON l.last_critic_model_id = mc.id "
                 "WHERE l.form = ?",
                 (form,),
             ).fetchall()
@@ -113,8 +125,11 @@ class OccurrenceStore:
         with self._connect() as con:
             rows = con.execute(
                 "SELECT l.form, l.doc_id, l.byte_offset, l.sense_key, l.rating, "
-                "m.name as model, l.updated_at, l.synonyms "
-                "FROM labeled l LEFT JOIN models m ON l.model_id = m.id"
+                "m.name as model, l.updated_at, l.synonyms, "
+                "l.last_critic_date, mc.name as last_critic_model "
+                "FROM labeled l "
+                "LEFT JOIN models m ON l.model_id = m.id "
+                "LEFT JOIN models mc ON l.last_critic_model_id = mc.id"
             ).fetchall()
         if not rows:
             return pl.DataFrame(schema=_SCHEMA)
@@ -132,6 +147,35 @@ class OccurrenceStore:
     def delete_by_form(self, form: str) -> None:
         with self._connect() as con:
             con.execute("DELETE FROM labeled WHERE form = ?", (form,))
+            con.commit()
+
+    def mark_critic_reviewed(
+        self,
+        reviewed: list[tuple[str, str, int]],
+        timestamp: str,
+        model: str,
+        bad: list[tuple[str, str, int]] | None = None,
+    ) -> None:
+        """Set last_critic_date/model for reviewed instances; downgrade bad to rating=0.
+
+        reviewed: (form, doc_id, byte_offset) for every instance inspected
+        bad: subset of reviewed that the critic flagged as incorrectly labeled
+        """
+        with self._connect() as con:
+            model_id = self._get_or_create_model_id(con, model)
+            con.executemany(
+                "UPDATE labeled "
+                "SET last_critic_date = ?, last_critic_model_id = ? "
+                "WHERE form = ? AND doc_id = ? AND byte_offset = ?",
+                [(timestamp, model_id, f, d, b) for f, d, b in reviewed],
+            )
+            if bad:
+                con.executemany(
+                    "UPDATE labeled "
+                    "SET rating = 0, last_critic_date = ?, last_critic_model_id = ? "
+                    "WHERE form = ? AND doc_id = ? AND byte_offset = ?",
+                    [(timestamp, model_id, f, d, b) for f, d, b in bad],
+                )
             con.commit()
 
     def count_by_form(self) -> pl.DataFrame:

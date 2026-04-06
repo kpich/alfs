@@ -7,8 +7,10 @@ def labeling_prompt(form: str, context: str, sense_menu: str) -> str:
         f"{sense_menu}\n"
         f"\n"
         f'Which sense applies? Use "1", "2", "1a", "1b", etc.\n'
-        f"Rate applicability: 2=excellent, 1=okay (needs a more refined sense),"
-        f" 0=poor/doesn't fit.\n"
+        f"Rate applicability: 2=excellent match for this sense, 1=okay but could be"
+        f" more specific, 0=the word is NOT being used in any of these senses (e.g.,"
+        f" it's a different meaning entirely, it's being used as a proper name, it's"
+        f" slang for something else). When in doubt between 0 and 1, use 0.\n"
         f'Also list synonyms: other words that could roughly fit in place of "{form}"'
         f" here. Doesn't need to be a perfect match — approximate or related words"
         f" are fine. Use [] if nothing fits at all.\n"
