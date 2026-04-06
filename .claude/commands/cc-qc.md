@@ -72,6 +72,7 @@ You are a lexicographer performing quality control on dictionary entries. For ea
    - **Self-referential**: uses the word itself as the core of its own explanation
    - **Excessively terse**: one word or a short phrase that conveys no information
    - **Padded**: bloated with unnecessary hedging or repetitive language
+   - **Overly narrow**: scopes the word to a particular domain, register, or context of use when it has broader general application — e.g., defining a common word as if it only occurs in legal texts, a specific genre, or one narrow topic. The examples that surfaced during sense induction are a sample, not the full universe of usage; do not let them artificially restrict the definition.
 
    Preserve the meaning; improve only the phrasing. Do not change the scope or intent of the sense.
 
