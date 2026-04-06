@@ -89,31 +89,16 @@ The matching metadata file is auto-discovered from `../groq_batch/` by matching 
 
 ### Critic batch pass
 
-A second-pass quality check that reviews labeled instances in bulk and downgrades incorrectly-labeled ones to `rating=0`. The critic LLM sees a group of occurrence contexts for a single sense and identifies which ones don't actually match.
-
-Each instance in `labeled.db` gains a `last_critic_date` field (NULL until reviewed; ISO timestamp once reviewed). Only instances where `last_critic_date IS NULL` or the sense definition was updated after the last review are included in a new batch.
-
-**1. Prepare the batch files**
+Second-pass quality check: groups labeled instances by sense, shows them to a critic LLM, and downgrades incorrectly-labeled ones to `rating=0` (making them eligible for re-labeling). Each instance gains `last_critic_date`/`last_critic_model` fields; only unreviewed or stale instances are included in new batches.
 
 ```
 make critic-batch-prepare [CRITIC_MODEL=openai/gpt-oss-20b]
+# → ../critic_batch/critic_input_*.jsonl  (upload to Groq)
+#   ../critic_batch/critic_metadata_*.jsonl  (sidecar, keep in place)
+
+make critic-batch-ingest BATCH_OUTPUT=../critic_batch/<output>.jsonl
+# → updates labeled.db; archives files to ../critic_batch_archive/
 ```
-
-Writes timestamped files to `../critic_batch/`. Multiple chunks if requests exceed 50k:
-- `critic_input_YYYYMMDDTHHMMSS_001.jsonl` — upload this to Groq
-- `critic_metadata_YYYYMMDDTHHMMSS_001.jsonl` — sidecar (do not move; ingest finds it automatically)
-
-**2. Submit to Groq and download results**
-
-Upload each `critic_input_*.jsonl` to Groq's batch API. When complete, download the output file to `../critic_batch/`.
-
-**3. Ingest each output**
-
-```
-make critic-batch-ingest BATCH_OUTPUT=../critic_batch/<downloaded_filename>.jsonl
-```
-
-Matching metadata is auto-discovered. For each flagged instance, `rating` is downgraded to 0 (making it eligible for re-labeling on the next `groq-batch-prepare` run). All reviewed instances get `last_critic_date` updated. Files are moved to `../critic_batch_archive/` after ingest.
 
 ### Viewer
 
