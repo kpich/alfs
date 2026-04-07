@@ -183,7 +183,7 @@ def run(
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg},
             ],
-            "max_tokens": 100,
+            "max_tokens": 300,
         }
         if model in _JSON_MODE_MODELS:
             body["response_format"] = {"type": "json_object"}

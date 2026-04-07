@@ -20,7 +20,6 @@ GROQ_ARCHIVE_DIR   ?= ../groq_batch_archive
 GROQ_MODEL         ?= llama-3.1-8b-instant
 CRITIC_BATCH_DIR   ?= ../critic_batch
 CRITIC_ARCHIVE_DIR ?= ../critic_batch_archive
-CRITIC_MODEL       ?= openai/gpt-oss-20b
 INSTANCE_LOG       ?= ../alfs_data/instance_log
 SOURCE             ?= wikibooks
 N_DOCS             ?= 10000
@@ -192,7 +191,7 @@ critic-batch-prepare:
 	uv run --no-sync python -m alfs.update.labeling.critic_batch_prepare \
 		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
 		--docs $(DOCS) --output-dir $(CRITIC_BATCH_DIR) \
-		--model $(CRITIC_MODEL)
+		$(if $(CRITIC_MODEL),--model $(CRITIC_MODEL))
 
 critic-batch-ingest:
 	uv run --no-sync python -m alfs.update.labeling.critic_batch_ingest \
