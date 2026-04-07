@@ -12,23 +12,23 @@ SEG_DATA_DIR       ?= ../seg_data/by_prefix
 GDRIVE_REMOTE      ?= gdrive
 GDRIVE_DEST        ?= alfs_backup
 NWORDS             ?= 5
-SENSE_UPDATE_MODEL ?= qwen2.5:32b
+SENSE_UPDATE_MODEL ?=
 LABEL_MODEL        ?= gemma2:9b
 CC_TASKS_DIR       ?= ../cc_tasks
 GROQ_BATCH_DIR     ?= ../groq_batch
 GROQ_ARCHIVE_DIR   ?= ../groq_batch_archive
-GROQ_MODEL         ?= llama-3.1-8b-instant
+GROQ_MODEL         ?=
 CRITIC_BATCH_DIR   ?= ../critic_batch
 CRITIC_ARCHIVE_DIR ?= ../critic_batch_archive
 INSTANCE_LOG       ?= ../alfs_data/instance_log
 SOURCE             ?= wikibooks
-N_DOCS             ?= 10000
+N_DOCS             ?=
 INDUCTION_QUEUE    ?= ../alfs_data/induction_queue.yaml
 BLOCKLIST_FILE     ?= ../alfs_data/blocklist.yaml
-ENQUEUE_TOP_N      ?= 500
-ENQUEUE_MIN_COUNT  ?= 5
-ENQUEUE_N_OCC_REFS ?= 3
-CC_QC_N            ?= 5
+ENQUEUE_TOP_N      ?=
+ENQUEUE_MIN_COUNT  ?=
+ENQUEUE_N_OCC_REFS ?=
+CC_QC_N            ?=
 
 download:
 	uv run --no-sync python -m alfs.etl.download \
@@ -37,7 +37,7 @@ download:
 etl:
 	uv run --no-sync python -m alfs.etl.augment \
 		--source $(SOURCE) --corpus $(DOCS) \
-		--cache-dir $(CACHE_DIR) --ngram-cache $(NGRAM_CACHE) --n-docs $(N_DOCS)
+		--cache-dir $(CACHE_DIR) --ngram-cache $(NGRAM_CACHE) $(if $(N_DOCS),--n-docs $(N_DOCS))
 
 seg:
 	bash scripts/seg.sh \
@@ -50,16 +50,16 @@ enqueue_new_forms:
 		--senses-db $(SENSES_DB) \
 		--queue-file $(INDUCTION_QUEUE) \
 		--blocklist-file $(BLOCKLIST_FILE) \
-		--top-n $(ENQUEUE_TOP_N) \
-		--min-count $(ENQUEUE_MIN_COUNT) \
-		--n-occurrence-refs $(ENQUEUE_N_OCC_REFS)
+		$(if $(ENQUEUE_TOP_N),--top-n $(ENQUEUE_TOP_N)) \
+		$(if $(ENQUEUE_MIN_COUNT),--min-count $(ENQUEUE_MIN_COUNT)) \
+		$(if $(ENQUEUE_N_OCC_REFS),--n-occurrence-refs $(ENQUEUE_N_OCC_REFS))
 
 enqueue_poor_coverage:
 	uv run --no-sync python -m alfs.update.induction.enqueue_poor_coverage \
 		--labeled-db $(LABELED_DB) \
 		--queue-file $(INDUCTION_QUEUE) \
 		--blocklist-file $(BLOCKLIST_FILE) \
-		--top-n $(ENQUEUE_TOP_N)
+		$(if $(ENQUEUE_TOP_N),--top-n $(ENQUEUE_TOP_N))
 
 induce_senses:
 	uv run --no-sync python -m alfs.update.induction.induce_senses \
@@ -70,7 +70,7 @@ induce_senses:
 		--senses-db $(SENSES_DB) \
 		--labeled-db $(LABELED_DB) \
 		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
+		$(if $(SENSE_UPDATE_MODEL),--model $(SENSE_UPDATE_MODEL))
 
 cc_induce_senses:
 	uv run --no-sync python -m alfs.update.induction.induce_senses \
@@ -89,7 +89,7 @@ postag:
 		--labeled-db $(LABELED_DB) \
 		--docs $(DOCS) \
 		--queue-dir $(CLERK_QUEUE) \
-		--model $(SENSE_UPDATE_MODEL)
+		$(if $(SENSE_UPDATE_MODEL),--model $(SENSE_UPDATE_MODEL))
 
 clerk:
 	uv run --no-sync python -m alfs.clerk.worker \
@@ -111,7 +111,7 @@ cc_qc:
 		--senses-db $(SENSES_DB) \
 		--cc-tasks-dir $(CC_TASKS_DIR) \
 		--blocklist-file $(BLOCKLIST_FILE) \
-		--n $(CC_QC_N)
+		$(if $(CC_QC_N),--n $(CC_QC_N))
 
 cc-clean:
 	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json
@@ -177,7 +177,7 @@ groq-batch-prepare:
 	uv run --no-sync python -m alfs.update.labeling.groq_batch_prepare \
 		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
 		--seg-data-dir $(SEG_DATA_DIR) --docs $(DOCS) \
-		--output-dir $(GROQ_BATCH_DIR) --model $(GROQ_MODEL)
+		--output-dir $(GROQ_BATCH_DIR) $(if $(GROQ_MODEL),--model $(GROQ_MODEL))
 
 groq-batch-ingest:
 	uv run --no-sync python -m alfs.update.labeling.groq_batch_ingest \
