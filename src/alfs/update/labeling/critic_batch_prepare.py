@@ -63,7 +63,7 @@ def run(
     output_dir: str | Path,
     instances_per_sense: int = 20,
     min_instances: int = 5,
-    model: str = "openai/gpt-oss-20b",
+    model: str = "llama-3.3-70b-versatile",
     context_chars: int = 150,
     seed: int | None = None,
     max_batch_size: int = 50_000,
@@ -264,7 +264,7 @@ def main() -> None:
         default=5,
         help="Skip senses with fewer instances needing review (default: 5)",
     )
-    parser.add_argument("--model", default="openai/gpt-oss-20b")
+    parser.add_argument("--model", default="llama-3.3-70b-versatile")
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--max-batch-size", type=int, default=50_000)
