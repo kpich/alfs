@@ -90,7 +90,8 @@ def run(
 
     # Group instances by (sense_uuid, form, definition), keeping only those
     # needing critic review: last_critic_date IS NULL or stale vs latest sense edit
-    groups: dict[tuple[str, str, str], list[dict[str, object]]] = {}
+    # Each entry: (doc_id, byte_offset, surface_form)
+    groups: dict[tuple[str, str, str], list[tuple[str, int, str]]] = {}
     for row in good.iter_rows(named=True):
         sense_uuid = str(row["sense_key"])
         if sense_uuid == "0" or sense_uuid not in sense_info:
@@ -105,7 +106,7 @@ def run(
             continue
         key = (sense_uuid, form, definition)
         groups.setdefault(key, []).append(
-            {"doc_id": row["doc_id"], "byte_offset": row["byte_offset"]}
+            (str(row["doc_id"]), int(row["byte_offset"]), str(row["form"]))  # type: ignore[arg-type]
         )
 
     # Filter to senses with enough instances needing review
@@ -116,7 +117,7 @@ def run(
 
     # Sample up to instances_per_sense per sense
     rng = np.random.default_rng(seed)
-    sampled: list[tuple[str, str, str, list[dict[str, object]]]] = []
+    sampled: list[tuple[str, str, str, list[tuple[str, int, str]]]] = []
     for (sense_uuid, form, definition), instances in sorted(
         eligible.items(), key=lambda x: x[0][0]
     ):
@@ -127,7 +128,7 @@ def run(
 
     # Load docs needed for context extraction
     needed_doc_ids = list(
-        {str(inst["doc_id"]) for _, _, _, insts in sampled for inst in insts}
+        {doc_id for _, _, _, insts in sampled for doc_id, _, _ in insts}
     )
     docs_df = (
         pl.scan_parquet(str(docs))
@@ -144,14 +145,14 @@ def run(
     for i, (sense_uuid, form, definition, instances) in enumerate(sampled):
         # Build numbered context list; skip instances with missing docs
         contexts: list[str] = []
-        valid_instances: list[dict[str, object]] = []
-        for inst in instances:
-            text = docs_map.get(str(inst["doc_id"]), "")
+        valid_instances: list[tuple[str, int, str]] = []
+        for doc_id, byte_offset, surface_form in instances:
+            text = docs_map.get(doc_id, "")
             if not text:
                 continue
-            ctx = extract_context(text, int(inst["byte_offset"]), form, context_chars)  # type: ignore[call-overload]
+            ctx = extract_context(text, byte_offset, surface_form, context_chars)
             contexts.append(ctx)
-            valid_instances.append(inst)
+            valid_instances.append((doc_id, byte_offset, surface_form))
 
         if len(valid_instances) < min_instances:
             continue
@@ -194,11 +195,8 @@ def run(
                     "sense_definition": definition,
                     "model": model,
                     "instances": [
-                        {
-                            "doc_id": str(inst["doc_id"]),
-                            "byte_offset": int(inst["byte_offset"]),  # type: ignore[call-overload]
-                        }
-                        for inst in valid_instances
+                        {"doc_id": doc_id, "byte_offset": byte_offset}
+                        for doc_id, byte_offset, _ in valid_instances
                     ],
                 }
             )
