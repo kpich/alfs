@@ -92,7 +92,7 @@ The matching metadata file is auto-discovered from `../groq_batch/` by matching 
 Second-pass quality check: groups labeled instances by sense, shows them to a critic LLM, and downgrades incorrectly-labeled ones to `rating=0` (making them eligible for re-labeling). Each instance gains `last_critic_date`/`last_critic_model` fields; only unreviewed or stale instances are included in new batches.
 
 ```
-make critic-batch-prepare [CRITIC_MODEL=openai/gpt-oss-20b]
+make critic-batch-prepare [CRITIC_MODEL=openai/gpt-oss-20b] [MAX_SENSES=10000]
 # → ../critic_batch/critic_input_*.jsonl  (upload to Groq)
 #   ../critic_batch/critic_metadata_*.jsonl  (sidecar, keep in place)
 

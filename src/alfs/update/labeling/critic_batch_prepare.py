@@ -67,6 +67,7 @@ def run(
     context_chars: int = 150,
     seed: int | None = None,
     max_batch_size: int = 50_000,
+    max_senses: int | None = None,
     batch_id: str | None = None,
 ) -> list[tuple[Path, Path]]:
     """Build critic batch input and metadata JSONL files in output_dir.
@@ -134,6 +135,9 @@ def run(
             idxs = rng.choice(len(instances), size=instances_per_sense, replace=False)
             instances = [instances[int(i)] for i in idxs]
         sampled.append((sense_uuid, form, definition, instances))
+
+    if max_senses is not None:
+        sampled = sampled[:max_senses]
 
     # Load docs needed for context extraction
     needed_doc_ids = list(
@@ -268,6 +272,12 @@ def main() -> None:
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--max-batch-size", type=int, default=50_000)
+    parser.add_argument(
+        "--max-senses",
+        type=int,
+        default=None,
+        help="Cap the number of senses included in the batch (default: no limit)",
+    )
     args = parser.parse_args()
 
     run(
@@ -281,6 +291,7 @@ def main() -> None:
         context_chars=args.context_chars,
         seed=args.seed,
         max_batch_size=args.max_batch_size,
+        max_senses=args.max_senses,
     )
 
 

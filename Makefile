@@ -191,7 +191,8 @@ critic-batch-prepare:
 	uv run --no-sync python -m alfs.update.labeling.critic_batch_prepare \
 		--senses-db $(SENSES_DB) --labeled-db $(LABELED_DB) \
 		--docs $(DOCS) --output-dir $(CRITIC_BATCH_DIR) \
-		$(if $(CRITIC_MODEL),--model $(CRITIC_MODEL))
+		$(if $(CRITIC_MODEL),--model $(CRITIC_MODEL)) \
+		$(if $(MAX_SENSES),--max-senses $(MAX_SENSES))
 
 critic-batch-ingest:
 	uv run --no-sync python -m alfs.update.labeling.critic_batch_ingest \
