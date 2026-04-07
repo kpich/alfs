@@ -169,6 +169,41 @@ def test_run_skips_already_reviewed_instances(tmp_path: Path) -> None:
     assert chunks == []
 
 
+def test_run_uses_surface_form_for_context_highlighting(tmp_path: Path) -> None:
+    """Occurrences stored under a different surface form (e.g. 'dogs') must be
+    highlighted as **dogs** in the critic prompt, not as **dog**s."""
+    sense = Sense(definition="a domestic animal")
+    sense_id = sense.id
+    store = _sense_store(tmp_path, Alf(form="dog", senses=[sense]))
+    occ = _occ_store(tmp_path)
+
+    # Label occurrences under surface form "dogs" but with dog's sense UUID
+    text = "The dogs barked loudly outside."  # "dogs" starts at byte 4
+    doc_ids = [f"doc{i}" for i in range(5)]
+    occ.upsert_many(
+        [("dogs", d, 4, sense_id, 1, None) for d in doc_ids],
+        model="test-model",
+    )
+    docs = _docs_parquet(tmp_path, {d: text for d in doc_ids})
+
+    chunks = run(
+        senses_db=store._db_path,
+        labeled_db=occ._db_path,
+        docs=docs,
+        output_dir=tmp_path / "out",
+        min_instances=5,
+        seed=0,
+    )
+
+    assert len(chunks) == 1
+    batch_lines = [
+        json.loads(line) for line in chunks[0][0].read_text().splitlines() if line
+    ]
+    user_msg = batch_lines[0]["body"]["messages"][1]["content"]
+    assert "**dogs**" in user_msg
+    assert "**dog**s" not in user_msg
+
+
 def test_run_sub_batch_splitting(tmp_path: Path) -> None:
     """With max_batch_size=1 and 2 senses, produces 2 chunk files."""
     sense_a = Sense(definition="a domestic animal")
