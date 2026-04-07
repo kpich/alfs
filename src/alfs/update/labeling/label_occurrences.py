@@ -35,7 +35,7 @@ _LABEL_SCHEMA = {
 
 def extract_context(text: str, byte_offset: int, form: str, context_chars: int) -> str:
     snippet, wp = _context_window(text, byte_offset, form, context_chars)
-    return f"{snippet[:wp]}**{form}**{snippet[wp + len(form):]}"
+    return f"{snippet[:wp]}**{snippet[wp:wp + len(form)]}**{snippet[wp + len(form):]}"
 
 
 def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]:
