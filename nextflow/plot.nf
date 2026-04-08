@@ -35,6 +35,8 @@ process PLOT_NSENSES_VS_FREQ {
 
 process PLOT_SOURCE_SENSE_DIVERGENCE {
     publishDir params.plots_dir, mode: 'copy'
+    input:
+        path "corpus_counts.json"
     output:
         path "source_sense_divergence.png"
     script:
@@ -43,12 +45,27 @@ process PLOT_SOURCE_SENSE_DIVERGENCE {
         --senses-db ${params.senses_db} \
         --labeled-db ${params.labeled_db} \
         --docs ${params.text_data_dir}/docs.parquet \
+        --corpus-counts corpus_counts.json \
         --output source_sense_divergence.png
+    """
+}
+
+process PLOT_SOURCE_DISTANCE_MATRICES {
+    publishDir params.plots_dir, mode: 'copy'
+    output:
+        path "source_distance_matrices.png"
+    script:
+    """
+    uv run --project ${launchDir} --no-sync python -m alfs.plots.source_distance_matrices \
+        --labeled-db ${params.labeled_db} \
+        --docs ${params.text_data_dir}/docs.parquet \
+        --output source_distance_matrices.png
     """
 }
 
 workflow {
     corpus_counts_ch = CORPUS_COUNTS().counts
     PLOT_NSENSES_VS_FREQ(corpus_counts_ch)
-    PLOT_SOURCE_SENSE_DIVERGENCE()
+    PLOT_SOURCE_SENSE_DIVERGENCE(corpus_counts_ch)
+    PLOT_SOURCE_DISTANCE_MATRICES()
 }
