@@ -1,4 +1,4 @@
-.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest
+.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest plot
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -127,6 +127,9 @@ clerk-watch:
 validate:
 	uv run --no-sync python -m alfs.qc.validate_labels \
 		--labeled-db $(LABELED_DB) --docs $(DOCS)
+
+plot:
+	bash scripts/plot.sh
 
 compile:
 	bash scripts/compile.sh
