@@ -1,8 +1,10 @@
 nextflow.enable.dsl = 2
 
-params.senses_db    = "${launchDir}/../alfs_data/senses.db"
-params.seg_data_dir = "${launchDir}/../seg_data"
-params.plots_dir    = "${launchDir}/plots"
+params.senses_db     = "${launchDir}/../alfs_data/senses.db"
+params.labeled_db    = "${launchDir}/../alfs_data/labeled.db"
+params.seg_data_dir  = "${launchDir}/../seg_data"
+params.text_data_dir = "${launchDir}/../text_data"
+params.plots_dir     = "${launchDir}/plots"
 
 process CORPUS_COUNTS {
     output:
@@ -31,7 +33,22 @@ process PLOT_NSENSES_VS_FREQ {
     """
 }
 
+process PLOT_SOURCE_SENSE_DIVERGENCE {
+    publishDir params.plots_dir, mode: 'copy'
+    output:
+        path "source_sense_divergence.png"
+    script:
+    """
+    uv run --project ${launchDir} --no-sync python -m alfs.plots.source_sense_divergence \
+        --senses-db ${params.senses_db} \
+        --labeled-db ${params.labeled_db} \
+        --docs ${params.text_data_dir}/docs.parquet \
+        --output source_sense_divergence.png
+    """
+}
+
 workflow {
     corpus_counts_ch = CORPUS_COUNTS().counts
     PLOT_NSENSES_VS_FREQ(corpus_counts_ch)
+    PLOT_SOURCE_SENSE_DIVERGENCE()
 }
