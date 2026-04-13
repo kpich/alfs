@@ -16,6 +16,7 @@ import argparse
 from collections import defaultdict
 from datetime import datetime
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -28,79 +29,92 @@ from alfs.seg.aggregate_occurrences import prefix as form_prefix
 from alfs.update.labeling.label_occurrences import build_sense_menu, extract_context
 
 
-def effective_sense_count(alf: Alf, store: SenseStore) -> int:
-    """Count of numbered options in the sense menu when labeling this form.
+def compute_sense_quality_counts(
+    occ_store: OccurrenceStore,
+) -> dict[str, dict[str, int]]:
+    """Return {form: {sense_uuid: count_of_rating=2}} from labeled occurrences."""
+    df = occ_store.to_polars()
+    if len(df) == 0:
+        return {}
+    result: dict[str, dict[str, int]] = defaultdict(dict)
+    counts = (
+        df.filter(pl.col("rating") == 2)
+        .group_by(["form", "sense_key"])
+        .agg(pl.len().alias("count"))
+    )
+    for row in counts.iter_rows(named=True):
+        result[str(row["form"])][str(row["sense_key"])] = int(row["count"])
+    return result
 
-    Includes senses from all case variants of the form plus, if all senses
-    share a morph_base, the base form's senses (mirrors build_sense_menu).
+
+def sense_weight(
+    alf: Alf,
+    store: SenseStore,
+    quality_counts: dict[str, dict[str, int]],
+) -> float:
+    """Σ_i 1/sqrt(N_i + 1) across all senses visible in this form's menu.
+
+    N_i is the count of rating=2 labels for sense i. Mirrors the case-variant
+    and morph_base traversal in build_sense_menu.
     """
     variants = store.read_case_variants(alf.form)
-    count = 0
+    weight = 0.0
     for variant in variants:
-        count += len(variant.senses)
+        form_counts = quality_counts.get(variant.form, {})
+        for sense in variant.senses:
+            n_i = form_counts.get(sense.id, 0)
+            weight += 1.0 / math.sqrt(n_i + 1)
         base_name = morph_base_form(variant)
         if base_name is not None:
             base_alf = store.read(base_name)
             if base_alf is not None:
-                count += len(base_alf.senses)
-    return count
+                base_counts = quality_counts.get(base_name, {})
+                for sense in base_alf.senses:
+                    n_i = base_counts.get(sense.id, 0)
+                    weight += 1.0 / math.sqrt(n_i + 1)
+    return weight
 
 
-def allocate_instances(
-    effective_senses: dict[str, int],
-    existing_labeled: dict[str, int],
+def allocate_proportional(
+    sense_weights: dict[str, float],
     good_labeled: dict[str, int],
     corpus_counts: dict[str, int],
     budget: int,
     min_count: int = 5,
 ) -> dict[str, int]:
-    """Allocate labeling budget across forms for equal expected coverage per sense.
+    """Allocate budget proportionally to sense_weight, capped by available instances.
 
-    Finds k (target labels per sense) via binary search such that
-        sum_f clip(k * senses[f] - existing[f], 0, available[f]) ≈ budget
-    where available[f] = corpus[f] - good_labeled[f] (unlabeled + rating-0 instances).
-
-    existing_labeled is used for allocation weight; good_labeled (rating >= 1) is
-    used to determine which instances are already well-labeled and should not be
-    re-sampled.
+    available[f] = corpus[f] - good_labeled[f] (unlabeled + rating-0 instances).
+    Uses iterative proportional capping: forms whose proportional share exceeds
+    their available pool are given their max and removed; the remaining budget is
+    redistributed among the rest.
     """
-    eligible = [
-        f
-        for f in effective_senses
-        if corpus_counts.get(f, 0) >= min_count and effective_senses[f] > 0
-    ]
+    eligible = {
+        f: w
+        for f, w in sense_weights.items()
+        if corpus_counts.get(f, 0) >= min_count and w > 0
+    }
 
     def avail(f: str) -> int:
         return max(0, corpus_counts.get(f, 0) - good_labeled.get(f, 0))
 
-    def need_at_k(f: str, k: float) -> float:
-        return min(
-            max(0.0, k * effective_senses[f] - existing_labeled.get(f, 0)),
-            float(avail(f)),
-        )
+    alloc: dict[str, float] = {}
+    active = {f: w for f, w in eligible.items() if avail(f) > 0}
+    remaining = float(budget)
 
-    def total_at_k(k: float) -> float:
-        return sum(need_at_k(f, k) for f in eligible)
+    while active and remaining > 0:
+        total_w = sum(active.values())
+        shares = {f: remaining * w / total_w for f, w in active.items()}
+        capped = {f for f, s in shares.items() if s >= avail(f)}
+        if not capped:
+            alloc.update(shares)
+            break
+        for f in capped:
+            alloc[f] = float(avail(f))
+            remaining -= avail(f)
+        active = {f: w for f, w in active.items() if f not in capped}
 
-    max_total = sum(avail(f) for f in eligible)
-    if max_total <= budget:
-        return {f: avail(f) for f in eligible if avail(f) > 0}
-
-    # Find hi such that total_at_k(hi) >= budget.
-    hi = float(max(budget, 1))
-    while total_at_k(hi) < budget:
-        hi *= 2.0
-
-    lo = 0.0
-    for _ in range(64):
-        mid = (lo + hi) / 2.0
-        if total_at_k(mid) < budget:
-            lo = mid
-        else:
-            hi = mid
-
-    k = lo
-    return {f: int(need_at_k(f, k)) for f in eligible if int(need_at_k(f, k)) > 0}
+    return {f: int(a) for f, a in alloc.items() if int(a) > 0}
 
 
 def split_labeled_pairs(
@@ -181,6 +195,7 @@ def run(
 
     sense_store = SenseStore(Path(senses_db))
     occ_store = OccurrenceStore(Path(labeled_db))
+    quality_counts = compute_sense_quality_counts(occ_store)
 
     # Load corpus counts
     parquet_files = list(Path(seg_data_dir).glob("*/occurrences.parquet"))
@@ -207,42 +222,36 @@ def run(
         )
     )
 
-    # Load existing labeled counts (n_total for allocation weight; n_good for available)
+    # Load good_labeled counts (rating >= 1) to determine available instances.
     labeled_df = occ_store.count_by_form()
-    existing_labeled: dict[str, int] = {}
     good_labeled: dict[
         str, int
     ] = {}  # rating >= 1 (these instances won't be resampled)
     for row in labeled_df.iter_rows(named=True):
         f = row["form"]
-        existing_labeled[f] = row["n_total"]
         good_labeled[f] = row["n_total"] - row["n_bad"]
 
-    # Compute effective sense counts per form (case variants share an occurrence
-    # pool via case-insensitive lookup, so deduplicate to one representative per
-    # lowercase cluster to avoid sampling the same pool twice).
+    # Compute per-form sense weights (case variants share an occurrence pool via
+    # case-insensitive lookup, so deduplicate to one representative per lowercase
+    # cluster to avoid sampling the same pool twice).
     all_entries = sense_store.all_entries()
-    eff_senses: dict[str, int] = {}
+    form_weights: dict[str, float] = {}
     seen_lower: set[str] = set()
     for form, alf in all_entries.items():
         if form.lower() in seen_lower:
             continue
         seen_lower.add(form.lower())
-        ec = effective_sense_count(alf, sense_store)
-        if ec > 0:
-            eff_senses[form] = ec
+        w = sense_weight(alf, sense_store, quality_counts)
+        if w > 0:
+            form_weights[form] = w
 
     # Use corpus counts keyed by lowercase form (parquets are lowercased).
-    # Map each canonical form to its lowercase pool count.
-    agg_corpus = {f: corpus_counts.get(f.lower(), 0) for f in eff_senses}
-    agg_existing = dict(existing_labeled)
-    agg_good_labeled = dict(good_labeled)
+    agg_corpus = {f: corpus_counts.get(f.lower(), 0) for f in form_weights}
 
-    # Allocate budget
-    allocation = allocate_instances(
-        effective_senses=eff_senses,
-        existing_labeled=agg_existing,
-        good_labeled=agg_good_labeled,
+    # Allocate budget proportionally to sense weight
+    allocation = allocate_proportional(
+        sense_weights=form_weights,
+        good_labeled=good_labeled,
         corpus_counts=agg_corpus,
         budget=n,
         min_count=min_count,
