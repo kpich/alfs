@@ -18,6 +18,8 @@ You are a lexicographer performing sense induction for English words. Process al
 
    **B. Blocklist** the form if it is a parser artifact with no recognized meaning (garbled tokens, stray punctuation) OR a foreign word occurring almost entirely in non-English text rather than as a loanword. Use `add_to_blocklist: true`.
 
+   **Do NOT blocklist Middle English or other archaic English forms** (e.g. from Wycliffe Bible, Chaucer, etc.) — these are English words and belong in the dictionary. Treat them as outcome A and define them normally.
+
    **C. No new senses** (all covered): If all sentences are already covered by `existing_defs`, output empty `new_senses`.
 
 4. Sense induction rules (for outcome A):
