@@ -1,4 +1,4 @@
-.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest plot compute_pmi enqueue_mwe_candidates cc_mwe
+.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest plot compute_pmi enqueue_mwe_candidates cc_mwe populate_mwe_seg
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -47,6 +47,9 @@ seg:
 	bash scripts/seg.sh \
 		--docs $(DOCS) \
 		--seg_data_dir $(SEG_DATA_DIR)
+	uv run --no-sync python -m alfs.mwe.populate_seg_data \
+		--senses-db $(SENSES_DB) \
+		--seg-data-dir $(SEG_DATA_DIR)
 
 enqueue_new_forms:
 	uv run --no-sync python -m alfs.update.induction.enqueue_new_forms \
@@ -110,6 +113,9 @@ cc_apply:
 		--labeled-db $(LABELED_DB) \
 		--blocklist-file $(BLOCKLIST_FILE) \
 		--induction-queue-file $(INDUCTION_QUEUE)
+	uv run --no-sync python -m alfs.mwe.populate_seg_data \
+		--senses-db $(SENSES_DB) \
+		--seg-data-dir $(SEG_DATA_DIR)
 
 cc_qc:
 	uv run --no-sync python -m alfs.update.refinement.generate_qc_tasks \
@@ -138,6 +144,11 @@ cc_mwe:
 		--docs $(DOCS) \
 		--cc-tasks-dir $(CC_TASKS_DIR) \
 		$(if $(MWE_N),--n $(MWE_N))
+
+populate_mwe_seg:
+	uv run --no-sync python -m alfs.mwe.populate_seg_data \
+		--senses-db $(SENSES_DB) \
+		--seg-data-dir $(SEG_DATA_DIR)
 
 cc-clean:
 	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json
