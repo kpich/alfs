@@ -20,3 +20,4 @@
 - `/cc-trim` — Trim redundant senses from CC task files in `../cc_tasks/pending/`
 - `/cc-qc` — Per-form quality control: morph_rel links, sense deletion/rewriting/POS correction, spelling variant marking, case normalization, entry deletion+blocklist
 - `/cc-spelling-variant` — Confirm spelling variant pairs from CC task files in `../cc_tasks/pending/`
+- `/cc-mwe` — Review multi-word expression candidates (approve/skip/blocklist) from CC task files in `../cc_tasks/pending/`

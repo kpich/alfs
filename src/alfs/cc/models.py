@@ -108,8 +108,20 @@ class CCQCTask(BaseModel):
     senses: list[SenseInfo]
 
 
+class CCMWETask(BaseModel):
+    type: Literal["mwe"] = "mwe"
+    id: str
+    form: str
+    components: list[str]
+    pmi: float
+    corpus_count: int
+    contexts: list[str]
+    occurrence_refs: list[Occurrence] = []
+
+
 CCTask = Annotated[
-    CCInductionTask | CCMorphRelBlockTask | CCQCTask, Field(discriminator="type")
+    CCInductionTask | CCMorphRelBlockTask | CCQCTask | CCMWETask,
+    Field(discriminator="type"),
 ]
 
 
@@ -150,7 +162,15 @@ class CCQCOutput(BaseModel):
         return self
 
 
+class CCMWEOutput(BaseModel):
+    type: Literal["mwe"] = "mwe"
+    id: str
+    form: str
+    action: Literal["approve", "skip", "blocklist"]
+    blocklist_reason: str | None = None
+
+
 CCOutput = Annotated[
-    CCInductionOutput | CCMorphRelBlockOutput | CCQCOutput,
+    CCInductionOutput | CCMorphRelBlockOutput | CCQCOutput | CCMWEOutput,
     Field(discriminator="type"),
 ]

@@ -59,10 +59,12 @@ You are a lexicographer performing quality control on dictionary entries. For ea
    - `proposed_definition`: concise reference string (e.g. `"plural of dog (n.)"`)
    - `promote_to_parent`: `true` if the current definition has content not already on the base form; `false` if it would duplicate an existing base sense
 
-   #### E. deleted_senses — remove redundant senses
-   Remove a sense only if it is **fully semantically subsumed** by another sense on the same entry with no meaningful additional nuance — it adds nothing a reader would need. Be conservative: when in doubt, keep.
+   #### E. deleted_senses — remove redundant or misplaced senses
+   Remove a sense if it is **fully semantically subsumed** by another sense on the same entry with no meaningful additional nuance — it adds nothing a reader would need. Be conservative: when in doubt, keep.
 
-   Do NOT delete a sense merely because it overlaps with another, is specific, or has no examples. Only delete true duplicates or senses that are strict, featureless subsets of another sense.
+   Also remove a sense if it **only makes sense as part of a multi-word expression** — i.e., the definition crucially depends on another word to be meaningful. For example, a sense under "take" that really describes "take care" or "take down" belongs in the compound entry, not in the simplex. Delete with reason like `"belongs to MWE 'take care'"`. (The MWE pipeline handles creating proper compound entries.)
+
+   Do NOT delete a sense merely because it overlaps with another, is specific, or has no examples. Only delete true duplicates, strict featureless subsets of another sense, or senses misplaced on a simplex entry that belong to an MWE.
 
    For each sense to delete: `{"sense_idx": <0-based>, "reason": "brief reason"}`.
 

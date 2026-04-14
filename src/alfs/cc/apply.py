@@ -21,6 +21,7 @@ from pydantic import TypeAdapter
 from alfs.cc.models import (
     CCInductionOutput,
     CCMorphRelBlockOutput,
+    CCMWEOutput,
     CCOutput,
     CCQCOutput,
 )
@@ -36,6 +37,7 @@ from alfs.clerk.request import (
 )
 from alfs.data_models.alf import Sense
 from alfs.data_models.blocklist import Blocklist
+from alfs.data_models.induction_queue import InductionQueue
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
@@ -532,12 +534,45 @@ def _apply_qc(
     return True
 
 
+def _apply_mwe(
+    output: CCMWEOutput,
+    induction_queue: InductionQueue | None,
+    blocklist: Blocklist | None,
+) -> bool:
+    form = output.form
+
+    if output.action == "blocklist":
+        reason = output.blocklist_reason or "MWE blocklisted by cc-mwe"
+        if blocklist is not None:
+            blocklist.add(form, reason)
+            print(f"  added {form!r} to blocklist: {reason}")
+        return True
+
+    if output.action == "skip":
+        print(f"  skipped MWE candidate {form!r}")
+        return True
+
+    if output.action == "approve":
+        if induction_queue is not None:
+            added = induction_queue.add_forms([form])
+            if added:
+                print(f"  added {form!r} to induction queue")
+            else:
+                print(f"  {form!r} already in induction queue")
+        else:
+            print(f"  warning: no induction queue configured, cannot enqueue {form!r}")
+        return True
+
+    return False
+
+
 def run(
     cc_tasks_dir: str | Path,
     senses_db: str | Path,
     queue_dir: str | Path,
     labeled_db: str | Path | None = None,
     blocklist_file: str | Path | None = None,
+    induction_queue_file: str | Path | None = None,
 ) -> None:
     done_dir = Path(cc_tasks_dir) / "done"
     if not done_dir.exists():
@@ -554,6 +589,10 @@ def run(
     blocklist: Blocklist | None = None
     if blocklist_file:
         blocklist = Blocklist(Path(blocklist_file))
+
+    induction_queue: InductionQueue | None = None
+    if induction_queue_file:
+        induction_queue = InductionQueue(Path(induction_queue_file))
 
     files = sorted(done_dir.glob("*/*.json"))
     if not files:
@@ -592,6 +631,12 @@ def run(
                 occ_store,
                 blocklist,
             )
+        elif isinstance(output, CCMWEOutput):
+            ok = _apply_mwe(
+                output,
+                induction_queue,
+                blocklist,
+            )
         else:
             print(f"  unknown output type in {f.name}")
             ok = False
@@ -619,6 +664,11 @@ def main() -> None:
     parser.add_argument(
         "--blocklist-file", default=None, help="Path to blocklist.yaml (optional)"
     )
+    parser.add_argument(
+        "--induction-queue-file",
+        default=None,
+        help="Path to induction_queue.yaml (for MWE approval)",
+    )
     args = parser.parse_args()
 
     run(
@@ -627,6 +677,7 @@ def main() -> None:
         args.queue_dir,
         args.labeled_db,
         args.blocklist_file,
+        args.induction_queue_file,
     )
 
 
