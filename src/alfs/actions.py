@@ -57,29 +57,16 @@ ACTIONS: list[Action] = [
         description="Generate CC QC task files for per-form quality control",
     ),
     Action(
-        "compute-pmi",
-        "Compute PMI",
-        ["make", "compute_pmi"],
-        description="Compute pointwise mutual information scores to identify MWE "
-        "candidates",
-    ),
-    Action(
         "enqueue-mwe-candidates",
         "Enqueue MWE Candidates",
         ["make", "enqueue_mwe_candidates"],
-        description="Filter PMI results and populate the MWE candidate queue",
+        description="Compute PMI scores and populate the MWE candidate queue",
     ),
     Action(
         "cc-mwe",
         "CC MWE",
         ["make", "cc_mwe"],
         description="Dequeue MWE candidates and write CC review task files",
-    ),
-    Action(
-        "populate-mwe-seg",
-        "Populate MWE Seg",
-        ["make", "populate_mwe_seg"],
-        description="Tag MWE instances in segmentation data for batch labeling",
     ),
 ]
 

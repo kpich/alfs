@@ -1,4 +1,4 @@
-.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest plot compute_pmi enqueue_mwe_candidates cc_mwe populate_mwe_seg
+.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest plot enqueue_mwe_candidates cc_mwe
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -78,6 +78,9 @@ induce_senses:
 		--labeled-db $(LABELED_DB) \
 		--queue-dir $(CLERK_QUEUE) \
 		$(if $(SENSE_UPDATE_MODEL),--model $(SENSE_UPDATE_MODEL))
+	uv run --no-sync python -m alfs.mwe.populate_seg_data \
+		--senses-db $(SENSES_DB) \
+		--seg-data-dir $(SEG_DATA_DIR)
 
 cc_induce_senses:
 	uv run --no-sync python -m alfs.update.induction.induce_senses \
@@ -89,6 +92,9 @@ cc_induce_senses:
 		--labeled-db $(LABELED_DB) \
 		--queue-dir $(CLERK_QUEUE) \
 		--cc-tasks-dir $(CC_TASKS_DIR)
+	uv run --no-sync python -m alfs.mwe.populate_seg_data \
+		--senses-db $(SENSES_DB) \
+		--seg-data-dir $(SEG_DATA_DIR)
 
 postag:
 	uv run --no-sync python -m alfs.update.refinement.postag \
@@ -113,9 +119,6 @@ cc_apply:
 		--labeled-db $(LABELED_DB) \
 		--blocklist-file $(BLOCKLIST_FILE) \
 		--induction-queue-file $(INDUCTION_QUEUE)
-	uv run --no-sync python -m alfs.mwe.populate_seg_data \
-		--senses-db $(SENSES_DB) \
-		--seg-data-dir $(SEG_DATA_DIR)
 
 cc_qc:
 	uv run --no-sync python -m alfs.update.refinement.generate_qc_tasks \
@@ -124,11 +127,9 @@ cc_qc:
 		--blocklist-file $(BLOCKLIST_FILE) \
 		$(if $(CC_QC_N),--n $(CC_QC_N))
 
-compute_pmi:
+enqueue_mwe_candidates:
 	uv run --no-sync python -m alfs.mwe.compute_pmi \
 		--seg-data-dir $(SEG_DATA_DIR) --output $(MWE_PMI)
-
-enqueue_mwe_candidates:
 	uv run --no-sync python -m alfs.mwe.enqueue_candidates \
 		--pmi-results $(MWE_PMI) \
 		--senses-db $(SENSES_DB) \
@@ -144,11 +145,6 @@ cc_mwe:
 		--docs $(DOCS) \
 		--cc-tasks-dir $(CC_TASKS_DIR) \
 		$(if $(MWE_N),--n $(MWE_N))
-
-populate_mwe_seg:
-	uv run --no-sync python -m alfs.mwe.populate_seg_data \
-		--senses-db $(SENSES_DB) \
-		--seg-data-dir $(SEG_DATA_DIR)
 
 cc-clean:
 	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json
