@@ -7,6 +7,8 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from alfs.data_models.alf import Alf, Sense
+from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
 from alfs.mwe.populate_seg_data import find_mwe_forms, populate
 
@@ -54,18 +56,20 @@ def senses_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "senses.db"
     store = SenseStore(db_path)
     # Add an MWE form and a simplex form
-    from alfs.data_models.alf import Alf, Sense
-
     store.write(
         Alf(
             form="a priori",
-            senses=[Sense(id="s1", definition="from the earlier", pos="adjective")],
+            senses=[
+                Sense(
+                    id="s1", definition="from the earlier", pos=PartOfSpeech.adjective
+                )
+            ],
         )
     )
     store.write(
         Alf(
             form="take",
-            senses=[Sense(id="s2", definition="to grab", pos="verb")],
+            senses=[Sense(id="s2", definition="to grab", pos=PartOfSpeech.verb)],
         )
     )
     return db_path
@@ -108,10 +112,11 @@ def test_populate_idempotent(tmp_path: Path, seg_data_dir: Path, senses_db: Path
 def test_populate_no_mwe_forms(tmp_path: Path, seg_data_dir: Path):
     db_path = tmp_path / "empty_senses.db"
     store = SenseStore(db_path)
-    from alfs.data_models.alf import Alf, Sense
-
     store.write(
-        Alf(form="cat", senses=[Sense(id="s1", definition="a feline", pos="noun")])
+        Alf(
+            form="cat",
+            senses=[Sense(id="s1", definition="a feline", pos=PartOfSpeech.noun)],
+        )
     )
     n = populate(db_path, seg_data_dir)
     assert n == 0

@@ -23,13 +23,13 @@ import argparse
 import json
 from pathlib import Path
 
-from adjustText import adjust_text
+from adjustText import adjust_text  # type: ignore[import-untyped]
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from scipy.spatial.distance import jensenshannon
-from scipy.stats import linregress, spearmanr
+from scipy.spatial.distance import jensenshannon  # type: ignore[import-untyped]
+from scipy.stats import linregress, spearmanr  # type: ignore[import-untyped]
 
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore

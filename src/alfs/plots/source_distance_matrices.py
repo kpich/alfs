@@ -20,10 +20,11 @@ import argparse
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from scipy.spatial.distance import jensenshannon
+from scipy.spatial.distance import jensenshannon  # type: ignore[import-untyped]
 
 from alfs.data_models.occurrence_store import OccurrenceStore
 
@@ -83,7 +84,7 @@ def main() -> None:
 
     fig, ax = plt.subplots(figsize=(5, 4))
     display = np.where(np.eye(n, dtype=bool), np.nan, mat)
-    cmap = plt.cm.YlOrRd.copy()
+    cmap = matplotlib.colormaps["YlOrRd"].copy()
     cmap.set_bad(alpha=0)
     im = ax.imshow(display, cmap=cmap, vmin=0, vmax=1, aspect="equal")
 

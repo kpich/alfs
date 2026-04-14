@@ -13,7 +13,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import linregress
+from scipy.stats import linregress  # type: ignore[import-untyped]
 
 from alfs.data_models.sense_store import SenseStore
 
