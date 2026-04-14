@@ -7,6 +7,7 @@ from alfs.cc.apply import run
 from alfs.cc.models import (
     CCInductionOutput,
     CCMorphRelBlockOutput,
+    CCMWEOutput,
     CCQCOutput,
     ContextLabel,
     DeletedSenseEntry,
@@ -17,6 +18,7 @@ from alfs.cc.models import (
     SenseRewrite,
 )
 from alfs.data_models.alf import Alf, Sense
+from alfs.data_models.induction_queue import InductionQueue
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
@@ -517,3 +519,67 @@ def test_apply_qc_combined_rewrite_and_delete_senses(tmp_path: Path):
     assert "rewrite" in types
     assert "prune" in types
     assert len(pending) == 2
+
+
+def _setup_mwe(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    cc_dir = tmp_path / "cc_tasks"
+    (cc_dir / "done" / "mwe").mkdir(parents=True)
+    senses_db = tmp_path / "senses.db"
+    queue_dir = tmp_path / "queue"
+    queue_dir.mkdir()
+    induction_queue = tmp_path / "induction_queue.yaml"
+    return cc_dir, senses_db, queue_dir, induction_queue
+
+
+def test_apply_mwe_approve(tmp_path: Path):
+    cc_dir, senses_db, queue_dir, iq_path = _setup_mwe(tmp_path)
+    SenseStore(senses_db)
+
+    output = CCMWEOutput(id="test-mwe", form="a priori", action="approve")
+    (cc_dir / "done" / "mwe" / "test-mwe.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir, induction_queue_file=str(iq_path))
+
+    assert not (cc_dir / "done" / "mwe" / "test-mwe.json").exists()
+    entries = InductionQueue(iq_path).load()
+    assert len(entries) == 1
+    assert entries[0].form == "a priori"
+
+
+def test_apply_mwe_blocklist(tmp_path: Path):
+    cc_dir, senses_db, queue_dir, iq_path = _setup_mwe(tmp_path)
+    blocklist_file = tmp_path / "blocklist.yaml"
+    SenseStore(senses_db)
+
+    output = CCMWEOutput(
+        id="test-bl",
+        form="the president",
+        action="blocklist",
+        blocklist_reason="not an MWE",
+    )
+    (cc_dir / "done" / "mwe" / "test-bl.json").write_text(output.model_dump_json())
+
+    run(
+        cc_dir,
+        senses_db,
+        queue_dir,
+        blocklist_file=str(blocklist_file),
+        induction_queue_file=str(iq_path),
+    )
+
+    assert not (cc_dir / "done" / "mwe" / "test-bl.json").exists()
+    assert "the president" in blocklist_file.read_text()
+    assert len(InductionQueue(iq_path).load()) == 0
+
+
+def test_apply_mwe_skip(tmp_path: Path):
+    cc_dir, senses_db, queue_dir, iq_path = _setup_mwe(tmp_path)
+    SenseStore(senses_db)
+
+    output = CCMWEOutput(id="test-skip", form="the cat", action="skip")
+    (cc_dir / "done" / "mwe" / "test-skip.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir, induction_queue_file=str(iq_path))
+
+    assert not (cc_dir / "done" / "mwe" / "test-skip.json").exists()
+    assert len(InductionQueue(iq_path).load()) == 0

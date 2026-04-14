@@ -1,4 +1,4 @@
-.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest plot
+.PHONY: download etl seg enqueue_new_forms enqueue_poor_coverage induce_senses cc_induce_senses postag validate compile viewer dataviewer backup backup-gdrive conductor clerk clerk-watch cc_apply cc_qc cc-clean install_precommit_hooks dev test mypy cleandata groq-batch-prepare groq-batch-ingest critic-batch-prepare critic-batch-ingest plot compute_pmi enqueue_mwe_candidates cc_mwe
 
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
@@ -29,6 +29,10 @@ ENQUEUE_TOP_N      ?=
 ENQUEUE_MIN_COUNT  ?=
 ENQUEUE_N_OCC_REFS ?=
 CC_QC_N            ?=
+MWE_QUEUE          ?= ../alfs_data/mwe_queue.yaml
+MWE_PMI            ?= ../alfs_data/pmi_results.parquet
+MWE_TOP_N          ?=
+MWE_N              ?=
 
 download:
 	uv run --no-sync python -m alfs.etl.download \
@@ -104,7 +108,8 @@ cc_apply:
 		--senses-db $(SENSES_DB) \
 		--queue-dir $(CLERK_QUEUE) \
 		--labeled-db $(LABELED_DB) \
-		--blocklist-file $(BLOCKLIST_FILE)
+		--blocklist-file $(BLOCKLIST_FILE) \
+		--induction-queue-file $(INDUCTION_QUEUE)
 
 cc_qc:
 	uv run --no-sync python -m alfs.update.refinement.generate_qc_tasks \
@@ -112,6 +117,27 @@ cc_qc:
 		--cc-tasks-dir $(CC_TASKS_DIR) \
 		--blocklist-file $(BLOCKLIST_FILE) \
 		$(if $(CC_QC_N),--n $(CC_QC_N))
+
+compute_pmi:
+	uv run --no-sync python -m alfs.mwe.compute_pmi \
+		--seg-data-dir $(SEG_DATA_DIR) --output $(MWE_PMI)
+
+enqueue_mwe_candidates:
+	uv run --no-sync python -m alfs.mwe.enqueue_candidates \
+		--pmi-results $(MWE_PMI) \
+		--senses-db $(SENSES_DB) \
+		--blocklist-file $(BLOCKLIST_FILE) \
+		--mwe-queue-file $(MWE_QUEUE) \
+		--seg-data-dir $(SEG_DATA_DIR) \
+		$(if $(MWE_TOP_N),--top-n $(MWE_TOP_N))
+
+cc_mwe:
+	uv run --no-sync python -m alfs.mwe.generate_mwe_tasks \
+		--mwe-queue-file $(MWE_QUEUE) \
+		--seg-data-dir $(SEG_DATA_DIR) \
+		--docs $(DOCS) \
+		--cc-tasks-dir $(CC_TASKS_DIR) \
+		$(if $(MWE_N),--n $(MWE_N))
 
 cc-clean:
 	rm -f $(CC_TASKS_DIR)/pending/*/*.json $(CC_TASKS_DIR)/done/*/*.json

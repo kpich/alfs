@@ -113,12 +113,18 @@ def _load_contexts(
     """
     occ_path = seg_data_dir / form_prefix(form) / "occurrences.parquet"
     if not occ_path.exists():
-        return [], []
-
-    df = pl.read_parquet(str(occ_path)).filter(
-        pl.col("form").str.to_lowercase() == form.lower()
-    )
-    all_occurrences = list(df.select(["doc_id", "byte_offset"]).iter_rows(named=True))
+        if pinned_occurrences:
+            # MWE or other form not in seg data — trust pinned occurrences
+            all_occurrences: list[dict[str, object]] = []
+        else:
+            return [], []
+    else:
+        df = pl.read_parquet(str(occ_path)).filter(
+            pl.col("form").str.to_lowercase() == form.lower()
+        )
+        all_occurrences = list(
+            df.select(["doc_id", "byte_offset"]).iter_rows(named=True)
+        )
 
     if pinned_occurrences:
         # Use the pinned occurrences from the queue entry
@@ -126,13 +132,19 @@ def _load_contexts(
             {"doc_id": o.doc_id, "byte_offset": o.byte_offset}
             for o in pinned_occurrences
         ]
-        # Only keep pinned occurrences that actually exist in the parquet
-        existing_set = {(r["doc_id"], r["byte_offset"]) for r in all_occurrences}
-        samples_raw = [
-            r for r in samples_raw if (r["doc_id"], r["byte_offset"]) in existing_set
-        ]
+        if all_occurrences:
+            # Validate against parquet when possible
+            existing_set = {(r["doc_id"], r["byte_offset"]) for r in all_occurrences}
+            validated = [
+                r
+                for r in samples_raw
+                if (r["doc_id"], r["byte_offset"]) in existing_set
+            ]
+            if validated:
+                samples_raw = validated
+            # If none validated (e.g. MWE form not in parquet), keep all pinned
         if not samples_raw:
-            # Fall back to free sampling if none of the pinned ones exist
+            # Fall back to free sampling if no pinned occurrences survived
             samples_raw = random.sample(
                 all_occurrences, min(max_samples, len(all_occurrences))
             )

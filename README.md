@@ -49,14 +49,35 @@ Key variables:
 - `ENQUEUE_TOP_N` (default: 50)
 - `ENQUEUE_MIN_COUNT` (default: 5)
 
+### Multi-word expressions (MWEs)
+
+Discovers and inducts multi-word entries (contractions, light verb constructions, fixed phrases, hyphenated compounds) via PMI over the seg data.
+
+| Target | What it does |
+|---|---|
+| `make compute_pmi` | Compute bigram + hyphen-trigram PMI → `pmi_results.parquet` |
+| `make enqueue_mwe_candidates` | Filter PMI results → `mwe_queue.yaml` |
+| `make cc_mwe` | Dequeue MWE candidates → `cc_tasks/pending/mwe/` |
+
+Then run `/cc-mwe` in Claude Code to review candidates (approve/skip/blocklist). Approved MWEs are added to the induction queue via `make cc_apply`, then inducted normally via `make cc_induce_senses`.
+
+Key variables:
+- `MWE_QUEUE` (default: `../alfs_data/mwe_queue.yaml`)
+- `MWE_PMI` (default: `../alfs_data/pmi_results.parquet`)
+- `MWE_TOP_N`, `MWE_N`
+
 ### Claude Code (CC) mode
 
-`make cc_induce_senses` writes task files to `cc_tasks/pending/` instead of calling the local LLM. Run the `/cc-induction` skill in Claude Code to process them, then apply results:
+`make cc_induce_senses` writes task files to `cc_tasks/pending/` instead of calling the local LLM. Run the corresponding `/cc-*` skill in Claude Code to process them, then apply results:
 
 | Target | What it does |
 |---|---|
 | `make cc_apply` | Convert CC skill outputs in `cc_tasks/done/` into clerk requests + occurrence labels |
+| `make cc_qc` | Generate QC task files for lexicographer review |
+| `make cc_mwe` | Generate MWE candidate task files for lexicographer review |
 | `make cc-clean` | Remove all pending and done CC task files |
+
+Available CC skills: `/cc-induction`, `/cc-qc`, `/cc-rewrite`, `/cc-trim`, `/cc-spelling-variant`, `/cc-mwe`
 
 ### Groq batch labeling
 
