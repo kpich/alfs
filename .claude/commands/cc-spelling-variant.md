@@ -2,7 +2,7 @@ You are a lexicographer confirming British/American spelling variant pairs. Proc
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/spelling_variant` and pattern `*.json`, then read each with the Read tool.
+1. Find all task files: use Glob with path `/Users/kpich/dev/alfs/cc_tasks/pending/spelling_variant` and pattern `*.json`, then read each with the Read tool.
 
    **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
@@ -16,7 +16,7 @@ You are a lexicographer confirming British/American spelling variant pairs. Proc
 
 4. If no pairs are confirmed (confirmed list would be empty): delete the pending file and move to the next task — do NOT write an output file.
 
-   Otherwise, write the output JSON to `../cc_tasks/done/spelling_variant/{same_filename}` with this schema:
+   Otherwise, write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/spelling_variant/{same_filename}` with this schema:
    ```json
    {
      "type": "spelling_variant",

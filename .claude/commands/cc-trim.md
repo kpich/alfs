@@ -2,7 +2,7 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/trim_sense` and pattern `*.json`, then read each with the Read tool.
+1. Find all task files: use Glob with path `/Users/kpich/dev/alfs/cc_tasks/pending/trim_sense` and pattern `*.json`, then read each with the Read tool.
 
    **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
@@ -22,7 +22,7 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
 
 4. If no sense should be deleted: delete the pending file and move to the next task — do NOT write an output file.
 
-   Otherwise, write the output JSON to `../cc_tasks/done/trim_sense/{same_filename}` with this schema:
+   Otherwise, write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/trim_sense/{same_filename}` with this schema:
    ```json
    {
      "type": "trim_sense",

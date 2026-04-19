@@ -6,7 +6,7 @@ You are a lexicographer performing quality control on dictionary entries. For ea
 
 ## Steps
 
-1. Find all task files: use `Glob` with `path="../cc_tasks/pending/qc"` and `pattern="*.json"`, then read each with the `Read` tool.
+1. Find all task files: use `Glob` with `path="/Users/kpich/dev/alfs/cc_tasks/pending/qc"` and `pattern="*.json"`, then read each with the `Read` tool.
 
 2. For each task file you will see:
    - `form`: the wordform under review
@@ -94,7 +94,7 @@ You are a lexicographer performing quality control on dictionary entries. For ea
    ### No action
    If none of the above applies, just delete the pending file — **do not write an output file**.
 
-4. **Writing output**: Write output JSON to `../cc_tasks/done/qc/{same_filename}` using the `Write` tool, then delete the pending file with `Bash` (`rm ../cc_tasks/pending/qc/{filename}`).
+4. **Writing output**: Write output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/qc/{same_filename}` using the `Write` tool, then delete the pending file with `Bash` (`rm /Users/kpich/dev/alfs/cc_tasks/pending/qc/{filename}`).
 
    Output schema (omit or leave as default any fields that don't apply):
    ```json
@@ -139,6 +139,6 @@ You are a lexicographer performing quality control on dictionary entries. For ea
    - If any entry-level field is set (`delete_entry: true`, `normalize_case` non-null, or `spelling_variant_of` non-null), all sense-level lists must be empty.
    - Only one entry-level action may be used at a time.
 
-5. **No action**: Just delete the pending file with `Bash` (`rm ../cc_tasks/pending/qc/{filename}`). Do NOT write an output file.
+5. **No action**: Just delete the pending file with `Bash` (`rm /Users/kpich/dev/alfs/cc_tasks/pending/qc/{filename}`). Do NOT write an output file.
 
 Process ALL matching pending files, not just the first one.

@@ -2,7 +2,7 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/rewrite` and pattern `*.json`, then read each with the Read tool.
+1. Find all task files: use Glob with path `/Users/kpich/dev/alfs/cc_tasks/pending/rewrite` and pattern `*.json`, then read each with the Read tool.
 
    **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
@@ -15,7 +15,7 @@ You are a lexicographer improving dictionary entries. Process all pending rewrit
    - Preserve the meaning of each sense; improve only the phrasing.
    - Definitions must not be self-referential (don't use the word itself as the core of the explanation).
    - Don't be too terse (keep definitions informative) or too verbose (avoid unnecessary hedging).
-4. Write the output JSON to `../cc_tasks/done/rewrite/{same_filename}` with this schema:
+4. Write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/rewrite/{same_filename}` with this schema:
    ```json
    {
      "type": "rewrite",

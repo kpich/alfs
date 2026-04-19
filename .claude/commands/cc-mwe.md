@@ -2,7 +2,7 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/mwe` and pattern `*.json`, then read each with the Read tool.
+1. Find all task files: use Glob with path `/Users/kpich/dev/alfs/cc_tasks/pending/mwe` and pattern `*.json`, then read each with the Read tool.
 
    **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
@@ -22,12 +22,14 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
    - OR it is a **light verb construction** where the verb is semantically bleached and the meaning resides in the combination (e.g., "take care", "make do", "give way").
    - OR it is a **contraction** that was split by the tokenizer (e.g., "won't" split into "wo" + "n't").
    - OR it is a **hyphenated compound** with a meaning distinct from its unhyphenated parts (e.g., "well-known", "self-aware").
+   - OR it is a **well-known proper name** — a notable person (e.g., "Martin Luther", "Barack Obama"), place (e.g., "New York", "Nibong Tebal"), organization, or publication title that a general English dictionary might include.
+   - OR it is a **non-English phrase used in English** — a foreign-language expression that appears in English-language texts as a borrowing or citation (e.g., "Popol Vuh", "Corpus Juris Canonici", "Rodong Sinmun").
 
-   **B. Skip** — the combination is NOT a genuine MWE. It just happens to co-occur frequently due to topic or syntactic patterns (e.g., "the president", "United States", common noun-verb collocations). High PMI alone is not sufficient — the combination must have a non-compositional or conventionalized meaning.
+   **B. Skip** — the combination is NOT a genuine MWE. It just happens to co-occur frequently due to topic or syntactic patterns (e.g., "the president", common noun-verb collocations). Also skip obscure proper names (e.g., individual journalists' bylines, minor fictional characters) that would not warrant a dictionary entry. High PMI alone is not sufficient — the combination must have a non-compositional, conventionalized, or encyclopedic meaning.
 
    **C. Blocklist** — not an MWE, and it keeps showing up as a false positive. Use this for combinations that will never be MWEs but persistently have high PMI (e.g., corpus-specific artifacts, boilerplate phrases).
 
-4. Write the output JSON to `../cc_tasks/done/mwe/<same_filename>` with this schema:
+4. Write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/mwe/<same_filename>` with this schema:
 
    For **approve**:
    ```json
