@@ -537,6 +537,9 @@ def _apply_qc(
 
 def _apply_mwe(
     output: CCMWEOutput,
+    sense_store: SenseStore,
+    queue_dir: Path,
+    occ_store: OccurrenceStore | None,
     induction_queue: InductionQueue | None,
     blocklist: Blocklist | None,
     mwe_skipped: MWESkipped | None,
@@ -559,17 +562,89 @@ def _apply_mwe(
         return True
 
     if output.action == "approve":
-        if induction_queue is not None:
-            occs_by_form = (
-                {form: output.occurrence_refs} if output.occurrence_refs else None
+        if output.new_senses:
+            entry = sense_store.read(form)
+            existing_defs = (
+                {s.definition.strip().lower() for s in entry.senses} if entry else set()
             )
-            added = induction_queue.add_forms([form], occs_by_form=occs_by_form)
-            if added:
-                print(f"  added {form!r} to induction queue")
+            new_senses: list[Sense] = []
+            sense_idx_to_uuid: dict[int, str] = {}
+            for i, s in enumerate(output.new_senses, start=1):
+                if s.definition.strip().lower() in existing_defs:
+                    continue
+                try:
+                    pos = PartOfSpeech(s.pos) if s.pos else None
+                except ValueError:
+                    pos = None
+                new_sense = Sense(
+                    definition=s.definition, pos=pos, updated_by_model="claude-code"
+                )
+                new_senses.append(new_sense)
+                sense_idx_to_uuid[i] = new_sense.id
+
+            if output.context_labels and occ_store is not None:
+                occurrence_refs: list[Occurrence] = output.occurrence_refs
+                if not occurrence_refs:
+                    print(
+                        f"  warning: no occurrence_refs in output for {form!r}, "
+                        f"skipping context labels"
+                    )
+                else:
+                    rows = []
+                    for label in output.context_labels:
+                        idx = label.context_idx
+                        if idx < 0 or idx >= len(occurrence_refs):
+                            continue
+                        occ = occurrence_refs[idx]
+                        if label.sense_idx is None:
+                            rows.append(
+                                (
+                                    form,
+                                    occ.doc_id,
+                                    occ.byte_offset,
+                                    _SKIP_SENSE_KEY,
+                                    0,
+                                    None,
+                                )
+                            )
+                        else:
+                            uuid_key = sense_idx_to_uuid.get(label.sense_idx)
+                            if uuid_key is None:
+                                continue
+                            rows.append(
+                                (form, occ.doc_id, occ.byte_offset, uuid_key, 2, None)
+                            )
+                    if rows:
+                        occ_store.upsert_many(rows, "claude-code")
+                        print(f"  labeled {len(rows)} occurrence(s) for {form!r}")
+
+            if new_senses:
+                enqueue(
+                    AddSensesRequest(
+                        id=str(uuid.uuid4()),
+                        created_at=datetime.now(UTC),
+                        form=form,
+                        new_senses=new_senses,
+                    ),
+                    queue_dir,
+                )
+                print(f"  queued {len(new_senses)} new sense(s) for {form!r}")
             else:
-                print(f"  {form!r} already in induction queue")
+                print(f"  skipped {form!r}: no new senses")
         else:
-            print(f"  warning: no induction queue configured, cannot enqueue {form!r}")
+            if induction_queue is not None:
+                occs_by_form = (
+                    {form: output.occurrence_refs} if output.occurrence_refs else None
+                )
+                added = induction_queue.add_forms([form], occs_by_form=occs_by_form)
+                if added:
+                    print(f"  added {form!r} to induction queue")
+                else:
+                    print(f"  {form!r} already in induction queue")
+            else:
+                print(
+                    f"  warning: no induction queue configured, cannot enqueue {form!r}"
+                )
         return True
 
     return False
@@ -648,6 +723,9 @@ def run(
         elif isinstance(output, CCMWEOutput):
             ok = _apply_mwe(
                 output,
+                sense_store,
+                queue_path,
+                occ_store,
                 induction_queue,
                 blocklist,
                 mwe_skipped,
