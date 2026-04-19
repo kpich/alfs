@@ -22,6 +22,7 @@ import polars as pl
 
 from alfs.data_models.blocklist import Blocklist
 from alfs.data_models.mwe_queue import MWEQueue, MWEQueueEntry
+from alfs.data_models.mwe_skipped import MWESkipped
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.sense_store import SenseStore
 from alfs.mwe.find_occurrences import MWECorpus
@@ -37,6 +38,7 @@ def run(
     seg_data_dir: Path | None = None,
     n_occurrence_refs: int = 3,
     seed: int | None = None,
+    mwe_skipped_file: Path | None = None,
 ) -> int:
     """Enqueue top-N MWE candidates by PMI. Returns count added."""
     pmi_df = pl.read_parquet(str(pmi_results))
@@ -48,7 +50,12 @@ def run(
     known_forms_lower = {f.lower() for f in SenseStore(senses_db).all_forms()}
     blocklist_lower = {f.lower() for f in Blocklist(blocklist_file).load()}
     queued_lower = {e.form.lower() for e in MWEQueue(mwe_queue_file).load()}
-    excluded = known_forms_lower | blocklist_lower | queued_lower
+    skipped_lower = (
+        {f.lower() for f in MWESkipped(mwe_skipped_file).load()}
+        if mwe_skipped_file is not None
+        else set()
+    )
+    excluded = known_forms_lower | blocklist_lower | queued_lower | skipped_lower
 
     # Filter candidates
     candidates = pmi_df.filter(~pl.col("form").str.to_lowercase().is_in(excluded)).head(
@@ -112,6 +119,11 @@ def main() -> None:
     )
     parser.add_argument("--n-occurrence-refs", type=int, default=3)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--mwe-skipped-file",
+        default=None,
+        help="Path to mwe_skipped.yaml (optional)",
+    )
     args = parser.parse_args()
 
     run(
@@ -123,6 +135,7 @@ def main() -> None:
         seg_data_dir=Path(args.seg_data_dir) if args.seg_data_dir else None,
         n_occurrence_refs=args.n_occurrence_refs,
         seed=args.seed,
+        mwe_skipped_file=Path(args.mwe_skipped_file) if args.mwe_skipped_file else None,
     )
 
 

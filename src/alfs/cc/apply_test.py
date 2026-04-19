@@ -574,12 +574,22 @@ def test_apply_mwe_blocklist(tmp_path: Path):
 
 def test_apply_mwe_skip(tmp_path: Path):
     cc_dir, senses_db, queue_dir, iq_path = _setup_mwe(tmp_path)
+    mwe_skipped_path = tmp_path / "mwe_skipped.yaml"
     SenseStore(senses_db)
 
     output = CCMWEOutput(id="test-skip", form="the cat", action="skip")
     (cc_dir / "done" / "mwe" / "test-skip.json").write_text(output.model_dump_json())
 
-    run(cc_dir, senses_db, queue_dir, induction_queue_file=str(iq_path))
+    run(
+        cc_dir,
+        senses_db,
+        queue_dir,
+        induction_queue_file=str(iq_path),
+        mwe_skipped_file=str(mwe_skipped_path),
+    )
 
     assert not (cc_dir / "done" / "mwe" / "test-skip.json").exists()
     assert len(InductionQueue(iq_path).load()) == 0
+    from alfs.data_models.mwe_skipped import MWESkipped
+
+    assert "the cat" in MWESkipped(mwe_skipped_path).load()

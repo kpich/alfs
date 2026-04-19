@@ -8,6 +8,7 @@ import polars as pl
 
 from alfs.data_models.blocklist import Blocklist
 from alfs.data_models.mwe_queue import MWEQueue
+from alfs.data_models.mwe_skipped import MWESkipped
 from alfs.data_models.sense_store import SenseStore
 from alfs.mwe.enqueue_candidates import run
 
@@ -131,6 +132,50 @@ def test_enqueue_excludes_blocklisted(tmp_path: Path):
 
     added = run(pmi_path, senses_db, bl_path, queue_path, top_n=10)
     assert added == 0
+
+
+def test_enqueue_excludes_skipped(tmp_path: Path):
+    pmi_path = tmp_path / "pmi.parquet"
+    _write_pmi(
+        pmi_path,
+        [
+            {
+                "form": "a priori",
+                "components": ["a", "priori"],
+                "count": 100,
+                "pmi": 12.0,
+            },
+            {
+                "form": "take care",
+                "components": ["take", "care"],
+                "count": 50,
+                "pmi": 8.0,
+            },
+        ],
+    )
+
+    senses_db = tmp_path / "senses.db"
+    SenseStore(senses_db)
+
+    bl_path = tmp_path / "blocklist.yaml"
+    Blocklist(bl_path).save({})
+
+    skipped_path = tmp_path / "mwe_skipped.yaml"
+    MWESkipped(skipped_path).add("a priori")
+
+    queue_path = tmp_path / "mwe_queue.yaml"
+
+    added = run(
+        pmi_path,
+        senses_db,
+        bl_path,
+        queue_path,
+        top_n=10,
+        mwe_skipped_file=skipped_path,
+    )
+    assert added == 1
+    entries = MWEQueue(queue_path).load()
+    assert entries[0].form == "take care"
 
 
 def test_enqueue_empty_pmi(tmp_path: Path):
