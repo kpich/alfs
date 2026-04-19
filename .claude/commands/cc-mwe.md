@@ -14,7 +14,7 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
    - `contexts`: sample sentences containing the MWE
    - `occurrence_refs`: list of `{doc_id, byte_offset}` objects, parallel to `contexts`
 
-3. For each candidate, decide one of three outcomes:
+3. For each candidate, decide one of three outcomes. **When you decide to approve**, also draft sense(s) for the MWE (see step 4). The contexts you are already reading are sufficient — no extra lookups needed.
 
    **A. Approve** — this is a genuine multi-word expression that deserves its own dictionary entry. Criteria:
    - The combination has a meaning that is **not compositionally derivable** from its parts (e.g., "kick the bucket" ≠ kick + bucket).
@@ -33,7 +33,13 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
    - Obscure proper names (individual bylines, minor fictional characters) that would not warrant a dictionary entry and will likely recur due to corpus repetition
    - Any proper name that appears repeatedly only because a single source document repeats it
 
-4. Write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/mwe/<same_filename>` with this schema:
+4. **For approved MWEs, draft senses** based on the contexts you just read:
+   - Write 1–3 senses covering the distinct meanings shown in the contexts.
+   - Each sense needs a `definition` (concise, lexicographic style) and a `pos` (use: noun, verb, adjective, adverb, phrase, prefix, suffix, abbreviation, interjection, conjunction, preposition, determiner, pronoun, numeral, proper noun).
+   - For each context, assign it to one of the new senses via `context_labels` using 0-indexed `context_idx` and 1-indexed `sense_idx` (matching the position in `new_senses`). If a context doesn't clearly illustrate any sense, omit it from `context_labels`.
+   - Proper nouns (people, places, organizations) typically get a single sense: a brief identifying description (e.g., "Capital city of France.").
+
+5. Write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/mwe/<same_filename>` with this schema:
 
    For **approve**:
    ```json
@@ -43,11 +49,18 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
      "form": "<canonical form — use proper casing as appropriate>",
      "action": "approve",
      "blocklist_reason": null,
-     "occurrence_refs": [<copy the occurrence_refs array verbatim from the task file>]
+     "occurrence_refs": [<copy the occurrence_refs array verbatim from the task file>],
+     "new_senses": [
+       {"definition": "<sense definition>", "pos": "<pos tag>"}
+     ],
+     "context_labels": [
+       {"context_idx": 0, "sense_idx": 1},
+       {"context_idx": 1, "sense_idx": 1}
+     ]
    }
    ```
 
-   For **skip** — write a done file, then delete the pending file:
+   For **skip** — write a done file, then delete the pending file (no senses needed):
    ```json
    {
      "type": "mwe",
@@ -72,7 +85,7 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
 
    Then delete the pending file.
 
-5. **Casing rules for approved MWEs:**
+6. **Casing rules for approved MWEs:**
    - Fixed foreign phrases: use conventional casing (e.g., "a priori", "ad hoc" — lowercase)
    - Proper noun phrases: capitalize as conventionally used (e.g., "New York", "World War")
    - Contractions: use the conventional written form (e.g., "won't", "I'll", "can't")
