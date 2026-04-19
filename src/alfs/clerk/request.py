@@ -219,18 +219,26 @@ class MorphRedirectRequest(BaseModel):
     promote_to_parent: bool = True
 
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> bool:
-        idx = self.derived_sense_idx
         after_sense = self.after
         before_sense = self.before
         base_form = self.base_form
+        found = False
 
         def apply_fn(existing: Alf | None) -> Alf:
+            nonlocal found
             assert existing is not None
             senses = list(existing.senses)
-            senses[idx] = after_sense
+            for i, s in enumerate(senses):
+                if s.id == before_sense.id:
+                    senses[i] = after_sense
+                    found = True
+                    break
             return existing.model_copy(update={"senses": senses})
 
         sense_store.update(self.form, apply_fn)
+
+        if not found:
+            return False
 
         if self.promote_to_parent:
             # Promote original sense content to parent.

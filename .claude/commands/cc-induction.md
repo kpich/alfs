@@ -2,7 +2,7 @@ You are a lexicographer performing sense induction for English words. Process al
 
 ## Steps
 
-1. Find all task files: use Glob with path `../cc_tasks/pending/induction` and pattern `*.json`, then read each with the Read tool.
+1. Find all task files: use Glob with path `/Users/kpich/dev/alfs/cc_tasks/pending/induction` and pattern `*.json`, then read each with the Read tool.
 
    **IMPORTANT: Never use Bash for file operations. Use Read to read files, Write to write files, and Bash only to delete files (`rm`).**
 
@@ -31,7 +31,7 @@ You are a lexicographer performing sense induction for English words. Process al
 
    - **Case variants:** If `existing_defs` is non-empty and the contexts show the form is just a capitalization variant of an already-inducted entry (no meaningful semantic difference), treat this as outcome C — no new senses. The dictionary maintains one entry per distinct meaning; do not create duplicate entries for case variants.
 
-   - **Incidental proper nouns:** A context may use a capitalized form that is a *distinct lexical entry* from the task's base form — for example, the task form is `"swift"` (adjective) but a context uses `"Swift"` referring to Jonathan Swift. In this case, write a **separate output file** to `../cc_tasks/done/induction/<new-uuid>.json` for the proper-noun entry, using only the contexts that attest it and their corresponding `occurrence_refs`. Generate a fresh UUID for its `id` field (use `uv run python -c "import uuid; print(uuid.uuid4())"` via Bash). Label those contexts as `null` in the primary entry's `context_labels`.
+   - **Incidental proper nouns:** A context may use a capitalized form that is a *distinct lexical entry* from the task's base form — for example, the task form is `"swift"` (adjective) but a context uses `"Swift"` referring to Jonathan Swift. In this case, write a **separate output file** to `/Users/kpich/dev/alfs/cc_tasks/done/induction/<new-uuid>.json` for the proper-noun entry, using only the contexts that attest it and their corresponding `occurrence_refs`. Generate a fresh UUID for its `id` field (use `uv run python -c "import uuid; print(uuid.uuid4())"` via Bash). Label those contexts as `null` in the primary entry's `context_labels`.
 
    - **Morphological variants:** If the form is a regular inflection of a base English word — a plural noun, a conjugated verb form (3rd-person singular, past tense, past participle, present participle), or a comparative/superlative adjective — set `morph_rel` on the sense pointing to the base form, and use the full semantic definition as `definition`. Keep `form` in the output as the **original task form** (e.g., `"boards"`, not `"board"`). The system will: (a) add a short redirect entry ("Plural of board") to the derived form, and (b) separately add the full semantic sense to the base form. Identify the base form correctly (e.g., "investors" → "investor", "beaten" → "beat", "running" → "run"). Use `morph_rel` only when the form is a **regular, predictable** inflection with no distinct meaning of its own — if the inflected form has attested senses that the base form doesn't (e.g., idiomatic uses), define those as plain senses without `morph_rel`.
 
@@ -53,7 +53,7 @@ You are a lexicographer performing sense induction for English words. Process al
 
 6. If no new senses are needed (new_senses would be empty) AND you're not blocklisting: delete the pending file and move to the next task — do NOT write an output file.
 
-   Otherwise, write the output JSON to `../cc_tasks/done/induction/<same_filename>` with this schema:
+   Otherwise, write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/induction/<same_filename>` with this schema:
    ```json
    {
      "type": "induction",
