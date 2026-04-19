@@ -38,6 +38,7 @@ from alfs.clerk.request import (
 from alfs.data_models.alf import Sense
 from alfs.data_models.blocklist import Blocklist
 from alfs.data_models.induction_queue import InductionQueue
+from alfs.data_models.mwe_skipped import MWESkipped
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
@@ -538,6 +539,7 @@ def _apply_mwe(
     output: CCMWEOutput,
     induction_queue: InductionQueue | None,
     blocklist: Blocklist | None,
+    mwe_skipped: MWESkipped | None,
 ) -> bool:
     form = output.form
 
@@ -549,7 +551,11 @@ def _apply_mwe(
         return True
 
     if output.action == "skip":
-        print(f"  skipped MWE candidate {form!r}")
+        if mwe_skipped is not None:
+            mwe_skipped.add(form)
+            print(f"  added {form!r} to mwe_skipped")
+        else:
+            print(f"  skipped MWE candidate {form!r}")
         return True
 
     if output.action == "approve":
@@ -573,6 +579,7 @@ def run(
     labeled_db: str | Path | None = None,
     blocklist_file: str | Path | None = None,
     induction_queue_file: str | Path | None = None,
+    mwe_skipped_file: str | Path | None = None,
 ) -> None:
     done_dir = Path(cc_tasks_dir) / "done"
     if not done_dir.exists():
@@ -593,6 +600,10 @@ def run(
     induction_queue: InductionQueue | None = None
     if induction_queue_file:
         induction_queue = InductionQueue(Path(induction_queue_file))
+
+    mwe_skipped: MWESkipped | None = None
+    if mwe_skipped_file:
+        mwe_skipped = MWESkipped(Path(mwe_skipped_file))
 
     files = sorted(done_dir.glob("*/*.json"))
     if not files:
@@ -636,6 +647,7 @@ def run(
                 output,
                 induction_queue,
                 blocklist,
+                mwe_skipped,
             )
         else:
             print(f"  unknown output type in {f.name}")
@@ -669,6 +681,11 @@ def main() -> None:
         default=None,
         help="Path to induction_queue.yaml (for MWE approval)",
     )
+    parser.add_argument(
+        "--mwe-skipped-file",
+        default=None,
+        help="Path to mwe_skipped.yaml (for MWE skip tracking)",
+    )
     args = parser.parse_args()
 
     run(
@@ -678,6 +695,7 @@ def main() -> None:
         args.labeled_db,
         args.blocklist_file,
         args.induction_queue_file,
+        args.mwe_skipped_file,
     )
 
 

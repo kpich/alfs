@@ -30,6 +30,7 @@ ENQUEUE_MIN_COUNT  ?=
 ENQUEUE_N_OCC_REFS ?=
 CC_QC_N            ?=
 MWE_QUEUE          ?= ../alfs_data/mwe_queue.yaml
+MWE_SKIPPED_FILE   ?= ../alfs_data/mwe_skipped.yaml
 MWE_PMI            ?= ../alfs_data/pmi_results.parquet
 MWE_TOP_N          ?=
 MWE_N              ?=
@@ -118,7 +119,8 @@ cc_apply:
 		--queue-dir $(CLERK_QUEUE) \
 		--labeled-db $(LABELED_DB) \
 		--blocklist-file $(BLOCKLIST_FILE) \
-		--induction-queue-file $(INDUCTION_QUEUE)
+		--induction-queue-file $(INDUCTION_QUEUE) \
+		--mwe-skipped-file $(MWE_SKIPPED_FILE)
 
 cc_qc:
 	uv run --no-sync python -m alfs.update.refinement.generate_qc_tasks \
@@ -136,6 +138,7 @@ enqueue_mwe_candidates:
 		--blocklist-file $(BLOCKLIST_FILE) \
 		--mwe-queue-file $(MWE_QUEUE) \
 		--seg-data-dir $(SEG_DATA_DIR) \
+		--mwe-skipped-file $(MWE_SKIPPED_FILE) \
 		$(if $(MWE_TOP_N),--top-n $(MWE_TOP_N))
 
 cc_mwe:
@@ -178,7 +181,8 @@ backup:
 		--senses-db $(SENSES_DB) --senses-repo $(SENSES_REPO) \
 		--queue-dir $(CLERK_QUEUE) \
 		--blocklist-file $(BLOCKLIST_FILE) \
-		--queue-file $(INDUCTION_QUEUE)
+		--queue-file $(INDUCTION_QUEUE) \
+		--mwe-skipped-file $(MWE_SKIPPED_FILE)
 
 backup-gdrive:
 	rclone sync ../text_data $(GDRIVE_REMOTE):$(GDRIVE_DEST)/text_data \

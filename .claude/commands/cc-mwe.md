@@ -25,9 +25,13 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
    - OR it is a **well-known proper name** — a notable person (e.g., "Martin Luther", "Barack Obama"), place (e.g., "New York", "Nibong Tebal"), organization, or publication title that a general English dictionary might include.
    - OR it is a **non-English phrase used in English** — a foreign-language expression that appears in English-language texts as a borrowing or citation (e.g., "Popol Vuh", "Corpus Juris Canonici", "Rodong Sinmun").
 
-   **B. Skip** — the combination is NOT a genuine MWE. It just happens to co-occur frequently due to topic or syntactic patterns (e.g., "the president", common noun-verb collocations). Also skip obscure proper names (e.g., individual journalists' bylines, minor fictional characters) that would not warrant a dictionary entry. High PMI alone is not sufficient — the combination must have a non-compositional, conventionalized, or encyclopedic meaning.
+   **B. Skip** — the combination is NOT a genuine MWE, and it is unlikely to reappear (e.g., a one-off compositional phrase, a common noun-verb collocation like "the president"). High PMI alone is not sufficient — the combination must have a non-compositional, conventionalized, or encyclopedic meaning. **Do not use Skip for things that will reappear** — use Blocklist instead.
 
-   **C. Blocklist** — not an MWE, and it keeps showing up as a false positive. Use this for combinations that will never be MWEs but persistently have high PMI (e.g., corpus-specific artifacts, boilerplate phrases).
+   **C. Blocklist** — not an MWE, and it will keep showing up as a false positive. Use this for:
+   - Corpus-specific artifacts or boilerplate phrases (e.g., database column headers, MIME type strings, usernames)
+   - **Individual journalists' bylines and photo credits** (e.g., Reuters/AP photographer or reporter names) — these recur systematically from news corpus structure and will always be false positives
+   - Obscure proper names (individual bylines, minor fictional characters) that would not warrant a dictionary entry and will likely recur due to corpus repetition
+   - Any proper name that appears repeatedly only because a single source document repeats it
 
 4. Write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/mwe/<same_filename>` with this schema:
 
@@ -42,7 +46,17 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
    }
    ```
 
-   For **skip** — just delete the pending file and move to the next task. Do NOT write an output file.
+   For **skip** — write a done file, then delete the pending file:
+   ```json
+   {
+     "type": "mwe",
+     "id": "<same id from task>",
+     "form": "<form from task>",
+     "action": "skip",
+     "blocklist_reason": null
+   }
+   ```
+   Then delete the pending file.
 
    For **blocklist**:
    ```json

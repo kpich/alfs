@@ -88,11 +88,12 @@ def backup_yaml_files(
     senses_repo: Path,
     blocklist_file: Path | None,
     queue_file: Path | None,
+    mwe_skipped_file: Path | None = None,
 ) -> None:
-    """Copy blocklist.yaml and induction_queue.yaml into senses_repo root."""
+    """Copy YAML support files into senses_repo root."""
     import shutil
 
-    for src in [blocklist_file, queue_file]:
+    for src in [blocklist_file, queue_file, mwe_skipped_file]:
         if src is not None and src.exists():
             dst = senses_repo / src.name
             shutil.copy2(src, dst)
@@ -113,6 +114,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--queue-file", default=None, help="Path to induction_queue.yaml (optional)"
+    )
+    parser.add_argument(
+        "--mwe-skipped-file", default=None, help="Path to mwe_skipped.yaml (optional)"
     )
     args = parser.parse_args()
 
@@ -156,6 +160,7 @@ def main() -> None:
         repo,
         Path(args.blocklist_file) if args.blocklist_file else None,
         Path(args.queue_file) if args.queue_file else None,
+        Path(args.mwe_skipped_file) if args.mwe_skipped_file else None,
     )
 
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
