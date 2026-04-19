@@ -544,6 +544,32 @@ def test_apply_mwe_approve(tmp_path: Path):
     entries = InductionQueue(iq_path).load()
     assert len(entries) == 1
     assert entries[0].form == "a priori"
+    assert entries[0].occurrences == []
+
+
+def test_apply_mwe_approve_with_occurrence_refs(tmp_path: Path):
+    cc_dir, senses_db, queue_dir, iq_path = _setup_mwe(tmp_path)
+    SenseStore(senses_db)
+
+    output = CCMWEOutput(
+        id="test-mwe-occ",
+        form="a priori",
+        action="approve",
+        occurrence_refs=[
+            Occurrence(doc_id="doc1", byte_offset=100),
+            Occurrence(doc_id="doc2", byte_offset=200),
+        ],
+    )
+    (cc_dir / "done" / "mwe" / "test-mwe-occ.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir, induction_queue_file=str(iq_path))
+
+    entries = InductionQueue(iq_path).load()
+    assert len(entries) == 1
+    assert entries[0].form == "a priori"
+    assert len(entries[0].occurrences) == 2
+    assert entries[0].occurrences[0].doc_id == "doc1"
+    assert entries[0].occurrences[1].byte_offset == 200
 
 
 def test_apply_mwe_blocklist(tmp_path: Path):

@@ -42,7 +42,8 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
      "id": "<same id from task>",
      "form": "<canonical form — use proper casing as appropriate>",
      "action": "approve",
-     "blocklist_reason": null
+     "blocklist_reason": null,
+     "occurrence_refs": [<copy the occurrence_refs array verbatim from the task file>]
    }
    ```
 

@@ -560,7 +560,10 @@ def _apply_mwe(
 
     if output.action == "approve":
         if induction_queue is not None:
-            added = induction_queue.add_forms([form])
+            occs_by_form = (
+                {form: output.occurrence_refs} if output.occurrence_refs else None
+            )
+            added = induction_queue.add_forms([form], occs_by_form=occs_by_form)
             if added:
                 print(f"  added {form!r} to induction queue")
             else:

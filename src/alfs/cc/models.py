@@ -168,6 +168,7 @@ class CCMWEOutput(BaseModel):
     form: str
     action: Literal["approve", "skip", "blocklist"]
     blocklist_reason: str | None = None
+    occurrence_refs: list[Occurrence] = []  # copied from task; used for approve
 
 
 CCOutput = Annotated[
