@@ -48,11 +48,15 @@ def build_critic_system_message(form: str, definition: str) -> str:
         f'The word "{form}" is supposed to be used in this sense:\n'
         f'"{definition}"\n'
         f"\n"
-        f'I will show you numbered uses of "{form}". Decide for each: does this '
-        f'occurrence ACTUALLY use "{form}" in the sense defined above?\n'
+        f'I will show you numbered uses of "{form}". For each, decide: is this '
+        f"occurrence best described by the sense defined above?\n"
+        f"\n"
+        f"Mark an occurrence bad if it does not match — including when the word is "
+        f"clearly being used in a different sense (even if the definition above could "
+        f"loosely apply), not just when the definition fails entirely.\n"
         f"\n"
         f'Respond ONLY with valid JSON: {{"bad_indices": [1, 3]}} listing numbers of '
-        f"examples that do NOT match the sense above. Use [] if all match."
+        f"examples that do NOT best match the sense above. Use [] if all match."
     )
 
 
