@@ -29,8 +29,12 @@ def induction_critic_prompt(
         f'derivative like "{form}s" or "{form}ed") as the core of the explanation, '
         f'e.g. "animals: the state of being an animal". Using related vocabulary '
         f"is normal dictionary practice and is NOT circular.\n"
-        f"- The proposed meaning is nearly identical to an existing sense — not just "
-        f"related, overlapping, or less precise, but essentially the same meaning.\n\n"
+        f"- The proposed meaning substantially overlaps with an existing sense — "
+        f"covering the same core usage even if worded differently or at a different "
+        f"level of specificity.\n"
+        f"- The definition describes a meaning that only exists as part of a specific "
+        f"fixed multi-word expression or idiom, rather than a standalone word sense "
+        f'(e.g. rejecting a sense of "a" for its role in "a priori").\n\n'
         f"Words commonly have multiple distinct senses — a new sense being different "
         f"from existing ones is expected and good, not a reason to reject. "
         f'For example, "through" meaning "by means of" is a valid new sense even if '
@@ -89,6 +93,12 @@ def induction_prompt(
         f"Write definitions that describe the word's general English meaning —"
         f" not narrowly tailored to the specific example sentences shown.\n"
         f"Each sense must be meaningfully distinct — not paraphrasable as another.\n"
+        f"Do not include a sense that is only meaningful as part of a specific fixed "
+        f'multi-word expression or idiom (e.g. do not add a sense of "a" for its role '
+        f'in "a priori"). If the word participates in many idioms or phrasal verbs as '
+        f"a component, you may write one generic sense describing that pattern (e.g. "
+        f'"used as a component in many idiomatic expressions and phrasal verbs") '
+        f"rather than listing individual MWE meanings.\n"
         f"For each sense, group the sentence numbers that illustrate it,"
         f" write a concise one-sentence definition, and assign a part of speech.\n"
         f"Choose pos from: noun, verb, adjective, adverb, preposition, conjunction,"
