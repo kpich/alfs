@@ -42,6 +42,7 @@ You are a lexicographer performing sense induction for English words. Process al
    - **Write general definitions**: definitions should describe the word's meaning broadly as used in English, not narrowly tied to the particular example sentences. If examples happen to come from sports articles, don't write "used in sports contexts" — write the general meaning the word carries.
    - Each sense must be meaningfully distinct — not paraphrasable as another.
    - Do NOT propose senses that are nearly identical to existing definitions.
+   - **MWE senses:** Do not induct a sense whose meaning only exists as part of a specific fixed multi-word expression or idiom — the sense depends on another word to be meaningful (e.g., do not add a sense of "a" for its role in "a priori", or a sense of "take" for "take care"). If the word participates in many idioms or phrasal verbs as a component, you may write one generic sense describing that pattern (e.g., "used as a component in many idiomatic expressions and phrasal verbs") rather than listing individual MWE meanings.
    - Proper nouns are valid entries — use `proper_noun` as POS and define them normally.
    - For each sense, write a concise one-sentence definition and assign a POS from: noun, verb, adjective, adverb, preposition, conjunction, pronoun, determiner, interjection, proper_noun, other.
 
