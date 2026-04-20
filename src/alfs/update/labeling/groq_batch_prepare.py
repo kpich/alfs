@@ -157,7 +157,12 @@ def build_system_message(form: str, sense_menu: str) -> str:
         f" 0=the word is NOT being used in any of these senses (e.g., it's a different"
         f" meaning entirely, it's being used as a proper name, it's slang for something"
         f" else). When in doubt between 0 and 1, use 0.\n"
-        f'If rating is 0, set sense_key to "0".\n'
+        f"If rating is 0, choose sense_key as follows:\n"
+        f'  - "0" if the occurrence is noise, OCR garbage, a parsing artifact,'
+        f" a proper noun, or a truly one-off usage that should never be"
+        f" re-examined for sense assignment.\n"
+        f'  - "_none" if the word is being used in some real meaning that none'
+        f" of these senses covers (a new sense may be warranted).\n"
         f'synonyms: other words that could roughly fit in place of "{form}" here.'
         f" Doesn't need to be a perfect match — approximate or related words are fine."
         f" Use [] if nothing fits at all.\n"

@@ -123,7 +123,7 @@ def test_apply_induction_skip_labels(tmp_path: Path):
     sense_key = rows[("doc1", 100)]["sense_key"]
     assert len(sense_key) == 36, f"Expected UUID sense_key, got {sense_key!r}"
     assert rows[("doc1", 100)]["rating"] == 2
-    assert rows[("doc2", 200)]["sense_key"] == "_skip"
+    assert rows[("doc2", 200)]["sense_key"] == "0"
     assert rows[("doc2", 200)]["rating"] == 0
 
 

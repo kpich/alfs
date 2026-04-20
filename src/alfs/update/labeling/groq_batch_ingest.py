@@ -14,6 +14,7 @@ import shutil
 
 from alfs.data_models.annotated_occurrence import OccurrenceRating
 from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.reserved_sense_keys import RESERVED_SENSE_KEYS
 from alfs.data_models.sense_store import SenseStore
 from alfs.update.labeling.label_occurrences import build_sense_menu
 
@@ -200,8 +201,8 @@ def ingest(
                 skipped += 1
                 continue
 
-            if display_key == "0":
-                uuid_key = "0"
+            if display_key in RESERVED_SENSE_KEYS:
+                uuid_key = display_key
             else:
                 # Prefer key_map stored in metadata (snapshot at prepare time).
                 # Fall back to rebuilding from current sense store for old metadata

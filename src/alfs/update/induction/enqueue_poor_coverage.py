@@ -1,8 +1,11 @@
 """Enqueue forms with poorly-labeled occurrences into the induction queue.
 
-Finds forms in labeled.db that have occurrences with rating 0 or 1 (and are
-not already marked as _skip), then adds them (sorted by bad-occurrence count)
-to the induction queue with those specific occurrence refs attached.
+Finds forms in labeled.db that have rating=1 occurrences or rating=0
+occurrences explicitly tagged "_none" (no current sense matches), then adds
+them (sorted by bad-occurrence count) to the induction queue with those
+specific occurrence refs attached. Rating=0 occurrences tagged "0" (noise /
+never-re-examine) are excluded.
+
 Running this multiple times is idempotent: forms already in the queue are skipped.
 
 Usage:
@@ -24,8 +27,7 @@ from alfs.data_models.blocklist import Blocklist
 from alfs.data_models.induction_queue import InductionQueue
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.occurrence_store import OccurrenceStore
-
-_SKIP_KEY = "_skip"
+from alfs.data_models.reserved_sense_keys import SKIP_SENSE_KEY
 
 
 def run(
@@ -44,9 +46,10 @@ def run(
         print("No labeled occurrences found.")
         return 0
 
-    # Filter to poor-quality, non-skip occurrences
+    # Poor coverage = rating in {0, 1}, except occurrences explicitly tagged as
+    # skip/noise (sense_key="0") — those should never be re-examined.
     bad_df = df.filter(
-        pl.col("rating").is_in([0, 1]) & (pl.col("sense_key") != _SKIP_KEY)
+        pl.col("rating").is_in([0, 1]) & (pl.col("sense_key") != SKIP_SENSE_KEY)
     )
 
     if bad_df.is_empty():

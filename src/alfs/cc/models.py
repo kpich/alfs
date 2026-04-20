@@ -52,7 +52,7 @@ class InductionSense(BaseModel):
 
 class ContextLabel(BaseModel):
     context_idx: int
-    sense_idx: int | None  # 1-indexed into new_senses; None = _skip
+    sense_idx: int | None  # 1-indexed into new_senses; None = skip / never re-examine
 
 
 class CCInductionOutput(BaseModel):

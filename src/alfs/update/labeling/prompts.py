@@ -17,5 +17,10 @@ def labeling_prompt(form: str, context: str, sense_menu: str) -> str:
         f"\n"
         f'Respond with ONLY valid JSON: {{"sense_key": "1", "rating": 2,'
         f' "synonyms": ["word1", "word2"]}}\n'
-        f'(If rating is 0, set sense_key to "0".)'
+        f"If rating is 0, choose sense_key as follows:\n"
+        f'  - "0" if the occurrence is noise, OCR garbage, a parsing artifact,'
+        f" a proper noun, or a truly one-off usage that should never be"
+        f" re-examined for sense assignment.\n"
+        f'  - "_none" if the word is being used in some real meaning that none'
+        f" of these senses covers (a new sense may be warranted)."
     )
