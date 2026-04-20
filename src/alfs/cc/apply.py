@@ -42,10 +42,10 @@ from alfs.data_models.mwe_skipped import MWESkipped
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
+from alfs.data_models.reserved_sense_keys import SKIP_SENSE_KEY
 from alfs.data_models.sense_store import SenseStore
 
 _output_adapter: TypeAdapter[CCOutput] = TypeAdapter(CCOutput)
-_SKIP_SENSE_KEY = "_skip"
 
 _MORPH_TEMPLATES: dict[str, str] = {
     "plural": "Plural of {base}.",
@@ -163,7 +163,7 @@ def _apply_induction(
                             output.form,
                             occ.doc_id,
                             occ.byte_offset,
-                            _SKIP_SENSE_KEY,
+                            SKIP_SENSE_KEY,
                             0,
                             None,
                         )
@@ -602,7 +602,7 @@ def _apply_mwe(
                                     form,
                                     occ.doc_id,
                                     occ.byte_offset,
-                                    _SKIP_SENSE_KEY,
+                                    SKIP_SENSE_KEY,
                                     0,
                                     None,
                                 )

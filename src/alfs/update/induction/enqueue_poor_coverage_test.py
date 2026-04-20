@@ -36,6 +36,10 @@ def test_basic_enqueue(tmp_path: Path):
 
 
 def test_skip_excluded_from_poor_coverage(tmp_path: Path):
+    """sense_key="0" (noise / never re-examine) must not trigger re-induction.
+    sense_key="_none" (LLM said no current sense fits) must trigger it.
+    rating=0 with a real UUID (critic-downgraded) must also trigger it.
+    """
     labeled_db = tmp_path / "labeled.db"
     queue_file = tmp_path / "queue.yaml"
     blocklist_file = tmp_path / "blocklist.yaml"
@@ -43,8 +47,9 @@ def test_skip_excluded_from_poor_coverage(tmp_path: Path):
     _populate_labeled(
         labeled_db,
         [
-            ("weird", "d1", 0, "_skip", 0),  # skip label — should not count as poor
-            ("cat", "d1", 0, "1", 0),  # genuinely poor
+            ("weird", "d1", 0, "0", 0),  # skip / noise — must NOT count as poor
+            ("cat", "d1", 0, "_none", 0),  # uncovered meaning — MUST count as poor
+            ("dog", "d1", 0, "1", 0),  # critic-downgraded UUID — MUST count as poor
         ],
     )
 
@@ -52,7 +57,8 @@ def test_skip_excluded_from_poor_coverage(tmp_path: Path):
     forms = {e.form for e in InductionQueue(queue_file).load()}
     assert "weird" not in forms
     assert "cat" in forms
-    assert added == 1
+    assert "dog" in forms
+    assert added == 2
 
 
 def test_rating_2_excluded(tmp_path: Path):

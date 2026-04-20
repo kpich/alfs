@@ -27,6 +27,7 @@ import numpy as np
 import polars as pl
 
 from alfs.data_models.occurrence_store import OccurrenceStore
+from alfs.data_models.reserved_sense_keys import RESERVED_SENSE_KEYS
 from alfs.data_models.sense_store import SenseStore
 from alfs.update.labeling.label_occurrences import extract_context
 
@@ -108,7 +109,7 @@ def run(
     groups: dict[tuple[str, str, str], list[tuple[str, int, str]]] = {}
     for row in good.iter_rows(named=True):
         sense_uuid = str(row["sense_key"])
-        if sense_uuid == "0" or sense_uuid not in sense_info:
+        if sense_uuid in RESERVED_SENSE_KEYS or sense_uuid not in sense_info:
             continue
         form, definition = sense_info[sense_uuid]
         last_critic: str | None = row["last_critic_date"]  # type: ignore[assignment]

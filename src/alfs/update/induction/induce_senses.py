@@ -40,8 +40,6 @@ from alfs.seg.aggregate_occurrences import prefix as form_prefix
 from alfs.update import llm
 from alfs.update.induction import prompts
 
-_SKIP_SENSE_KEY = "_skip"
-
 _SENSE_SCHEMA = {
     "type": "object",
     "properties": {
